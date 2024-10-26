@@ -1,6 +1,7 @@
 #import "Basic";
 #import "String";
 #import "GL" (DUMP_GL_ERRORS=true, ENABLE_ALL_EXTENSIONS=true);
+#load "def_shaders.jai";
 
 // for debugging
 //assert(glGetError() == GL_NO_ERROR);
@@ -362,13 +363,8 @@ ogl_bind_tex_to_slot :: (tex : *oglTex, slot : u32) {
 // ogl RTs
 ///////////////////////////////
 
-oglRTAttachment :: enum {
-    A0;
-    A1;
-    A2;
-    A3;
-    DS;
-};
+oglRTAttachment :: enum { A0; A1; A2; A3; DS; };
+
 oglRT :: struct {
     dim : nVec2;
     format : oglTexFormat; // for color attachments
@@ -443,7 +439,7 @@ ogl_rt_get_attachment :: (rt : *oglRT, attachment : oglRTAttachment) -> oglTex {
     prev_fbo : GLuint;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, xx *prev_fbo);
     ogl_rt_bind(rt);
-    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, xx (GL_COLOR_ATTACHMENT0 + attachment), GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, xx tex.impl_state);
+    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, xx (GL_COLOR_ATTACHMENT0 + attachment), GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, xx *tex.impl_state);
     // TODO: -- clean this up
     glBindFramebuffer(GL_FRAMEBUFFER, prev_fbo);
     // ---------------------
@@ -493,33 +489,3 @@ ogl_clear_all_state :: () {
     glDisable(GL_BLEND);
     glLineWidth(4);
 }
-
-
-
-
-SAMPLE_VERT_SHADER :: #string DONE
-#version 430 core
-layout (location = 0) in vec2 in_pos;
-uniform vec4 color;
-out vec4 c;
-out vec2 tc;
-void main()
-{
-   gl_Position = vec4(in_pos.xy, 0.0, 1.0);
-   c = color;
-   tc = (in_pos.xy + 1.0)/2.0;
-}
-DONE
-
-SAMPLE_FRAG_SHADER :: #string DONE
-#version 430 core
-in vec4 c;
-out vec4 FragColor;
-void main()
-{
-   FragColor = c;
-}
-DONE
-
-
-
