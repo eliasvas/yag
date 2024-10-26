@@ -6,11 +6,6 @@
 // for debugging
 //assert(glGetError() == GL_NO_ERROR);
 
-// TODO: make this go away!
-nVec2 :: struct {
-	x,y : float32;
-}
-
 /*
     ogl: this is a simple abstraction over OpenGLES3 that makes the API much more sane, no more global state.
     The library contains some primitive types for rendering. Namely:
@@ -310,12 +305,12 @@ oglTexFormat :: enum {
     RGBA32F;
 };
 oglTex :: struct {
-    dim : nVec2;
+    dim : v2;
     format : oglTexFormat;
     impl_state : *void;
 };
 
-ogl_tex_init :: (tex : *oglTex, dimensions : nVec2, data : *u8, data_format : oglTexFormat) -> bool {
+ogl_tex_init :: (tex : *oglTex, dimensions : v2, data : *u8, data_format : oglTexFormat) -> bool {
     using tex;
     dim = dimensions;
     format = data_format;
@@ -364,13 +359,12 @@ ogl_bind_tex_to_slot :: (tex : *oglTex, slot : u32) {
 ///////////////////////////////
 
 oglRTAttachment :: enum { A0; A1; A2; A3; DS; };
-
 oglRT :: struct {
-    dim : nVec2;
+    dim : v2;
     format : oglTexFormat; // for color attachments
     impl_state : *void;
 };
-ogl_rt_init :: (rt : *oglRT, rt_dim : nVec2, rt_img_format : oglTexFormat) -> bool {
+ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool {
     using rt;
     dim = rt_dim;
     format = rt_img_format;

@@ -8,7 +8,7 @@ nWindowFlags :: enum_flags {
 };
 
 nWindow :: struct {
-    dim : nVec2;
+    dim : v2;
     name : string;
     flags : nWindowFlags;
 
@@ -43,7 +43,7 @@ nWindowScrollWheelEvent :: struct {
     y : float32; // scroll amount
 };
 
-nwindow_get_dim :: (win : *nWindow) -> nVec2 {
+nwindow_get_dim :: (win : *nWindow) -> v2 {
     using win;
     return dim;
 }
@@ -102,7 +102,7 @@ nwindow_create :: (win : *nWindow) -> bool {
 
 nwindow_init :: (win : *nWindow, wname : string, ww : float32, wh : float32, wflags : nWindowFlags) -> bool {
     using win;
-    dim = nVec2.{ww,wh};
+    dim = v2.{ww,wh};
     flags = wflags;
     name = wname;
     return nwindow_create(win);
@@ -128,7 +128,7 @@ nwindow_update_size :: (win : *nWindow) {
     ww,wh : s32;
     #if true {
         SDL_GetWindowSize(impl_state, *ww, *wh);
-        win.dim = nVec2.{xx ww,xx wh};
+        win.dim = v2.{xx ww,xx wh};
     }
 }
 

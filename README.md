@@ -1,8 +1,12 @@
 ### Description
-Yet Another Game/Engine.
+Yet Another Game/Engine. Not sure what I'll do with this one.
+
+### Todo
+- Input system
 
 ### Building
 ```sh
-jai build.jai
-build/game.exe
+cd src/
+jai -quiet build.jai
+.build/game.exe
 ```
