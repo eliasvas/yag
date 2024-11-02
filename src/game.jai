@@ -33,6 +33,8 @@ main :: () {
             xim_consume_events(wevents);
             xim_capture_end();
         }
+        if (xim_kkey_pressed(.SC_A)) print("A\n");
+        if (xim_kkey_pressed(.SC_DELETE)) print("DELETE\n");
         // 1. bind offscreen RT and draw red in half the screen
         ogl_clear_all_state();
         ogl_rt_clear(*offscreen_rt);

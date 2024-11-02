@@ -4,16 +4,13 @@
     have one input manager, maybe. Also then, mouse_coords would be window local!
 
     TODO: No Gamepad support yet!
-
-    BEWARE: all 'states' should be U128s, but Jai's support is AWFUL
-    especially for logical ops, so for now we support only first 64 scankeys
-    we need to fix this! (Int128.jai)
+    TODO: Clean this up. Its not readable
 */
 
 xInputManager :: struct {
     button_state : struct {
-        state      : u64;
-        prev_state : u64;
+        state      : [4]u64;
+        prev_state : [4]u64;
     };
     mouse_state : struct {
         state      : u8;
@@ -128,13 +125,16 @@ xKeyScanCode :: enum u8 {
     SC_LEFT :: 80;
     SC_DOWN :: 81;
     SC_UP :: 82;
+    // TODO: Add More!
+    SC_MEDIA_CALC :: 251;
+    SC_MAXIMUM;
 };
 
 g_input_manager : xInputManager;
 
 xim_capture_begin :: () {
     using g_input_manager;
-    button_state.prev_state = button_state.state;
+    for 0..4-1 button_state.prev_state[it] = button_state.state[it];
     mouse_state.prev_state = mouse_state.state;
 }
 xim_capture_end :: () {}
@@ -147,9 +147,8 @@ xim_consume_events :: (events : []xWindowEvent) {
                 // TODO: propagate this to context, will close at end of frame?
                 exit(1);
             case .KEYBOARD_EVENT;
-                // This is BULLSHIT
-                if e.keeb_evt.key >= 64 then continue;
-                button_state.state = ifx e.keeb_evt.state then (button_state.state | xx ((1 << e.keeb_evt.key))) else (button_state.state & cast(u64)(~(1 << e.keeb_evt.key)));
+                key_index := e.keeb_evt.key / 64;
+                button_state.state[key_index] = ifx e.keeb_evt.state then (button_state.state[key_index] | xx ((1 << (e.keeb_evt.key%64)))) else (button_state.state[key_index] & cast(u64)(~(1 << (e.keeb_evt.key%64))));
             case .MOUSE_EVENT;
                 mouse_state.state = cast(u8)ifx e.mouse_evt.state then (mouse_state.state | xx ((1 << e.mouse_evt.key))) else (mouse_state.state & cast(u64)(~(1 << e.mouse_evt.key)));
             case .MOUSE_MOTION_EVENT;
@@ -163,11 +162,12 @@ xim_consume_events :: (events : []xWindowEvent) {
 
 xim_kkey_is_state :: (scancode : xKeyScanCode, state : xKeyState) -> bool {
     using g_input_manager;
+    key_index := scancode / 64;
     if state == {
-        case .DOWN; return ((button_state.state>>scancode)&1)>0;
-        case .UP; return (~(button_state.state>>scancode)&1)>0;
-        case .PRESSED; return ((button_state.state>>scancode)&1)>0 && (~(button_state.prev_state>>scancode)&1)>0;
-        case .RELEASED; return (~(button_state.state>>scancode)&1)>0 && ((button_state.prev_state>>scancode)&1)>0;
+        case .DOWN; return ((button_state.state[key_index]>>(scancode%64))&1)>0;
+        case .UP; return (~(button_state.state[key_index]>>(scancode%64))&1)>0;
+        case .PRESSED; return ((button_state.state[key_index]>>(scancode%64))&1)>0 && (~(button_state.prev_state[key_index]>>(scancode%64))&1)>0;
+        case .RELEASED; return (~(button_state.state[key_index]>>(scancode%64))&1)>0 && ((button_state.prev_state[key_index]>>(scancode%64))&1)>0;
         case;
     }
     return false;
