@@ -2,53 +2,58 @@
 #import "String";
 #import "SDL";
 
-nWindowFlags :: enum_flags {
+xWindowFlags :: enum_flags {
     RESIZABLE  :: 0x1;
     BORDERLESS :: 0x2;
 };
 
-nWindow :: struct {
+xWindow :: struct {
     dim : v2;
     name : string;
-    flags : nWindowFlags;
+    flags : xWindowFlags;
 
     impl_state : *void; // this holds SDL_Window
 };
 
-nWindowEventKind :: enum {
-    NONE;
-    KEYBOARD_EVENT;
-    MOUSE_EVENT;
-    MOUSE_MOTION_EVENT;
-    SCROLLWHEEL_EVENT;
-};
 
-nWindowKeyboardEvent :: struct {
-    key : u32;
-    state : bool;
-};
 
-nWindowMouseEvent :: struct {
-    key : u32; // 0 = LMB, 1 = MMB, 2 = RMB
-    state : u32;
-};
+xWindowEvent :: struct {
+    xWindowEventKind :: enum {
+        NONE;
+        KEYBOARD_EVENT;
+        MOUSE_EVENT;
+        MOUSE_MOTION_EVENT;
+        SCROLLWHEEL_EVENT;
+        QUIT_EVENT;
+    };
+    kind : xWindowEventKind;
 
-nWindowMouseMotionEvent :: struct {
-    x : float32;
-    y : float32;
-};
+    union {
+        keeb_evt : struct {
+            key : u32;
+            state : bool;
+        };
+        mouse_evt : struct {
+            key : u32; // 0 = LMB, 1 = MMB, 2 = RMB
+            state : bool;
+        };
+        mouse_mot_evt : struct {
+            x : float32;
+            y : float32;
+        };
+        scroll_evt : struct {
+            y : float32; // scroll amount
+        };
+        //gamepad_event(s) ...
+    };
+}
 
-// TODO: Maybe we can enhance this
-nWindowScrollWheelEvent :: struct {
-    y : float32; // scroll amount
-};
-
-nwindow_get_dim :: (win : *nWindow) -> v2 {
+xwin_get_dim :: (win : *xWindow) -> v2 {
     using win;
     return dim;
 }
 
-nwindow_create :: (win : *nWindow) -> bool {
+xwin_create :: (win : *xWindow) -> bool {
     using win;
     #if true {
         if (SDL_Init(SDL_INIT_VIDEO)) { return false; }
@@ -61,8 +66,8 @@ nwindow_create :: (win : *nWindow) -> bool {
         //SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, xx SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 
         sdl_flags : SDL_WindowFlags = SDL_WINDOW_OPENGL;
-        if (flags & nWindowFlags.RESIZABLE) { sdl_flags |= SDL_WINDOW_RESIZABLE; }
-        if (flags & nWindowFlags.BORDERLESS) { sdl_flags |= SDL_WINDOW_BORDERLESS; }
+        if (flags & xWindowFlags.RESIZABLE) { sdl_flags |= SDL_WINDOW_RESIZABLE; }
+        if (flags & xWindowFlags.BORDERLESS) { sdl_flags |= SDL_WINDOW_BORDERLESS; }
         window : *SDL_Window = SDL_CreateWindow(name.data,SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, cast(s32)dim.x, cast(s32)dim.y, xx sdl_flags);
         impl_state = window;
         assert(window != null);
@@ -75,7 +80,7 @@ nwindow_create :: (win : *nWindow) -> bool {
         }
         SDL_GL_MakeCurrent(window,glcontext);
         gl_load(*gl, SDL_GL_GetProcAddress);
-        gl_enable_debug_output(true);
+        //gl_enable_debug_output(true);
         using gl;
         DumpGLErrors("context");
         assert(glGetError() == GL_NO_ERROR);
@@ -95,20 +100,20 @@ nwindow_create :: (win : *nWindow) -> bool {
             print("Window size: %x%\n", width, height);
         }
         print("SDL window [%] created succesfully!\n", name);
-     
+
     }
     return true;
 }
 
-nwindow_init :: (win : *nWindow, wname : string, ww : float32, wh : float32, wflags : nWindowFlags) -> bool {
+xwin_init :: (win : *xWindow, wname : string, ww : float32, wh : float32, wflags : xWindowFlags) -> bool {
     using win;
     dim = v2.{ww,wh};
     flags = wflags;
     name = wname;
-    return nwindow_create(win);
+    return xwin_create(win);
 }
 
-nwindow_deinit :: (win : *nWindow) -> bool {
+xwin_deinit :: (win : *xWindow) -> bool {
     using win;
     #if true {
         SDL_DestroyWindow(impl_state);
@@ -116,14 +121,14 @@ nwindow_deinit :: (win : *nWindow) -> bool {
     return true;
 }
 
-nwindow_swap :: (win : *nWindow) {
+xwin_swap :: (win : *xWindow) {
     using win;
     #if true {
         SDL_GL_SwapWindow(impl_state);
     }
 }
 
-nwindow_update_size :: (win : *nWindow) {
+xwin_update_size :: (win : *xWindow) {
     using win;
     ww,wh : s32;
     #if true {
@@ -132,56 +137,42 @@ nwindow_update_size :: (win : *nWindow) {
     }
 }
 
-// nWindowEventNode* nwindow_impl_capture_events(nWindow *win) {
-//     nWindowEventNode *first = NULL;
-//     nWindowEventNode *last = NULL;
-//     SDL_Event event;
-//     s32 scroll_y;
-//     while (SDL_PollEvent(&event)) {
-//         nWindowEventNode *node = push_array(get_frame_arena(), nWindowEventNode, 1);
-//         switch (event.type) {
-//             case SDL_QUIT:
-//                 exit(1);
-//             case SDL_KEYUP:
-//                 node->kind = N_WINDOW_EVENT_KIND_KEYBOARD_EVENT;
-//                 node->ke.key = event.key.keysym.scancode;
-//                 node->ke.state = 0;
-//                 sll_queue_push(first, last, node);
-//                 break;
-//             case SDL_KEYDOWN:
-//                 node->kind = N_WINDOW_EVENT_KIND_KEYBOARD_EVENT;
-//                 node->ke.key = event.key.keysym.scancode;
-//                 node->ke.state = 1;
-//                 sll_queue_push(first, last, node);
-//                 break;
-//             case SDL_MOUSEMOTION:
-//                 node->kind = N_WINDOW_EVENT_KIND_MOUSE_MOTION_EVENT;
-//                 node->mme.x = event.motion.x;
-//                 node->mme.y = event.motion.y;
-//                 sll_queue_push(first, last, node);
-//                 break;
-//             case SDL_MOUSEBUTTONDOWN:
-//                 node->kind = N_WINDOW_EVENT_KIND_MOUSE_EVENT;
-//                 node->me.key = event.button.button - SDL_BUTTON_LEFT;
-//                 node->ke.state = 1;
-//                 sll_queue_push(first, last, node);
-//                 break;
-//             case SDL_MOUSEBUTTONUP:
-//                 node->kind = N_WINDOW_EVENT_KIND_MOUSE_EVENT;
-//                 node->me.key = event.button.button - SDL_BUTTON_LEFT;
-//                 node->ke.state = 0;
-//                 sll_queue_push(first, last, node);
-//                 break;
-//             case SDL_MOUSEWHEEL:
-//                 node->kind = N_WINDOW_EVENT_KIND_SCROLLWHEEL_EVENT;
-//                 scroll_y = event.wheel.y;
-//                 node->swe.y = scroll_y;
-//                 sll_queue_push(first, last, node);
-//             default:
-//                 break;
-//         }
-//     }
-//     nwindow_impl_update_size(win);
-
-//     return first;
-// }
+xwin_capture_events :: (win : *xWindow) -> []xWindowEvent {
+    wevents : [..] xWindowEvent;
+    // here we use a temporary allocator because these are frame specific data!
+    wevents.allocator = temp;
+    event : SDL_Event;
+    while SDL_PollEvent(*event) {
+        e : xWindowEvent;
+        if event.type == {
+            case .SDL_QUIT;
+                e.kind = .QUIT_EVENT;
+            case .SDL_KEYUP;
+                e.kind = .KEYBOARD_EVENT;
+                e.keeb_evt.state = false;
+                e.keeb_evt.key = xx event.key.keysym.scancode;
+            case .SDL_KEYDOWN;
+                e.kind = .KEYBOARD_EVENT;
+                e.keeb_evt.state = true;
+                e.keeb_evt.key = xx event.key.keysym.scancode;
+            case .SDL_MOUSEBUTTONDOWN;
+                e.kind = .MOUSE_EVENT;
+                e.mouse_evt.key = event.button.button - SDL_BUTTON_LEFT;
+                e.mouse_evt.state = true;
+            case .SDL_MOUSEBUTTONUP;
+                e.kind = .MOUSE_EVENT;
+                e.mouse_evt.key = event.button.button - SDL_BUTTON_LEFT;
+                e.mouse_evt.state = false;
+            case .SDL_MOUSEMOTION;
+                e.kind = .MOUSE_MOTION_EVENT;
+                e.mouse_mot_evt.x = xx event.motion.x;
+                e.mouse_mot_evt.y = xx event.motion.y;
+            case .SDL_MOUSEWHEEL;
+                e.kind = .SCROLLWHEEL_EVENT;
+                e.scroll_evt.y = xx event.wheel.y;
+            case; continue;
+        }
+        array_add(*wevents, e);
+    }
+    return wevents;
+}

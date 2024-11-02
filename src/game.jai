@@ -2,14 +2,14 @@
 #import "String";
 #import "chaos";
 
-my_win : nWindow;
+my_win : xWindow;
 my_sp  : oglSP;
 my_vbo : oglBuf;
 white_img : oglTex;
 offscreen_rt : oglRT;
 
 main :: () {
-    assert(nwindow_init(*my_win, "My Great Window", 600, 400, nWindowFlags.RESIZABLE));
+    assert(xwin_init(*my_win, "My Great Window", 600, 400, xWindowFlags.RESIZABLE));
     ogl_init();
     ogl_sp_init(*my_sp, SAMPLE_VERT_SHADER, SAMPLE_FRAG_SHADER);
     ogl_sp_add_attrib(*my_sp, ogl_attrib_make(0,oglShaderDataType.VEC2,size_of(v2),0,false));
@@ -26,6 +26,13 @@ main :: () {
     ogl_buf_init(*my_vbo, oglBufKind.VERTEX, vdata.data, 4, size_of(v2));
 
     while true {
+        // input stuff
+        {
+            wevents := xwin_capture_events(*my_win);
+            xim_capture_begin();
+            xim_consume_events(wevents);
+            xim_capture_end();
+        }
         // 1. bind offscreen RT and draw red in half the screen
         ogl_clear_all_state();
         ogl_rt_clear(*offscreen_rt);
@@ -50,7 +57,7 @@ main :: () {
         ogl_bind_tex_to_slot(*att0, 0);
         ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
         // 3. swap buffers
-        nwindow_swap(*my_win);
+        xwin_swap(*my_win);
     }
 
 }
