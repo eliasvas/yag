@@ -56,7 +56,7 @@ xwin_get_dim :: (win : *xWindow) -> v2 {
 xwin_create :: (win : *xWindow) -> bool {
     using win;
     #if true {
-        if (SDL_Init(SDL_INIT_VIDEO)) { return false; }
+        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER)) { return false; }
 
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);

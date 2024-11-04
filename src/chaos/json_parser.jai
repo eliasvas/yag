@@ -114,9 +114,9 @@ xjson_tokenize :: (wholefile : string) -> [] xJsonToken {
                 } else if to_string(*wholefile[pos], 5) == "false" {
                     pos+=5;
                     array_add(*tokens, .{kind=.FALSE});
-                } else if is_digit(c) || c==#char"-" {
+                } else if is_digit(c) || c==#char"-" || c==#char"." {
                     s : string = .{data=*wholefile[pos], count=0};
-                    while is_digit(c) || c==#char"-" {
+                    while is_digit(c) || c==#char"-" || c==#char"." {
                         s.count+=1;
                         c = wholefile[pos+s.count];
                     }

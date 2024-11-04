@@ -20,6 +20,9 @@ main :: () {
     print("Json:\n %\n------\n", SAMPLE_JSON);
     xjson_parser_parse_wholefile_string(SAMPLE_JSON);
 
+    sample_timer_cb :: (retries : u32, usr_ctx : *void) -> u32 #c_call {write_string("cb triggered!\n");return 0;}
+    t := xtimer_make(100, 5, sample_timer_cb, null);
+
     vdata := v2.[
         v2.{+1.0,-1.0},
         v2.{+1.0,+1.0},
