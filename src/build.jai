@@ -17,6 +17,7 @@ build :: () {
       import_path: [..] string;
       array_add(*import_path, ..options.import_path);
       array_add(*import_path, ".");
+      array_add(*import_path, "./chaos");
       options.import_path = import_path;
 
       // TODO: differentiate on DEBUG/RELEASE builds

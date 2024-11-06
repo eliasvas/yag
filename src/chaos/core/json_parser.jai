@@ -2,13 +2,15 @@
 #import "Hash";
 #import "Random";
 #import "Hash_Table";
+
 // TODO: make it so a SINGLE allocator is used for this ting
+// TODO: Currently, only correct(TM) files are parsed. Make some error value (second return value maybe), no debug info needed.
+
 /*
     This is a simple Json Parser, which we will use for configuration files
     as well as the base for our glTF 2.0 loading, which will be the main
     3D file format for the engine.
 
-    BEWARE: Currently, only correct(TM) Json files can be parsed!
 
     Usage: TBA
 */

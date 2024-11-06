@@ -55,7 +55,7 @@ xwin_get_dim :: (win : *xWindow) -> v2 {
 
 xwin_create :: (win : *xWindow) -> bool {
     using win;
-    #if true {
+    #if SDL_IMPL {
         if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER)) { return false; }
 
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -115,7 +115,7 @@ xwin_init :: (win : *xWindow, wname : string, ww : float32, wh : float32, wflags
 
 xwin_deinit :: (win : *xWindow) -> bool {
     using win;
-    #if true {
+    #if SDL_IMPL {
         SDL_DestroyWindow(impl_state);
     }
     return true;
@@ -123,7 +123,7 @@ xwin_deinit :: (win : *xWindow) -> bool {
 
 xwin_swap :: (win : *xWindow) {
     using win;
-    #if true {
+    #if SDL_IMPL {
         SDL_GL_SwapWindow(impl_state);
     }
 }
@@ -131,7 +131,7 @@ xwin_swap :: (win : *xWindow) {
 xwin_update_size :: (win : *xWindow) {
     using win;
     ww,wh : s32;
-    #if true {
+    #if SDL_IMPL {
         SDL_GetWindowSize(impl_state, *ww, *wh);
         win.dim = v2.{xx ww,xx wh};
     }

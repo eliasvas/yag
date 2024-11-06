@@ -20,7 +20,7 @@ main :: () {
     print("Json:\n %\n------\n", SAMPLE_JSON);
     xjson_parser_parse_wholefile_string(SAMPLE_JSON);
 
-    sample_timer_cb :: (retries : u32, usr_ctx : *void) -> u32 #c_call {write_string("cb triggered!\n");return 0;}
+    sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
     t := xtimer_make(100, 5, sample_timer_cb, null);
 
     vdata := v2.[
@@ -40,7 +40,9 @@ main :: () {
             xim_capture_end();
         }
         if (xim_kkey_pressed(.SC_A)) print("A\n");
+        if (xim_kkey_pressed(.SC_ESCAPE)) exit(1); 
         if (xim_kkey_pressed(.SC_DELETE)) print("DELETE\n");
+        if (xim_mkey_released(.LMB)) print("LMB rel\n");
         // 1. bind offscreen RT and draw red in half the screen
         ogl_clear_all_state();
         ogl_rt_clear(*offscreen_rt);

@@ -148,9 +148,9 @@ xim_consume_events :: (events : []xWindowEvent) {
                 exit(1);
             case .KEYBOARD_EVENT;
                 key_index := e.keeb_evt.key / 64;
-                button_state.state[key_index] = ifx e.keeb_evt.state then (button_state.state[key_index] | xx ((1 << (e.keeb_evt.key%64)))) else (button_state.state[key_index] & cast(u64)(~(1 << (e.keeb_evt.key%64))));
+                button_state.state[key_index] = ifx e.keeb_evt.state then (button_state.state[key_index] | xx ((cast(u64)1 << (e.keeb_evt.key%64)))) else (button_state.state[key_index] & xx (~(cast(u64)1 << (e.keeb_evt.key%64))));
             case .MOUSE_EVENT;
-                mouse_state.state = cast(u8)ifx e.mouse_evt.state then (mouse_state.state | xx ((1 << e.mouse_evt.key))) else (mouse_state.state & cast(u64)(~(1 << e.mouse_evt.key)));
+                mouse_state.state = cast(u8)ifx e.mouse_evt.state then (mouse_state.state | xx ((1 << e.mouse_evt.key))) else (mouse_state.state & cast(u64)(~(cast(u64)1 << e.mouse_evt.key)));
             case .MOUSE_MOTION_EVENT;
                 mouse_coords = .{e.mouse_mot_evt.x, e.mouse_mot_evt.y};
             case .SCROLLWHEEL_EVENT;

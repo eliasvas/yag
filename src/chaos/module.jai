@@ -1,6 +1,5 @@
-#load "math.jai";
-#load "timer.jai";
-#load "ogl.jai";
-#load "window.jai";
-#load "input.jai";
-#load "json_parser.jai";
+#load "core/module.jai";
+//#load "gui/module.jai";
+//#load "rend/module.jai";
+//#load "physics/module.jai";
+//#load "asset_mgr/module.jai";
