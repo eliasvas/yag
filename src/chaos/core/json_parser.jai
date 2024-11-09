@@ -14,44 +14,13 @@
 
     Usage: TBA
 */
-xJsonParser :: struct {
-    foo : u32;
-};
 
-xjson_parser_parse_wholefile_string :: (wholefile : string){
+xjson_parse_wholefile_string :: (wholefile : string){
     tokens := xjson_tokenize(wholefile);
     print("tokens: %\n", tokens);
+    root_node := xjson_parse_tokens(tokens);
+    print("root node: %\n", root_node.*);
 }
-
-// xjson_parser_parse_wholefile_string :: (wholefile : string){
-//     table_size := 32*1024;
-//     fnv1a_hash_string :: (s: string) -> u32 { return cast,trunc(u32) inline fnv1a_hash(s.data, s.count); };
-//     generator_function :: (idx: int) -> string {key := sprint("%", formatInt(idx, base = 16));return key;}
-//     table: Table(string, int, fnv1a_hash_string, null);
-//     init(*table, table_size);
-//     defer deinit(*table);
-//     for 0..15 {
-//         key := generator_function(it);
-//         inline table_add(*table, key, xx it);
-//         //inline table_remove(*table, key);
-//     }
-//     value, found := table_find(*table, key="1");
-//     assert(found);
-//     assert(value == 1);
-
-//     table2: Table(string, string, fnv1a_hash_string, null);
-//     init(*table2, table_size);
-//     defer deinit(*table2);
-//     for 0..15 {
-//         key := generator_function(it);
-//         val := generator_function(it+1);
-//         inline table_add(*table2, key, val);
-//         //inline table_remove(*table, key);
-//     }
-//     value2, found2 := table_find(*table2, key="1");
-//     assert(found2);
-//     assert(value2 == "2");
-// }
 
 xJsonTokenKind :: enum u8 {
     LBRACE;
@@ -133,16 +102,91 @@ xjson_tokenize :: (wholefile : string) -> [] xJsonToken {
     return tokens;
 }
 
+// TODO: should this number be different for ints/floats?
+xJsonNodeKind :: enum {
+  STRING;
+  NUMBER;
+  OBJECT;
+  ARRAY;
+  BOOL;
+  NULL;
+};
+
+// TODO: shouldn't the value be of 'value' type?
+xJsonNode :: struct {
+  kind : xJsonNodeKind;
+  value : string;
+  table: Table(string, *xJsonNode, null, null);
+};
+
+xjson_node_make :: (kind : xJsonNodeKind, value : string) ->*xJsonNode {
+  node : *xJsonNode = alloc(size_of(xJsonNode)); // TODO: we should find some way to pass in an allocator, or something!
+  node.kind = kind;
+  node.value = value;
+  return node;
+}
+
+xjson_parse_tokens :: (tokens : []xJsonToken) -> *xJsonNode {
+  pos := 0;
+  return xjson_parse_value(tokens, *pos);
+}
+
+xjson_parse_value :: (tokens : []xJsonToken, pos : *s64) -> *xJsonNode {
+  token := tokens[pos.*];
+
+  if token.kind == {
+    case .NULL;
+      return xjson_node_make(.NULL, "null");
+    case .TRUE;
+      return xjson_node_make(.BOOL, "true");
+    case .FALSE;
+      return xjson_node_make(.BOOL, "false");
+    case .STRING;
+      return xjson_node_make(.STRING, token.value);
+    case .NUMBER;
+      return xjson_node_make(.NUMBER, token.value);
+    case .LBRACKET;
+      assert(0 && "Arrays not supported yet - skipping!\n");
+    case .LBRACE;
+      return xjson_parse_object(tokens, pos);
+    case;
+  }
+
+  return xjson_node_make(.NULL, "");
+}
+
+xjson_parse_object :: (tokens : []xJsonToken, pos : *s64) -> *xJsonNode {
+  node := xjson_node_make(.OBJECT, "");
+  node.table;
+  // All tables have max size 32??
+  init(*node.table, 32);
+  // eat '{'
+  pos.*+=1;
+  // start parsing 'key' : 'value' pairs
+  while tokens[pos.*].kind != .RBRACE {
+    key_token := tokens[pos.*];
+    pos.*+=1;
+    colon_token := tokens[pos.*];
+    pos.*+=1;
+    value := xjson_parse_value(tokens, pos);
+    pos.*+=1;
+    // insert key value pair to map
+    inline table_add(*node.table, key_token.value, value); 
+    // eat ','
+    if tokens[pos.*].kind == .COMMA then pos.*+=1;
+  }
+  return node;
+}
+
 SAMPLE_JSON :: #string END
 {
   "scene": 0,
   "lit": false,
   "prop": true,
   "prop2": null,
-  "nodes" : [
-    {
-      "mesh" : 120
-    }
-  ]
+  "mesh":{
+    "tri_count" : 120,
+    "detail" : 3 
+  }
 }
 END

@@ -18,7 +18,7 @@ main :: () {
     assert(ogl_rt_init(*offscreen_rt, .{256, 256} , oglTexFormat.RGBA32F));
 
     print("Json:\n %\n------\n", SAMPLE_JSON);
-    xjson_parser_parse_wholefile_string(SAMPLE_JSON);
+    xjson_parse_wholefile_string(SAMPLE_JSON);
 
     sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
     t := xtimer_make(100, 5, sample_timer_cb, null);
