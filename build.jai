@@ -12,7 +12,7 @@ build :: () {
       options := get_build_options();
       options.output_type = .EXECUTABLE;
       options.output_executable_name = "game";
-      options.output_path = "../.build";
+      options.output_path = ".build";
 
       import_path: [..] string;
       array_add(*import_path, ..options.import_path);
@@ -35,7 +35,7 @@ build :: () {
       //set_optimization(*options, .VERY_OPTIMIZED);
       set_optimization(*options, .DEBUG);
       set_build_options(options, w);
-      add_build_file("game.jai", w);
+      add_build_file("game/game.jai", w);
       //print("options %", options);
    }
    set_build_options_dc(.{do_output=false});
