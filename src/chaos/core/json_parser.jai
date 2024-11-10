@@ -203,7 +203,7 @@ xjson_parse_array :: (tokens : []xJsonToken, pos : *s64) -> *xJsonNode {
 }
 
 // TODO: printing is not yet Gud, newline/tab stuff need a refactor for sure
-xjson_print_node :: (node : *xJsonNode, level : s64) {
+xjson_print_node :: (node : *xJsonNode, level : s64 = 0) {
   if node.kind == {
     case .ARRAY;
       print("[");
@@ -219,6 +219,22 @@ xjson_print_node :: (node : *xJsonNode, level : s64) {
     case;
       print("%", node.value);
   }
+}
+
+xjson_node_get :: (root_node : *xJsonNode, path : string) -> *xJsonNode, bool {
+  ret : *xJsonNode;
+  found : bool = false;
+  if contains(path, #char ".") {
+    found = false;
+    f, left_path, right_path := split_from_left(path, #char ".");
+    subnode, node_found := table_find(*root_node.table, left_path);
+    if node_found {
+      ret,found = xjson_node_get(subnode, right_path);
+    }
+  }else {
+    ret, found = table_find(*root_node.table, path);
+  }
+  return ret, found;
 }
 
 SAMPLE_JSON :: #string END

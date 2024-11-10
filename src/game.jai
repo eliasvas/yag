@@ -17,7 +17,10 @@ main :: () {
     ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
     assert(ogl_rt_init(*offscreen_rt, .{256, 256} , oglTexFormat.RGBA32F));
 
-    xjson_parse_wholefile_string(SAMPLE_JSON);
+    root_json := xjson_parse_wholefile_string(SAMPLE_JSON);
+    node, found := xjson_node_get(root_json, "mesh.tri_count");
+    assert(found);
+    xjson_print_node(node);
 
     sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
     t := xtimer_make(100, 5, sample_timer_cb, null);

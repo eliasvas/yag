@@ -127,7 +127,7 @@ xKeyScanCode :: enum u8 {
     SC_UP :: 82;
     // TODO: Add More!
     SC_MEDIA_CALC :: 251;
-    SC_MAXIMUM;
+    SC_MAXIMUM; // AFAIK this isn't needed?
 };
 
 g_input_manager : xInputManager;
