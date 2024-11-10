@@ -11,15 +11,21 @@
     as well as the base for our glTF 2.0 loading, which will be the main
     3D file format for the engine.
 
+    In Json there exist 3 types :
+      - values (String, Bool, Number, Null)
+      - objects (string : JsonNode pairs)
+      - arrrays (multiples of JsonNode)
 
     Usage: TBA
 */
 
-xjson_parse_wholefile_string :: (wholefile : string){
+xjson_parse_wholefile_string :: (wholefile : string) -> *xJsonNode {
+    //print("Json:\n %\n------\n", SAMPLE_JSON);
     tokens := xjson_tokenize(wholefile);
-    print("tokens: %\n", tokens);
+    //print("tokens: %\n", tokens);
     root_node := xjson_parse_tokens(tokens);
-    print("root node: %\n", root_node.*);
+    //xjson_print_node(root_node, 0);
+    return root_node;
 }
 
 xJsonTokenKind :: enum u8 {
@@ -98,7 +104,6 @@ xjson_tokenize :: (wholefile : string) -> [] xJsonToken {
                 }
         }
     }
-
     return tokens;
 }
 
@@ -115,8 +120,11 @@ xJsonNodeKind :: enum {
 // TODO: shouldn't the value be of 'value' type?
 xJsonNode :: struct {
   kind : xJsonNodeKind;
-  value : string;
-  table: Table(string, *xJsonNode, null, null);
+  union {
+    value : string;
+    table : Table(string, *xJsonNode, null, null);
+    values : [..] *xJsonNode;
+  };
 };
 
 xjson_node_make :: (kind : xJsonNodeKind, value : string) ->*xJsonNode {
@@ -146,7 +154,7 @@ xjson_parse_value :: (tokens : []xJsonToken, pos : *s64) -> *xJsonNode {
     case .NUMBER;
       return xjson_node_make(.NUMBER, token.value);
     case .LBRACKET;
-      assert(0 && "Arrays not supported yet - skipping!\n");
+      return xjson_parse_array(tokens, pos);
     case .LBRACE;
       return xjson_parse_object(tokens, pos);
     case;
@@ -178,15 +186,55 @@ xjson_parse_object :: (tokens : []xJsonToken, pos : *s64) -> *xJsonNode {
   return node;
 }
 
+xjson_parse_array :: (tokens : []xJsonToken, pos : *s64) -> *xJsonNode {
+  node := xjson_node_make(.ARRAY, "");
+  // eat '['
+  pos.*+=1;
+  // start parsing 'value's 
+  while tokens[pos.*].kind != .RBRACKET {
+    value := xjson_parse_value(tokens, pos);
+    pos.*+=1;
+    // insert value to array
+    array_add(*node.values, value);
+    // eat ','
+    if tokens[pos.*].kind == .COMMA then pos.*+=1;
+  }
+  return node;
+}
+
+// TODO: printing is not yet Gud, newline/tab stuff need a refactor for sure
+xjson_print_node :: (node : *xJsonNode, level : s64) {
+  if node.kind == {
+    case .ARRAY;
+      print("[");
+      for value : node.values { xjson_print_node(value, level+1); print(" ");}
+      print("]");
+    case .OBJECT;
+      for val, key: node.table {
+        print("\n");
+        for 0..level-1 { print("\t");}
+        print("% : ", key);
+        xjson_print_node(val,level+1);
+      }
+    case;
+      print("%", node.value);
+  }
+}
+
 SAMPLE_JSON :: #string END
 {
   "scene": 0,
   "lit": false,
   "prop": true,
   "prop2": null,
+  "array2": [1,2,3,4],
   "mesh":{
     "tri_count" : 120,
-    "detail" : 3 
+    "mesh_arr" : [
+      { "count":28, "Title":"mesh1" },
+      { "count":56, "Title":"mesh2" },
+      { "count":89, "Title":"mesh3" }
+    ]
   }
 }
 END

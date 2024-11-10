@@ -17,7 +17,6 @@ main :: () {
     ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
     assert(ogl_rt_init(*offscreen_rt, .{256, 256} , oglTexFormat.RGBA32F));
 
-    print("Json:\n %\n------\n", SAMPLE_JSON);
     xjson_parse_wholefile_string(SAMPLE_JSON);
 
     sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
