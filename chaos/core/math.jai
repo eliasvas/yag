@@ -1,11 +1,17 @@
 // TODO: can we ditch this and do everything ourselves? It should be easy to write a couple helpers +limits ourselves
 #import "Math";
+#import "Bit_Operations";
 /*
-* This is our math layer for the WHOLE engine, we currently do an OpenGL-style coordinate system
-* (right-handed, -Z forward, column major matrices) but I'm open to changing the layout given a valid reason.
-* This file is full of explanations of stuff because I don't want to forget!
+* This is the math layer for the whole engine.
+* We use the GLTF coordinate system (rhs), our <right,up,frw> vectors are:
+* - World Space <-x,+y,+z> (think about smiley face in front of camera)
+* - Camera Space <+x,+y,-z> (we are facing the negative-z axis)
+* - we use row-major vector storage because we arent stupid.
+* For some good resources on GameDev math I recommend:
+* https://www.scratchapixel.com/index.html
+* https://learnopengl.com/
+* https://immersivemath.com/ila/index.html
 * TODO: we need to add support for Quaternions
-*
 */
 
 ////////////////////////
@@ -55,6 +61,15 @@ v3_len :: (v : v3) -> float { return sqrt(v3_dot(v,v));}
 v3_norm :: (v : v3) -> v3 {return v*(1.0/v3_len(v));}
 v3_cross :: (lhs : v3, rhs : v3) -> v3 {return v3.{lhs.y*rhs.z - lhs.z*rhs.y, lhs.z*rhs.x - lhs.x*rhs.z, lhs.x*rhs.y - lhs.y*rhs.x};}
 
+// NOTE: cross product is right-handed, meaning for vectors A and B the vector produced will be
+// your thumb if your index is A, and your middle is B, for example:
+// for example here, A = .{1,0,0}, B = .{0,1,0} and cross product C = .{0,0,1}
+#run {
+  res := v3_cross(.{1,0,0}, .{0,1,0});
+  expected := v3.{0,0,1};
+  assert(bits_equal(*res,*expected));
+}
+
 v4:: struct {
   x,y,z,w : float;
   #place x; r,g,b,a : float;
@@ -80,6 +95,12 @@ v4_norm :: (v : v4) -> v4 {return v*(1.0/v4_len(v));}
 // Matrices
 ////////////////////////
 
+// NOTE: Object Space --Mwrld--> World Space --Mview--> View Space (-z fwd, rhs) --Mproj--> Clip Space --persp_div--> NDC Space [-1,1] --viewport--> Screen Space [ww,wh]
+
+/*
+* Sigh
+* */
+
 m4 :: struct {
     _11, _12, _13, _14 : float;
     _21, _22, _23, _24 : float;
@@ -101,6 +122,56 @@ column :: (m: m4, i: int) -> v4 {
     return .{m.coef[0][i], m.coef[1][i], m.coef[2][i], m.coef[3][i]};
 }
 
+m4_trans :: (v : v3) -> m4 {
+  t : m4 = m4_I;
+  t._14 = v.x;
+  t._24 = v.y;
+  t._34 = v.z;
+  return t;
+}
+
+m4_scale :: (v : v3) -> m4 {
+  s : m4 = m4_I;
+  for i : 0..2 {
+    s.coef[i][i] = v[i];
+  }
+  return s;
+}
+
+// This is SUPER slow, @FIX
+m4_mult :: (a: m4, b: m4) -> m4{
+    res : m4 = ---;
+    for r : 0..3 {
+      for c : 0..3 {
+        res.coef[r][c] = v4_dot(row(a,r), column(b,c)); 
+      }
+    }
+    return res;
+}
+
+m4_multv :: (a : m4, v : v4) -> v4 {
+  res : v4 = ---;
+  for i : 0..3 {
+    res[i] = v4_dot(row(a,i), v);
+  }
+  return res;
+}
+
+// NOTE: We do post-multiplication, meaning mults are done in right towards left order
+// Like below, translating -> scaling != scaling -> translating
+// TODO: Add * operators so we are not in this function hell
+#run {
+  a := m4_scale(.{0.5,0.5,0.5});
+  b := m4_trans(.{1,0,0});
+
+  v1 := m4_multv(m4_mult(a,b), v4.{1,0,0,1}); // first trans then scale -> (1,0,0) -T-> (2,0,0) -S-> (1,0,0)
+  expected1 := v4.{1,0,0,1};
+  assert(bits_equal(*v1,*expected1));
+
+  v2 := m4_multv(m4_mult(b,a), v4.{1,0,0,1}); // first scale then trans -> (1,0,0) -S-> (0.5,0,0) -T-> (1.5,0,0)
+  expected2 := v4.{1.5,0,0,1};
+  assert(bits_equal(*v2,*expected2));
+}
 
 
 ////////////////////////
