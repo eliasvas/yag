@@ -31,6 +31,12 @@ ease_in_bounce :: (x : float64) -> float64 {
 }
 
 main :: () {
+
+    pm := m4_persp(90.0, 600.0/400.0, 0.1, 10);
+    //pm := m4_ortho(0,400,0,600,0.1,10);
+    //pm := m4_ortho(-2,2,-2,2,0.1,10);
+    vm := m4_I;
+
     assert(xwin_init(*my_win, "My Great Window", 600, 400, xWindowFlags.RESIZABLE));
     ogl_init();
     ogl_sp_init(*my_sp, SAMPLE_VERT_SHADER, SAMPLE_FRAG_SHADER);
@@ -81,7 +87,8 @@ main :: () {
         current_time : = seconds_since_init();
         //print("current_time in seconds: %\n", current_time);
 
-        mvp := m4_scale(.{0.5,xx ease_in_bounce(min(current_time/4.0,1)) * 0.5,0.5});
+        //mvp := m4_mult(pm, m4_mult(vm,m4_scale(.{0.5,xx ease_in_bounce(min(current_time,1)) * 0.3 + 0.2,0.5})));
+        mvp := pm;
         ogl_sp_set_uniform(*my_sp, "MVP", oglShaderDataType.MAT4, mvp.raw.data);
         ogl_bind_tex_to_slot(*white_img, 0);
         ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
