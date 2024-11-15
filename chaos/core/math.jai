@@ -236,10 +236,13 @@ m4_inverse :: (m: m4, epsilon := 0.0001) -> m4, bool {
   assert(bits_equal(*mult,*expected));
 }
 
-m4_persp :: (fovX : float32, aspect_ratio : float32, front : float, back : float32) -> m4 {
-  DEG2RAD := acos(-1.0) / 180.0;
+deg_to_rad :: (d : float) -> float {
+  DEG2RAD :: #run (acos(-1.0) / 180.0);
+  return DEG2RAD * d;
+}
 
-  tangent := tan(fovX/2 * DEG2RAD);
+m4_persp :: (fovX : float32, aspect_ratio : float32, front : float, back : float32) -> m4 {
+  tangent := tan(deg_to_rad(fovX/2));
   right := front * tangent;
   top := right / aspect_ratio;
 
@@ -266,6 +269,62 @@ m4_ortho :: (l : float32, r : float32, b : float32, t : float32, n : float32, f 
 }
 
 
+// @NOTE: eye is camera position, center is where its looking at, dummy up is {0,1,0}
+m4_look_at :: (eye: v3, center : v3, dummy_up : v3) -> m4 {
+  m4_look_at_FRU :: (F: v3, R : v3, U : v3, eye : v3) -> m4 {
+    res : m4;
+
+    res.coef[0][0] = R.x;
+    res.coef[0][1] = U.x;
+    res.coef[0][2] = -F.x;
+    res.coef[0][3] = 0.0;
+
+    res.coef[1][0] = R.y;
+    res.coef[1][1] = U.y;
+    res.coef[1][2] = -F.y;
+    res.coef[1][3] = 0.0;
+
+    res.coef[2][0] = R.z;
+    res.coef[2][1] = U.z;
+    res.coef[2][2] = -F.z;
+    res.coef[2][3] = 0.0;
+
+    res.coef[3][0] = -v3_dot(R, eye);
+    res.coef[3][1] = -v3_dot(U, eye);
+    res.coef[3][2] = v3_dot(F, eye);
+    res.coef[3][3] = 1.0;
+
+    return m4_transpose(res);
+  }
+  mat := m4_I;
+
+  F := v3_norm(center - eye);
+  R := v3_norm(v3_cross(F, dummy_up));
+  U := v3_norm(v3_cross(R, F));
+  return m4_look_at_FRU(F,R,U, eye);
+}
+
+m4_rotate :: (angle : float, axis : v3) -> m4 {
+  using axis;
+  m : m4 = m4_I;
+  c := cos(angle);
+  s := sin(angle);
+  one_minus_c := 1.0 - c;
+
+  m._11 = c + x * x * one_minus_c;
+  m._21 = x * y * one_minus_c - z * s;
+  m._31 = x * z * one_minus_c + y * s;
+
+  m._12 = y * x * one_minus_c + z * s;
+  m._22 = c + y * y * one_minus_c;
+  m._32 = y * z * one_minus_c - x * s;
+
+  m._13 = z * x * one_minus_c - y * s;
+  m._23 = z * y * one_minus_c + x * s;
+  m._33 = c + z * z * one_minus_c;
+
+  return m;
+}
 
 ////////////////////////
 // Quaternions (TBA)

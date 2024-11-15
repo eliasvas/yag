@@ -7,7 +7,7 @@ out vec4 c;
 out vec2 tc;
 void main()
 {
-   gl_Position = MVP*vec4(in_pos.xy, -2.0, 1.0);
+   gl_Position = MVP*vec4(in_pos.xy, -0.1, 1.0);
    c = color;
    tc = (in_pos.xy + 1.0)/2.0;
 }

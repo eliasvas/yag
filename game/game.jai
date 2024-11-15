@@ -31,11 +31,10 @@ ease_in_bounce :: (x : float64) -> float64 {
 }
 
 main :: () {
+    c : xCam;
 
-    pm := m4_persp(90.0, 600.0/400.0, 0.1, 10);
+    pm := m4_persp(90.0, 600.0/400.0, 0.1, 100);
     //pm := m4_ortho(0,400,0,600,0.1,10);
-    //pm := m4_ortho(-2,2,-2,2,0.1,10);
-    vm := m4_I;
 
     assert(xwin_init(*my_win, "My Great Window", 600, 400, xWindowFlags.RESIZABLE));
     ogl_init();
@@ -69,10 +68,8 @@ main :: () {
             xim_consume_events(wevents);
             xim_capture_end();
         }
-        if (xim_kkey_pressed(.SC_A)) print("A\n");
         if (xim_kkey_pressed(.SC_ESCAPE)) exit(1); 
-        if (xim_kkey_pressed(.SC_DELETE)) print("DELETE\n");
-        if (xim_mkey_released(.LMB)) print("LMB rel\n");
+        xcam_update(*c, xx 1.0/60.0);
         // render a white quad?
         ogl_rt_clear(null);
         ogl_rt_bind(null);
@@ -84,11 +81,12 @@ main :: () {
         att0 := ogl_rt_get_attachment(*offscreen_rt, 0);
         ogl_sp_set_uniform(*my_sp, "color", oglShaderDataType.VEC4, color.data);
 
-        current_time : = seconds_since_init();
+        current_time := cast(float)seconds_since_init();
         //print("current_time in seconds: %\n", current_time);
 
-        //mvp := m4_mult(pm, m4_mult(vm,m4_scale(.{0.5,xx ease_in_bounce(min(current_time,1)) * 0.3 + 0.2,0.5})));
-        mvp := pm;
+        //model := m4_scale(.{0.5,xx ease_in_bounce(min(current_time,1)) * 0.3 + 0.2,0.5});
+        model := m4_rotate(90.0 * current_time, .{0,1,0});
+        mvp := m4_mult(pm, m4_mult(xcam_get_view_mat(*c), model));
         ogl_sp_set_uniform(*my_sp, "MVP", oglShaderDataType.MAT4, mvp.raw.data);
         ogl_bind_tex_to_slot(*white_img, 0);
         ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);

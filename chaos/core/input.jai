@@ -22,6 +22,7 @@ xInputManager :: struct {
     //     prev_state : U128;
     // };
     mouse_coords : v2;
+    mouse_delta  : v2;
     scroll_y     : float32;
 };
 
@@ -141,6 +142,9 @@ xim_capture_end :: () {}
 
 xim_consume_events :: (events : []xWindowEvent) {
     using g_input_manager;
+    // NOTE: if multiple xim_consume_events happen in a single frame,
+    // mouse_delta is gonna be wrong if do this
+    mp_before_consume := mouse_coords;
     for e : events {
         if e.kind == {
             case .QUIT_EVENT;
@@ -158,6 +162,7 @@ xim_consume_events :: (events : []xWindowEvent) {
             case;
         }
     }
+    mouse_delta = mouse_coords - mp_before_consume;
 }
 
 xim_kkey_is_state :: (scancode : xKeyScanCode, state : xKeyState) -> bool {
@@ -193,3 +198,6 @@ xim_mkey_down     :: (key : xMouseKey)->bool{return xim_mkey_is_state(key, .DOWN
 xim_mkey_up       :: (key : xMouseKey)->bool{return xim_mkey_is_state(key, .UP);}
 xim_mkey_pressed  :: (key : xMouseKey)->bool{return xim_mkey_is_state(key, .PRESSED);}
 xim_mkey_released :: (key : xMouseKey)->bool{return xim_mkey_is_state(key, .RELEASED);}
+
+xim_get_mouse_pos   :: () -> v2 {return g_input_manager.mouse_coords;}
+xim_get_mouse_delta :: () -> v2 {return g_input_manager.mouse_delta;}

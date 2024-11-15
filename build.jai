@@ -1,3 +1,5 @@
+// @NOTE: If you use neovim, you can add this to your init.lua for hassle free building with CTRL+B
+// vim.api.nvim_set_keymap('n', '<C-b>', ':w<CR>:!jai -quiet build.jai && cd .build && game && cd .. && echo "Press any key to continue..." && pause<CR>', { noremap = true, silent = true })
 
 #run build();
 
