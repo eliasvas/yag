@@ -1,6 +1,7 @@
 #import "Basic";
 #import "String";
 #import "chaos";
+// TODO: A nice debug drawing API for points/lines/triangles, no textures only wire/solid!
 
 my_win : xWindow;
 my_sp  : oglSP;
@@ -32,8 +33,7 @@ ease_in_bounce :: (x : float64) -> float64 {
 
 main :: () {
     c : xCam;
-
-    pm := m4_persp(90.0, 600.0/400.0, 0.1, 100);
+    pm := m4_persp(90.0, 600.0/400.0, 0.1, 10000);
     //pm := m4_ortho(0,400,0,600,0.1,10);
 
     assert(xwin_init(*my_win, "My Great Window", 600, 400, xWindowFlags.RESIZABLE));
@@ -60,6 +60,8 @@ main :: () {
     ];
     ogl_buf_init(*my_vbo, oglBufKind.VERTEX, vdata.data, 4, size_of(v2));
 
+    skybox := xskybox_make();
+
     while true {
         // input stuff
         {
@@ -72,6 +74,7 @@ main :: () {
         xcam_update(*c, xx 1.0/60.0);
         // render a white quad?
         ogl_rt_clear(null);
+        xskybox_render(*skybox, *c);
         ogl_rt_bind(null);
         ogl_clear_all_state();
         ogl_bind_vertex_buffer(*my_vbo);
@@ -85,10 +88,12 @@ main :: () {
         //print("current_time in seconds: %\n", current_time);
 
         //model := m4_scale(.{0.5,xx ease_in_bounce(min(current_time,1)) * 0.3 + 0.2,0.5});
-        model := m4_rotate(90.0 * current_time, .{0,1,0});
+        model := m4_rotate(90.0 * current_time/40.0, .{0,1,0});
         mvp := m4_mult(pm, m4_mult(xcam_get_view_mat(*c), model));
         ogl_sp_set_uniform(*my_sp, "MVP", oglShaderDataType.MAT4, mvp.raw.data);
         ogl_bind_tex_to_slot(*white_img, 0);
+        //ogl_sp_set_dyn_state(*my_sp, .BLEND);
+        ogl_sp_set_dyn_state(*my_sp, .DEPTH);
         ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
 
         xwin_swap(*my_win);

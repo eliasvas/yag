@@ -39,11 +39,11 @@ xcam_update :: (cam : *xCam, dt : float) {
     case .STATIC;
     case;
   }
-  // misc camera controls
+  // Misc camera controls
   if xim_mkey_down(.RMB) && xim_mkey_down(.LMB) {
     mouse_delta := xim_get_mouse_delta();
-    pos.y -= mouse_delta.y * speed * dt;
-    pos.x += mouse_delta.x * speed * dt;
+    pos += right * mouse_delta.x * speed * dt;
+    pos += up * -mouse_delta.y * speed * dt;
   }else if xim_mkey_down(.RMB) {
     mouse_delta := xim_get_mouse_delta();
     yaw += mouse_sens * mouse_delta.x;

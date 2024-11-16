@@ -78,7 +78,11 @@ ogl_bind_index_buffer :: (buf : *oglBuf) {
 }
 ogl_bind_vertex_buffer :: (buf : *oglBuf) {
     using buf;
-    glBindBuffer(GL_ARRAY_BUFFER, xx impl_state);
+    if buf {
+	glBindBuffer(GL_ARRAY_BUFFER, xx impl_state);
+    } else {
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
 }
 
 ///////////////////////////////
@@ -421,7 +425,7 @@ ogl_rt_clear :: (rt : *oglRT) {
     using rt;
     ogl_rt_bind(rt);
     glClearColor(0.0, 0.0, 0.0, 0.0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // stencil?
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // stencil?
     ogl_rt_bind(null);
 }
 ogl_rt_get_attachment :: (rt : *oglRT, attachment : oglRTAttachment) -> oglTex {
