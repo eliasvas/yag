@@ -273,6 +273,7 @@ oglDynState :: enum {
     CULL;
     STENCIL;
     BLEND;
+    BLEND2;
 };
 
 ogl_dyn_state_to_gl_state :: (state : oglDynState) -> GLuint {
@@ -281,6 +282,7 @@ ogl_dyn_state_to_gl_state :: (state : oglDynState) -> GLuint {
 	case .DEPTH; gl_state = GL_DEPTH_TEST;
 	case .CULL; gl_state = GL_CULL_FACE;
 	case .STENCIL; gl_state = GL_STENCIL_TEST;
+        case .BLEND2; #through;
 	case .BLEND; gl_state = GL_BLEND;
 	case; print("invalid state=[%]", state);
     }
@@ -290,10 +292,11 @@ ogl_sp_set_dyn_state :: (shader : *oglSP, state : oglDynState) {
     gl_state : GLuint = ogl_dyn_state_to_gl_state(state);
     glEnable(gl_state);
     if #complete state == {
-	case .DEPTH; glDepthFunc(GL_LESS);
+	case .DEPTH; glDepthFunc(GL_LEQUAL);
 	case .CULL; glCullFace(GL_BACK);
 	case .STENCIL; glStencilFunc(GL_EQUAL, 1, 0xFF);
 	case .BLEND; glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        case .BLEND2;glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	case; print("invalid set on state=[%]", state);
     }
 }
@@ -425,6 +428,7 @@ ogl_rt_clear :: (rt : *oglRT) {
     using rt;
     ogl_rt_bind(rt);
     glClearColor(0.0, 0.0, 0.0, 0.0);
+    //glClearColor(1.0, 1.0, 1.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // stencil?
     ogl_rt_bind(null);
 }

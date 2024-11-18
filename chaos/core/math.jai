@@ -73,6 +73,7 @@ v3_cross :: (lhs : v3, rhs : v3) -> v3 {return v3.{lhs.y*rhs.z - lhs.z*rhs.y, lh
 v4:: struct {
   x,y,z,w : float;
   #place x; r,g,b,a : float;
+  #place z; width,height : float; // NOTE: we have this for viewports.. should we?
   #place x; arr : [4]float;
 }
 operator [] :: (v: v4, i : int) -> float {return v.arr[i];}

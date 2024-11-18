@@ -9,7 +9,6 @@ my_vbo : oglBuf;
 white_img : oglTex;
 offscreen_rt : oglRT;
 
-// goal today is to render a rotating rombus that will bounce VERY funnily via our GREAT easing function
 ease_out_bounce :: (x : float64) -> float64 {
   n1 :: 7.5625;
   d1 :: 2.75;
@@ -33,10 +32,10 @@ ease_in_bounce :: (x : float64) -> float64 {
 
 main :: () {
     c : xCam;
-    pm := m4_persp(90.0, 600.0/400.0, 0.1, 10000);
-    //pm := m4_ortho(0,400,0,600,0.1,10);
+    viewport: v4 = .{0,0,1280,720};
+    pm := m4_persp(90.0, viewport.width/viewport.height, 0.1, 10000);
 
-    assert(xwin_init(*my_win, "My Great Window", 600, 400, xWindowFlags.RESIZABLE));
+    assert(xwin_init(*my_win, "My Great Window", viewport.width, viewport.height, xWindowFlags.RESIZABLE));
     ogl_init();
     ogl_sp_init(*my_sp, SAMPLE_VERT_SHADER, SAMPLE_FRAG_SHADER);
     ogl_sp_add_attrib(*my_sp, ogl_attrib_make(0,oglShaderDataType.VEC2,size_of(v2),0,false));
@@ -74,25 +73,24 @@ main :: () {
         xcam_update(*c, xx 1.0/60.0);
         // render a white quad?
         ogl_rt_clear(null);
-        xskybox_render(*skybox, *c);
+        xskybox_render(*skybox, viewport, *c, pm);
         ogl_rt_bind(null);
         ogl_clear_all_state();
         ogl_bind_vertex_buffer(*my_vbo);
         ogl_bind_sp(*my_sp);
-        ogl_set_viewport(0,0,600,400);
-        color := float32.[1,1,1,1];
+        ogl_set_viewport(0,0,1280,720);
+        color := float32.[1,0,0,1];
         att0 := ogl_rt_get_attachment(*offscreen_rt, 0);
         ogl_sp_set_uniform(*my_sp, "color", oglShaderDataType.VEC4, color.data);
 
         current_time := cast(float)seconds_since_init();
         //print("current_time in seconds: %\n", current_time);
 
-        //model := m4_scale(.{0.5,xx ease_in_bounce(min(current_time,1)) * 0.3 + 0.2,0.5});
         model := m4_rotate(90.0 * current_time/40.0, .{0,1,0});
         mvp := m4_mult(pm, m4_mult(xcam_get_view_mat(*c), model));
         ogl_sp_set_uniform(*my_sp, "MVP", oglShaderDataType.MAT4, mvp.raw.data);
         ogl_bind_tex_to_slot(*white_img, 0);
-        //ogl_sp_set_dyn_state(*my_sp, .BLEND);
+        ogl_sp_set_dyn_state(*my_sp, .BLEND);
         ogl_sp_set_dyn_state(*my_sp, .DEPTH);
         ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
 
