@@ -38,7 +38,7 @@ xskybox_render :: (skybox : *xSkybox, viewport : v4, cam : *xCam, proj : m4) {
   ogl_clear_all_state();
   ogl_bind_vertex_buffer(null);
   ogl_bind_sp(*grid_sp);
-  ogl_set_viewport(viewport.x, viewport.y, viewport.width, viewport.height); // TODO: make an API for this
+  ogl_set_viewport(viewport.x, viewport.y, viewport.width, viewport.height);
   viewm := xcam_get_view_mat(cam);
   vp := m4_mult(proj, viewm);
   ogl_sp_set_uniform(*grid_sp, "cam_pos", oglShaderDataType.VEC3, *cam.pos);
@@ -57,6 +57,7 @@ vec3 grid_plane[4] = vec3[](
     vec3(-1.0,0,-1.0)
 );
 uniform vec3 cam_pos;
+//uniform float grid_stretch_factor = 10.0;
 uniform float grid_stretch_factor = 10.0;
 uniform mat4 VP; // proj * view
 out vec3 world_pos;

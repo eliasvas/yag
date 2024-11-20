@@ -38,7 +38,9 @@ main :: () {
     assert(xwin_init(*my_win, "My Great Window", viewport.width, viewport.height, xWindowFlags.RESIZABLE));
     ogl_init();
     ogl_sp_init(*my_sp, SAMPLE_VERT_SHADER, SAMPLE_FRAG_SHADER);
-    ogl_sp_add_attrib(*my_sp, ogl_attrib_make(0,oglShaderDataType.VEC2,size_of(v2),0,false));
+    ogl_sp_add_attrib(*my_sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(float32)*8,0,false));
+    ogl_sp_add_attrib(*my_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(float32)*8,size_of(float32)*3,false));
+    ogl_sp_add_attrib(*my_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(float32)*8,size_of(float32)*6,false));
     white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
     ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
     assert(ogl_rt_init(*offscreen_rt, .{256, 256} , oglTexFormat.RGBA32F));
@@ -60,6 +62,7 @@ main :: () {
     ogl_buf_init(*my_vbo, oglBufKind.VERTEX, vdata.data, 4, size_of(v2));
 
     skybox := xskybox_make();
+    cube_mesh := xmesh_gen_cube();
 
     while true {
         // input stuff
@@ -73,10 +76,9 @@ main :: () {
         xcam_update(*c, xx 1.0/60.0);
         // render a white quad?
         ogl_rt_clear(null);
-        xskybox_render(*skybox, viewport, *c, pm);
         ogl_rt_bind(null);
         ogl_clear_all_state();
-        ogl_bind_vertex_buffer(*my_vbo);
+        ogl_bind_vertex_buffer(*cube_mesh.vbo);
         ogl_bind_sp(*my_sp);
         ogl_set_viewport(0,0,1280,720);
         color := float32.[1,0,0,1];
@@ -92,7 +94,11 @@ main :: () {
         ogl_bind_tex_to_slot(*white_img, 0);
         ogl_sp_set_dyn_state(*my_sp, .BLEND);
         ogl_sp_set_dyn_state(*my_sp, .DEPTH);
-        ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
+        ogl_draw(oglPrimitive.TRIANGLES,0,36);
+
+
+
+        xskybox_render(*skybox, viewport, *c, pm);
 
         xwin_swap(*my_win);
     }

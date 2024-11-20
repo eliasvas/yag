@@ -1,15 +1,17 @@
 SAMPLE_VERT_SHADER :: #string DONE
 #version 430 core
-layout (location = 0) in vec2 in_pos;
+layout (location = 0) in vec3 in_pos;
+layout (location = 0) in vec3 in_norm;
+layout (location = 0) in vec2 in_tc;
 uniform vec4 color;
 uniform mat4 MVP;
 out vec4 c;
 out vec2 tc;
 void main()
 {
-   gl_Position = MVP*vec4(in_pos.xy, 0.0, 1.0);
+   gl_Position = MVP*vec4(in_pos.xyz, 1.0);
    c = color;
-   tc = (in_pos.xy + 1.0)/2.0;
+   tc = in_tc;
 }
 DONE
 
