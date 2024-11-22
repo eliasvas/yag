@@ -54,7 +54,7 @@ cube_verts : [36 * 8] float32 = .[
 // TODO: should the cube be indexed?
 xmesh_gen_cube :: () -> xMesh {
   cube : xMesh;
-  ogl_buf_init(*cube.vbo, .VERTEX, cube_verts.data, 32, size_of(float32)*8);
+  ogl_buf_init(*cube.vbo, .VERTEX, cube_verts.data, 36, size_of(float32)*8);
 
   return cube;
 }
