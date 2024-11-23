@@ -33,35 +33,76 @@ struct BlinnPhongMaterial {
 };
 uniform BlinnPhongMaterial material;
 
-struct Light {
-    vec3 pos;
+struct DirLight {
+    vec3 dir;
 
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
 };
-uniform Light light;
+uniform DirLight dir_light;
+
+struct PointLight {
+    vec3 pos;
+
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+
+    float constant;
+    float linear;
+    float quadratic;
+};
+// TODO: make multiple
+uniform PointLight point_light;
 
 out vec4 FragColor;
 
+vec3 calc_dir_light(DirLight light, vec3 normal, vec3 view_dir)
+{
+    vec3 light_dir = normalize(-light.dir);
+    // diffuse factor 
+    float diff = max(dot(normal, light_dir), 0.0);
+    // specular factor
+    vec3 reflect_dir = reflect(-light_dir, normal);
+    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
+    // combine results
+    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc));
+    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc));
+    vec3 specular = light.specular * spec * vec3(texture(material.specular, tc));
+    return (ambient + diffuse + specular);
+}
+
+vec3 calc_point_light(PointLight light, vec3 normal, vec3 world_pos, vec3 view_dir)
+{
+    vec3 light_dir = normalize(light.pos- world_pos);
+    // diffuse factor
+    float diff = max(dot(normal, light_dir), 0.0);
+    // specular factor
+    vec3 reflect_dir = reflect(-light_dir, normal);
+    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
+    // light attenuation
+    float distance    = length(light.pos - world_pos);
+    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
+    // combine results
+    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc));
+    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc));
+    vec3 specular = light.specular * spec * vec3(texture(material.specular, tc));
+    ambient  *= attenuation;
+    diffuse  *= attenuation;
+    specular *= attenuation;
+    return (ambient + diffuse + specular);
+}
+
 void main()
 {
-   // calc diffuse 'effect'
    vec3 norm = normalize(f_normal);
-   vec3 light_dir = normalize(light.pos - world_pos);
-   float diff = max(dot(norm, light_dir), 0.0);
-
-   // calc spec 'effect'
-   float specular_str = 0.5;
    vec3 view_dir = normalize(view_pos - world_pos);
-   vec3 reflect_dir = reflect(-light_dir, norm);
-   float spec = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
 
-   // calc final colors
-   vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc));
-   vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc));  
-   vec3 specular = light.specular * spec * vec3(texture(material.specular, tc));
-   FragColor = vec4(ambient + diffuse + specular, 1.0);
+   vec3 dl = calc_dir_light(dir_light, norm, view_dir);
+   vec3 pl = calc_point_light(point_light, norm, world_pos, view_dir);
+
+   FragColor = vec4(pl + dl, 1.0);
 }
 DONE
 
