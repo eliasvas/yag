@@ -223,7 +223,8 @@ ogl_sp_set_uniform :: (shader : *oglSP, uniform_name : string, type : oglShaderD
 	case .VEC3; glUniform3fv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*float32)val);
 	case .VEC4; glUniform4fv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*float32)val);
 	case .MAT4; glUniformMatrix4fv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, GL_TRUE, cast(*float32)val);
-	case .INT; #through;
+	case .INT;
+	glUniform1iv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*s32)val);
 	case; print("invalid shader set for uniform of type=[%]", type);
     }
 }
@@ -355,6 +356,8 @@ ogl_tex_deinit :: (tex : *oglTex) {
     using tex;
     glDeleteTextures(1,xx *impl_state);
 }
+
+// TODO: make a SANE texture slot API, currently we bind_to_slot + set_uni(.INT, tex_slot)
 ogl_bind_tex_to_slot :: (tex : *oglTex, slot : u32) {
     using tex;
     glActiveTexture(GL_TEXTURE0 + slot);

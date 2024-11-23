@@ -1,4 +1,10 @@
 
+xBlinnPhongVertex :: struct {
+  pos : v3;
+  norm : v3;
+  tc : v2;
+};
+
 xMesh :: struct {
   vbo : oglBuf;
   ibo : oglBuf;
