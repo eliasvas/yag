@@ -93,63 +93,36 @@ main :: () {
         }
         if (xim_kkey_pressed(.SC_ESCAPE)) exit(1); 
         xcam_update(*c, xx 1.0/60.0);
+        ogl_set_viewport(0,0,1280,720);
         // render a white quad?
         ogl_rt_clear(null);
         ogl_rt_bind(null);
         ogl_clear_all_state();
-        ogl_bind_vertex_buffer(*cube_mesh.vbo);
         ogl_bind_sp(*bp_sp);
-        ogl_set_viewport(0,0,1280,720);
         // render OUR cube
         ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
-        color := float32.[0.7,0.3,0.2,1];
-        ogl_sp_set_uniform(*bp_sp, "color", oglShaderDataType.VEC4, color.data);
         model := m4_rotate(90.0 * cast(float)seconds_since_init()/40.0, .{0,1,0});
         ogl_sp_set_uniform(*bp_sp, "model", oglShaderDataType.MAT4, model.raw.data);
         view := xcam_get_view_mat(*c);
         ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, view.raw.data);
         proj := m4_persp(90.0, viewport.width/viewport.height, 0.1, 10000);
         ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
-        chrome_shininess : float32 = 32;
-        ogl_sp_set_uniform(*bp_sp, "material.shininess", oglShaderDataType.FLOAT, *chrome_shininess);
-
-        // Point Light
-        light_amb := float32.[0.2,0.2,0.9];
-        ogl_sp_set_uniform(*bp_sp, "point_light.ambient", oglShaderDataType.VEC3, light_amb.data);
-        light_diff := float32.[0.2,0.2,0.9];
-        ogl_sp_set_uniform(*bp_sp, "point_light.diffuse", oglShaderDataType.VEC3, light_diff.data);
-        light_spec := float32.[1,1,1];
-        ogl_sp_set_uniform(*bp_sp, "point_light.specular", oglShaderDataType.VEC3, light_spec.data);
-        //light_pos := c.pos;
-        light_pos := v3.{3,2,3};
-        ogl_sp_set_uniform(*bp_sp, "point_light.pos", oglShaderDataType.VEC3, *light_pos);
-        Kc :float32 = 1.0;
-        ogl_sp_set_uniform(*bp_sp, "point_light.constant", oglShaderDataType.FLOAT, *Kc);
-        Kl :float32 = 0.09;
-        ogl_sp_set_uniform(*bp_sp, "point_light.linear", oglShaderDataType.FLOAT, *Kl);
-        Kq :float32 = 0.032;
-        ogl_sp_set_uniform(*bp_sp, "point_light.quadratic", oglShaderDataType.FLOAT, *Kq);
 
         // Directional Light
-        dir_light_amb := float32.[0.2,0.2,0.2];
-        dir_light_diff := float32.[0.9,0.2,0.2];
-        ogl_sp_set_uniform(*bp_sp, "dir_light.ambient", oglShaderDataType.VEC3, dir_light_amb.data);
-        ogl_sp_set_uniform(*bp_sp, "dir_light.diffuse", oglShaderDataType.VEC3, dir_light_diff.data);
-        ogl_sp_set_uniform(*bp_sp, "dir_light.specular", oglShaderDataType.VEC3, light_spec.data);
-        light_dir := v3.{-0.2,-1.0,-0.3};
-        ogl_sp_set_uniform(*bp_sp, "dir_light.dir", oglShaderDataType.VEC3, *light_dir);
+        dir_light := xdir_light_make_basic();
+        xlight_set_to_shader(*dir_light, *bp_sp);
 
+        // Point Light
+        light_pos := v3.{3,2,3};
+        point_light := xpoint_light_make_basic(light_pos);
+        xlight_set_to_shader(*point_light, *bp_sp);
 
         // bind diffuse/specular textures
-        diff_slot :s32= 0;
-        ogl_bind_tex_to_slot(*diff_img, xx diff_slot);
-        ogl_sp_set_uniform(*bp_sp, "material.diffuse", oglShaderDataType.INT, *diff_slot);
-        spec_slot :s32 = 1;
-        ogl_bind_tex_to_slot(*spec_img, xx spec_slot);
-        ogl_sp_set_uniform(*bp_sp, "material.specular", oglShaderDataType.INT, *spec_slot);
-        ogl_sp_set_dyn_state(*bp_sp, .BLEND);
-        ogl_sp_set_dyn_state(*bp_sp, .DEPTH);
-        ogl_draw(oglPrimitive.TRIANGLES,0,36);
+        cube_mat := xSimpleMaterial.{*diff_img, *spec_img, 32};
+        xsimple_material_set_to_shader(*cube_mat, *bp_sp);
+
+
+        xmesh_render(*cube_mesh, *bp_sp, model);
 
         // render light source cube
         ogl_bind_sp(*light_sp);

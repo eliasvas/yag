@@ -64,8 +64,10 @@ vec3 calc_dir_light(DirLight light, vec3 normal, vec3 view_dir)
     // diffuse factor 
     float diff = max(dot(normal, light_dir), 0.0);
     // specular factor
-    vec3 reflect_dir = reflect(-light_dir, normal);
-    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
+    //vec3 reflect_dir = reflect(-light_dir, normal);
+    //float spec = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
+    vec3 halfway_dir = normalize(light_dir + view_dir);  
+    float spec = pow(max(dot(normal, halfway_dir), 0.0), material.shininess);
     // combine results
     vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc));
     vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc));
@@ -79,8 +81,10 @@ vec3 calc_point_light(PointLight light, vec3 normal, vec3 world_pos, vec3 view_d
     // diffuse factor
     float diff = max(dot(normal, light_dir), 0.0);
     // specular factor
-    vec3 reflect_dir = reflect(-light_dir, normal);
-    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
+    //vec3 reflect_dir = reflect(-light_dir, normal);
+    //float spec = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
+    vec3 halfway_dir = normalize(light_dir + view_dir);  
+    float spec = pow(max(dot(normal, halfway_dir), 0.0), material.shininess);
     // light attenuation
     float distance    = length(light.pos - world_pos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
