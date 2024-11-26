@@ -25,10 +25,13 @@ in vec2 tc;
 in vec3 world_pos;
 in vec3 f_normal;
 
+
 uniform vec3 view_pos;
 struct BlinnPhongMaterial {
    sampler2D diffuse;
+   vec4 diffuse_mod;
    sampler2D specular;
+   vec4 specular_mod;
    float shininess;
 };
 uniform BlinnPhongMaterial material;
@@ -69,9 +72,9 @@ vec3 calc_dir_light(DirLight light, vec3 normal, vec3 view_dir)
     vec3 halfway_dir = normalize(light_dir + view_dir);  
     float spec = pow(max(dot(normal, halfway_dir), 0.0), material.shininess);
     // combine results
-    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc));
-    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc));
-    vec3 specular = light.specular * spec * vec3(texture(material.specular, tc));
+    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
+    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
+    vec3 specular = light.specular * spec * vec3(texture(material.specular, tc)*material.specular_mod);
     return (ambient + diffuse + specular);
 }
 
@@ -89,9 +92,9 @@ vec3 calc_point_light(PointLight light, vec3 normal, vec3 world_pos, vec3 view_d
     float distance    = length(light.pos - world_pos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
     // combine results
-    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc));
-    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc));
-    vec3 specular = light.specular * spec * vec3(texture(material.specular, tc));
+    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
+    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
+    vec3 specular = light.specular * spec * vec3(texture(material.specular, tc)*material.specular_mod);
     ambient  *= attenuation;
     diffuse  *= attenuation;
     specular *= attenuation;

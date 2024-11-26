@@ -118,7 +118,8 @@ main :: () {
         xlight_set_to_shader(*point_light, *bp_sp);
 
         // bind diffuse/specular textures
-        cube_mat := xSimpleMaterial.{*diff_img, *spec_img, 32};
+        //cube_mat := xsimple_material_make(.{1,0,0.5,1});
+        cube_mat := xsimple_material_make(*diff_img, *spec_img, 8);
         xsimple_material_set_to_shader(*cube_mat, *bp_sp);
 
 
