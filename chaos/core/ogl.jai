@@ -239,6 +239,7 @@ oglPrimitive :: enum{
     TRIANGLE_FAN;
     LINES;
     LINE_STRIP;
+    POINTS;
 };
 
 
@@ -250,6 +251,7 @@ ogl_prim_to_gl_prim :: (prim : oglPrimitive) -> GLuint {
 	case .TRIANGLE_FAN; gl_prim = GL_TRIANGLE_FAN;
 	case .LINES; gl_prim = GL_LINES;
 	case .LINE_STRIP; gl_prim = GL_LINE_STRIP;
+	case .POINTS; gl_prim = GL_POINTS;
 	case; print("invalid primitive =[%]", prim);
     }
     return gl_prim;
@@ -492,5 +494,8 @@ ogl_clear_all_state :: () {
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);
+    // strictly for debugging purposes
     glLineWidth(4);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glPointSize(10);
 }

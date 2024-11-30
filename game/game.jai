@@ -7,6 +7,7 @@ my_win : xWindow;
 bp_sp : oglSP;
 light_sp : oglSP;
 white_img : oglTex;
+red_img : oglTex;
 
 main :: () {
     c : xCam;
@@ -17,6 +18,11 @@ main :: () {
 
     white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
     ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
+
+    red := u8.[ 0xFF,0x00,0x00,0xFF ];
+    ogl_tex_init(*red_img, .{1,1}, red.data, oglTexFormat.RGBA8U);
+
+
 
     cutoff := 50;
     // generate diffuse and specular textures
@@ -82,6 +88,7 @@ main :: () {
 
     skybox := xskybox_make();
     cube_mesh := xmesh_gen_cube();
+    sphere_mesh := xmesh_gen_sphere(1.0);
 
     while true {
         // input stuff
@@ -102,7 +109,7 @@ main :: () {
         // render OUR cube
         ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
         model := m4_rotate(90.0 * cast(float)seconds_since_init()/40.0, .{0,1,0});
-        ogl_sp_set_uniform(*bp_sp, "model", oglShaderDataType.MAT4, model.raw.data);
+        //ogl_sp_set_uniform(*bp_sp, "model", oglShaderDataType.MAT4, model.raw.data);
         view := xcam_get_view_mat(*c);
         ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, view.raw.data);
         proj := m4_persp(90.0, viewport.width/viewport.height, 0.1, 10000);
@@ -123,7 +130,9 @@ main :: () {
         xsimple_material_set_to_shader(*cube_mat, *bp_sp);
 
 
+        // render the cube
         xmesh_render(*cube_mesh, *bp_sp, model);
+
 
         // render light source cube
         ogl_bind_sp(*light_sp);
@@ -134,6 +143,14 @@ main :: () {
         ogl_sp_set_dyn_state(*light_sp, .BLEND);
         ogl_sp_set_dyn_state(*light_sp, .DEPTH);
         ogl_draw(oglPrimitive.TRIANGLES,0,36);
+
+
+        // render the sphere
+        sphere_mat := xsimple_material_make(*red_img, *white_img, 32);
+        xsimple_material_set_to_shader(*sphere_mat, *bp_sp);
+        model2 := m4_trans(.{3,3,0});
+        xmesh_render(*sphere_mesh, *bp_sp, model2, true);
+        xmesh_render(*sphere_mesh, *bp_sp, model2);
 
 
 

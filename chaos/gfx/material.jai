@@ -14,9 +14,6 @@ xSimpleMaterial :: struct {
 xsimple_material_make :: ( diffuse_tex : *oglTex, specular_tex : *oglTex, shininess : float32 = 8) -> xSimpleMaterial {
   mat : xSimpleMaterial;
 
-  // FIXME: this should be done by the asset system, WHY do we keep making 1x1 white textures!
-  //white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
-  //ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
   mat.diffuse_tex = diffuse_tex;
   mat.specular_tex = specular_tex;
   mat.shininess = shininess;
