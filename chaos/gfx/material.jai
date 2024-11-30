@@ -1,7 +1,48 @@
 
 // TODO: dont use raw pointers, make a simple asset pipeline with handles and stuff
 
-// TODO: should we add option for raw colors along with textures? how should that carry over to shaders?
+
+/*
+  We have two material types, Simple and PBR
+    - Simple materials do the regular ambient/diffuse/specular
+    - PBR materials are pretty much GLTF 2.0 materials, for well, PBR stuff
+
+  You can generally do:
+    m0 : xMaterial = .{sm = xsimple_material_make(...), kind = .SIMPLE};
+*/
+
+
+//////////////////////////////////
+// Generic Material Type 
+//////////////////////////////////
+
+xMaterialKind :: enum {
+  SIMPLE;
+  PBR;
+};
+
+xMaterial :: struct {
+  union {
+    sm : xSimpleMaterial;
+    pm : xPbrMaterial;
+  }
+  kind : xMaterialKind;
+}
+
+xmaterial_set_to_shader :: (m : *xMaterial, sp : *oglSP) {
+  if m.kind == {
+    case .SIMPLE;
+      xsimple_material_set_to_shader(*m.sm,sp);
+    case .PBR;
+      xpbr_material_set_to_shader(*m.pm,sp);
+    case;
+      assert(false);
+  }
+}
+
+//////////////////////////////////
+// Simple Materials
+//////////////////////////////////
 
 xSimpleMaterial :: struct {
   diffuse_tex : *oglTex;
@@ -50,6 +91,23 @@ xsimple_material_set_to_shader :: (mat : *xSimpleMaterial, sp : *oglSP) {
   ogl_sp_set_uniform(sp, "material.shininess", oglShaderDataType.FLOAT, *shininess);
   ogl_sp_set_uniform(sp, "material.diffuse_mod", oglShaderDataType.VEC4, *diffuse_mod);
   ogl_sp_set_uniform(sp, "material.specular_mod", oglShaderDataType.VEC4, *specular_mod);
+
+  // FIXME: should the depth be here?? NO NO NO NO fix dis
   ogl_sp_set_dyn_state(sp, .DEPTH);
 }
 
+
+//////////////////////////////////
+// PBR Materials
+//////////////////////////////////
+
+xPbrMaterial :: struct {
+  base_color   : *oglTex;
+  normal_map   : *oglTex;
+  emissive_map : *oglTex;
+  // more stuff
+}
+
+xpbr_material_set_to_shader :: (mat : *xPbrMaterial, sp : *oglSP) {
+  // TBA
+}

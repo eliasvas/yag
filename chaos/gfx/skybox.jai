@@ -47,7 +47,7 @@ xskydome_render :: (skydome : *xSkydome, viewport : v4, cam : *xCam, proj : m4) 
   ogl_sp_set_uniform(*sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
   //ogl_sp_set_dyn_state(*sp, .DEPTH);
 
-  xmesh_render(*sphere_mesh, *sp, m4_I);
+  xmesh_render(*sphere_mesh, *sp, null, m4_I);
 
   xgrid_render(*skydome.grid, viewport, cam, proj);
 

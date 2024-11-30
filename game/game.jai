@@ -61,20 +61,11 @@ main :: () {
     ogl_tex_init(*spec_img, .{400,400}, xx spec_tex, oglTexFormat.RGBA8U);
 
 
-
-
-
     // create Blinn-Phong Shader
     ogl_sp_init(*bp_sp, BP_VERT_SHADER, BP_FRAG_SHADER);
     ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false));
     ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
     ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
-
-    // create Light Shader (all-white)
-    ogl_sp_init(*light_sp, BP_VERT_SHADER, LIGHT_FRAG_SHADER);
-    ogl_sp_add_attrib(*light_sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false));
-    ogl_sp_add_attrib(*light_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
-    ogl_sp_add_attrib(*light_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
 
 
     // json tests
@@ -108,10 +99,11 @@ main :: () {
         ogl_rt_bind(null);
         ogl_clear_all_state();
         ogl_bind_sp(*bp_sp);
-        // render OUR cube
+
+
+        // set global uniforms (currently shader uniforms perform statefully)
         ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
         model := m4_rotate(90.0 * cast(float)seconds_since_init()/40.0, .{0,1,0});
-        //ogl_sp_set_uniform(*bp_sp, "model", oglShaderDataType.MAT4, model.raw.data);
         view := xcam_get_view_mat(*c);
         ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, view.raw.data);
         ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
@@ -119,40 +111,25 @@ main :: () {
         // Directional Light
         dir_light := xdir_light_make_basic();
         xlight_set_to_shader(*dir_light, *bp_sp);
-
         // Point Light
         light_pos := v3.{3,2,3};
         point_light := xpoint_light_make_basic(light_pos);
         xlight_set_to_shader(*point_light, *bp_sp);
 
-        // bind diffuse/specular textures
-        //cube_mat := xsimple_material_make(.{1,0,0.5,1});
-        cube_mat := xsimple_material_make(*diff_img, *spec_img, 8);
-        xsimple_material_set_to_shader(*cube_mat, *bp_sp);
-
-
 
         // render the cube
-        xmesh_render(*cube_mesh, *bp_sp, model);
+        cube_mat := xMaterial.{sm=xsimple_material_make(*diff_img, *spec_img, 8), kind=.SIMPLE};
+        xmesh_render(*cube_mesh, *bp_sp, *cube_mat, model);
 
-
-        // render light source cube
-        ogl_bind_sp(*light_sp);
+        // render light source cube (we are overloading the diffuse component for full white)
         light_source_model := m4_mult(m4_trans(light_pos), m4_scale(.{0.5,0.5,0.5}));
-        ogl_sp_set_uniform(*light_sp, "model", oglShaderDataType.MAT4, light_source_model.raw.data);
-        ogl_sp_set_uniform(*light_sp, "view", oglShaderDataType.MAT4, view.raw.data);
-        ogl_sp_set_uniform(*light_sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
-        ogl_sp_set_dyn_state(*light_sp, .BLEND);
-        ogl_sp_set_dyn_state(*light_sp, .DEPTH);
-        ogl_draw(oglPrimitive.TRIANGLES,0,36);
-
+        light_mat := xMaterial.{sm=xsimple_material_make(*white_img, *white_img, 8), kind=.SIMPLE};
+        light_mat.sm.diffuse_mod = .{1000.0,1000.0,1000.0,1000.0};
+        xmesh_render(*cube_mesh, *bp_sp, *light_mat, light_source_model);
 
         // render the sphere
-        sphere_mat := xsimple_material_make(*red_img, *white_img, 32);
-        xsimple_material_set_to_shader(*sphere_mat, *bp_sp);
-        model2 := m4_trans(.{3,3,0});
-        xmesh_render(*sphere_mesh, *bp_sp, model2, true);
-        xmesh_render(*sphere_mesh, *bp_sp, model2);
+        sphere_mat := xMaterial.{sm=xsimple_material_make(*red_img, *white_img, 8), kind=.SIMPLE};
+        xmesh_render(*sphere_mesh, *bp_sp, *sphere_mat, m4_trans(.{3,3,0}));
 
 
 

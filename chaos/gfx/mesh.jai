@@ -140,24 +140,25 @@ xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8,
   return sphere;
 }
 
-xmesh_render :: (mesh : *xMesh, sp : *oglSP, model : m4, wireframe : bool = false) {
+xmesh_render :: (mesh : *xMesh, sp : *oglSP, m : *xMaterial = null, model : m4) {
   using mesh;
-  // TODO: we SHOULD clear_all_state, but for this to work we must bind lights/materials/matrices here!
-  //ogl_clear_all_state();
+
+  ogl_clear_all_state(); // VERY important, TODO: make clear_all_state more powerful
+
   ogl_bind_vertex_buffer(*mesh.vbo);
   if has_ibo {
     ogl_bind_index_buffer(*mesh.ibo);
   }
+  if m {
+        xmaterial_set_to_shader(m, sp);
+  }
   ogl_bind_sp(sp);
   ogl_sp_set_uniform(sp, "model", oglShaderDataType.MAT4, model.raw.data);
   ogl_sp_set_dyn_state(sp, .BLEND);
-  //ogl_sp_set_dyn_state(sp, .DEPTH);
-  //prim := ifx wireframe then oglPrimitive.LINE_STRIP else oglPrimitive.TRIANGLES;
-  prim := ifx wireframe then oglPrimitive.LINE_STRIP else oglPrimitive.TRIANGLES;
   if has_ibo {
     ogl_bind_index_buffer(*mesh.ibo);
-    ogl_draw_indexed(prim, xx ibo.count);
+    ogl_draw_indexed(oglPrimitive.TRIANGLES, xx ibo.count);
   } else {
-    ogl_draw(prim, 0, xx vbo.count);
+    ogl_draw(oglPrimitive.TRIANGLES, 0, xx vbo.count);
   }
 }
