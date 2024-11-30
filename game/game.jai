@@ -86,7 +86,7 @@ main :: () {
     sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
     t := xtimer_make(100, 5, sample_timer_cb, null);
 
-    skybox := xskybox_make();
+    skydome := xskydome_make();
     cube_mesh := xmesh_gen_cube();
     sphere_mesh := xmesh_gen_sphere(1.0);
 
@@ -103,6 +103,8 @@ main :: () {
         ogl_set_viewport(0,0,1280,720);
         // render a white quad?
         ogl_rt_clear(null);
+        proj := m4_persp(90.0, viewport.width/viewport.height, 0.1, 10000);
+        xskydome_render(*skydome, viewport, *c, proj);
         ogl_rt_bind(null);
         ogl_clear_all_state();
         ogl_bind_sp(*bp_sp);
@@ -112,7 +114,6 @@ main :: () {
         //ogl_sp_set_uniform(*bp_sp, "model", oglShaderDataType.MAT4, model.raw.data);
         view := xcam_get_view_mat(*c);
         ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, view.raw.data);
-        proj := m4_persp(90.0, viewport.width/viewport.height, 0.1, 10000);
         ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
 
         // Directional Light
@@ -128,6 +129,7 @@ main :: () {
         //cube_mat := xsimple_material_make(.{1,0,0.5,1});
         cube_mat := xsimple_material_make(*diff_img, *spec_img, 8);
         xsimple_material_set_to_shader(*cube_mat, *bp_sp);
+
 
 
         // render the cube
@@ -154,7 +156,6 @@ main :: () {
 
 
 
-        xskybox_render(*skybox, viewport, *c, proj);
 
         xwin_swap(*my_win);
     }

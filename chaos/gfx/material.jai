@@ -50,5 +50,6 @@ xsimple_material_set_to_shader :: (mat : *xSimpleMaterial, sp : *oglSP) {
   ogl_sp_set_uniform(sp, "material.shininess", oglShaderDataType.FLOAT, *shininess);
   ogl_sp_set_uniform(sp, "material.diffuse_mod", oglShaderDataType.VEC4, *diffuse_mod);
   ogl_sp_set_uniform(sp, "material.specular_mod", oglShaderDataType.VEC4, *specular_mod);
+  ogl_sp_set_dyn_state(sp, .DEPTH);
 }
 

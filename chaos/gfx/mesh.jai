@@ -151,7 +151,7 @@ xmesh_render :: (mesh : *xMesh, sp : *oglSP, model : m4, wireframe : bool = fals
   ogl_bind_sp(sp);
   ogl_sp_set_uniform(sp, "model", oglShaderDataType.MAT4, model.raw.data);
   ogl_sp_set_dyn_state(sp, .BLEND);
-  ogl_sp_set_dyn_state(sp, .DEPTH);
+  //ogl_sp_set_dyn_state(sp, .DEPTH);
   //prim := ifx wireframe then oglPrimitive.LINE_STRIP else oglPrimitive.TRIANGLES;
   prim := ifx wireframe then oglPrimitive.LINE_STRIP else oglPrimitive.TRIANGLES;
   if has_ibo {
