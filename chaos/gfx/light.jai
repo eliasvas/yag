@@ -52,7 +52,7 @@ xdir_light_make_basic :: () -> xLight {
   light : xLight;
   using light;
   kind = .DIRECTIONAL;
-  dl.dir = v3.{-0.2,-1.0,-0.3};
+  dl.dir = v3_norm(v3.{-2,-4,-1});
   dl.ambient  = .{0.2,0.2,0.2};
   dl.diffuse  = .{0.9,0.2,0.2};
   dl.specular = .{1.0,1.0,1.0};

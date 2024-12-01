@@ -7,7 +7,16 @@ my_win : xWindow;
 bp_sp : oglSP;
 light_sp : oglSP;
 white_img : oglTex;
-red_img : oglTex;
+blue_img : oglTex;
+diff_img : oglTex;
+spec_img : oglTex;
+
+cube_mesh : xMesh;
+sphere_mesh : xMesh;
+skydome : xSkydome;
+
+shadow_sp : oglSP;
+shadow_rt : oglRT;
 
 main :: () {
     c : xCam;
@@ -19,14 +28,15 @@ main :: () {
     white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
     ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
 
-    red := u8.[ 0xFF,0x00,0x00,0xFF ];
-    ogl_tex_init(*red_img, .{1,1}, red.data, oglTexFormat.RGBA8U);
+    blue := u8.[ 0x00,0x00,0xFF,0xFF ];
+    ogl_tex_init(*blue_img, .{1,1}, blue.data, oglTexFormat.RGBA8U);
+
+    assert(ogl_rt_init(*shadow_rt, .{1024,1024}, .RGBA32F));
 
 
 
     cutoff := 50;
     // generate diffuse and specular textures
-    diff_img : oglTex;
     diffuse_tex := cast(*u32)alloc(400*400*size_of(u32)); 
     defer free(diffuse_tex);
     for y : 0..400-1 {
@@ -43,7 +53,6 @@ main :: () {
     }
     ogl_tex_init(*diff_img, .{400,400}, xx diffuse_tex, oglTexFormat.RGBA8U);
     // generate specular texture
-    spec_img : oglTex;
     spec_tex := cast(*u32)alloc(400*400*size_of(u32)); 
     defer free(spec_tex);
     for y : 0..400-1 {
@@ -67,6 +76,12 @@ main :: () {
     ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
     ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
 
+    // create Shadow-Pass Shader
+    ogl_sp_init(*shadow_sp, BP_VERT_SHADER, EMPTY_FRAG_SHADER);
+    ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false));
+    ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
+    ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
+
 
     // json tests
     root_json := xjson_parse_wholefile_string(SAMPLE_JSON);
@@ -77,9 +92,9 @@ main :: () {
     sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
     t := xtimer_make(100, 5, sample_timer_cb, null);
 
-    skydome := xskydome_make();
-    cube_mesh := xmesh_gen_cube();
-    sphere_mesh := xmesh_gen_sphere(1.0);
+    skydome = xskydome_make();
+    cube_mesh = xmesh_gen_cube();
+    sphere_mesh = xmesh_gen_sphere(1.0, 64,64);
 
     while true {
         // input stuff
@@ -91,51 +106,88 @@ main :: () {
         }
         if (xim_kkey_pressed(.SC_ESCAPE)) exit(1); 
         xcam_update(*c, xx 1.0/60.0);
-        ogl_set_viewport(0,0,1280,720);
         // render a white quad?
         ogl_rt_clear(null);
-        proj := m4_persp(90.0, viewport.width/viewport.height, 0.1, 10000);
+        ogl_rt_clear(*shadow_rt);
+        proj := m4_persp(90.0, viewport.width/viewport.height, 0.1, 1000);
         xskydome_render(*skydome, viewport, *c, proj);
         ogl_rt_bind(null);
         ogl_clear_all_state();
-        ogl_bind_sp(*bp_sp);
 
 
-        // set global uniforms (currently shader uniforms perform statefully)
-        ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
-        model := m4_rotate(90.0 * cast(float)seconds_since_init()/40.0, .{0,1,0});
         view := xcam_get_view_mat(*c);
+
+
+        // render the shadow map first
+        ogl_set_viewport(0,0,1024,1024);
+        ogl_rt_bind(*shadow_rt);
+        ogl_bind_sp(*shadow_sp);
+        light_proj := m4_ortho(-20,20,-20,20,1,10);
+        dir_light := xdir_light_make_basic();
+        light_view := m4_look_at(dir_light.dl.dir * -5.0, .{0,0,0}, .{0,1,0});
+        ogl_sp_set_uniform(*shadow_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
+        ogl_sp_set_uniform(*shadow_sp, "view", oglShaderDataType.MAT4, light_view.raw.data);
+        ogl_sp_set_uniform(*shadow_sp, "proj", oglShaderDataType.MAT4, light_proj.raw.data);
+        render_sample_scene(*shadow_sp);
+
+
+        // then render the scene with the shadow map bound
+        lsp := m4_mult(light_proj, light_view);
+        ogl_set_viewport(0,0,1280,720);
+        ogl_rt_bind(null);
+        ogl_bind_sp(*bp_sp);
+        ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
         ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, view.raw.data);
         ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
-
-        // Directional Light
-        dir_light := xdir_light_make_basic();
-        xlight_set_to_shader(*dir_light, *bp_sp);
-        // Point Light
-        light_pos := v3.{3,2,3};
-        point_light := xpoint_light_make_basic(light_pos);
-        xlight_set_to_shader(*point_light, *bp_sp);
-
-
-        // render the cube
-        cube_mat := xMaterial.{sm=xsimple_material_make(*diff_img, *spec_img, 8), kind=.SIMPLE};
-        xmesh_render(*cube_mesh, *bp_sp, *cube_mat, model);
-
-        // render light source cube (we are overloading the diffuse component for full white)
-        light_source_model := m4_mult(m4_trans(light_pos), m4_scale(.{0.5,0.5,0.5}));
-        light_mat := xMaterial.{sm=xsimple_material_make(*white_img, *white_img, 8), kind=.SIMPLE};
-        light_mat.sm.diffuse_mod = .{1000.0,1000.0,1000.0,1000.0};
-        xmesh_render(*cube_mesh, *bp_sp, *light_mat, light_source_model);
-
-        // render the sphere
-        sphere_mat := xMaterial.{sm=xsimple_material_make(*red_img, *white_img, 8), kind=.SIMPLE};
-        xmesh_render(*sphere_mesh, *bp_sp, *sphere_mat, m4_trans(.{3,3,0}));
-
+        ogl_sp_set_uniform(*bp_sp, "light_space_matrix", oglShaderDataType.MAT4, lsp.raw.data);
+        render_sample_scene(*bp_sp);
 
 
 
         xwin_swap(*my_win);
     }
+
+}
+
+render_sample_scene :: (sp : *oglSP) {
+    shadow_map := ogl_rt_get_attachment(*shadow_rt, .DS);
+    shadow_map_slot :s32 = 3;
+    ogl_bind_tex_to_slot(*shadow_map, xx shadow_map_slot);
+    ogl_sp_set_uniform(sp, "shadow_map", oglShaderDataType.INT, *shadow_map_slot);
+
+    // Directional Light
+    dir_light := xdir_light_make_basic();
+    xlight_set_to_shader(*dir_light, sp);
+    // Point Light
+    light_pos := v3.{3,2,3};
+    point_light := xpoint_light_make_basic(light_pos);
+    xlight_set_to_shader(*point_light, sp);
+
+    // render base cube 
+    bmodel := m4_mult(m4_trans(.{0,-2,0}),m4_scale(.{100,1,100}));
+    bcube_mat := xMaterial.{sm=xsimple_material_make(*diff_img, *spec_img, 5000), kind=.SIMPLE};
+    xmesh_render(*cube_mesh, sp, *bcube_mat, bmodel);
+
+    // render the cube
+    model := m4_mult(m4_trans(.{0,2,0}),m4_rotate(90.0 * cast(float)seconds_since_init()/40.0, .{0,1,0}));
+    cube_mat := xMaterial.{sm=xsimple_material_make(*diff_img, *spec_img, 8), kind=.SIMPLE};
+    xmesh_render(*cube_mesh, sp, *cube_mat, model);
+
+
+    // render the cube
+    model2 := m4_mult(m4_trans(light_pos),m4_rotate(-90.0 * cast(float)seconds_since_init()/40.0, .{0,1,0}));
+    xmesh_render(*cube_mesh, sp, *cube_mat, model2);
+
+    // render light source cube (we are overloading the diffuse component for full white)
+    light_source_model := m4_mult(m4_trans(light_pos), m4_scale(.{0.2,0.1,0.5}));
+    light_mat := xMaterial.{sm=xsimple_material_make(*white_img,*white_img, 8), kind=.SIMPLE};
+    light_mat.sm.diffuse_mod = .{1000.0,1000.0,1000.0,1000.0};
+    xmesh_render(*cube_mesh, sp, *light_mat, light_source_model);
+
+    // render the sphere
+    sphere_mat := xMaterial.{sm=xsimple_material_make(*blue_img,*white_img, 8), kind=.SIMPLE};
+    sphere_mat.sm.specular_mod = .{0.7,0.7,0.7,1};
+    xmesh_render(*sphere_mesh, sp, *sphere_mat, m4_trans(.{3,3,0}));
 
 }
 

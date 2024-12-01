@@ -3,6 +3,10 @@
 #import "GL" (DUMP_GL_ERRORS=true, ENABLE_ALL_EXTENSIONS=true);
 #load "def_shaders.jai";
 
+// FIXME: currently state management is done via ogl_state_clear_all(), this is not fine,
+// we'll have to think of a better way sadly, maybe i need to re-study the sokol architecture..
+// maybe some sort of cache should be implemented inside our oglContext
+
 // for debugging
 //assert(glGetError() == GL_NO_ERROR);
 
@@ -410,12 +414,21 @@ ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool 
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, attachments[2], 0);
 	    attachments_gl := u32.[ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 ];
             glDrawBuffers(3, *attachments_gl[0]);
-	    rbo : GLuint;
-            glGenRenderbuffers(1, *rbo);
-            glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, xx dim.x, xx dim.y);
-            glBindRenderbuffer(GL_RENDERBUFFER, 0);
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+	    //rbo : GLuint;
+            //glGenRenderbuffers(1, *rbo);
+            //glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+            //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, xx dim.x, xx dim.y);
+            //glBindRenderbuffer(GL_RENDERBUFFER, 0);
+            ds_tex : GLuint;
+            glGenTextures(1, *ds_tex);
+            glBindTexture(GL_TEXTURE_2D, ds_tex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, xx dim.x, xx dim.y, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, null);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, ds_tex, 0);
+
             assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 	};
 	case oglTexFormat.RGBA8U; #through;
@@ -446,7 +459,11 @@ ogl_rt_get_attachment :: (rt : *oglRT, attachment : oglRTAttachment) -> oglTex {
     prev_fbo : GLuint;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, xx *prev_fbo);
     ogl_rt_bind(rt);
-    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, xx (GL_COLOR_ATTACHMENT0 + attachment), GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, xx *tex.impl_state);
+    if attachment == .DS {
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, xx GL_DEPTH_STENCIL_ATTACHMENT, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, xx *tex.impl_state);
+    }else {
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, xx (GL_COLOR_ATTACHMENT0 + attachment), GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, xx *tex.impl_state);
+    }
     // TODO: -- clean this up
     glBindFramebuffer(GL_FRAMEBUFFER, prev_fbo);
     // ---------------------
@@ -477,7 +494,7 @@ ogl_set_scissor :: (x : float32 , y : float32, w : float32, h : float32) {
     glScissor(xx x,xx y,xx w,xx h);
 }
 ogl_clear_all_state :: () {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindVertexArray(xx global_context.vao);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -485,8 +502,8 @@ ogl_clear_all_state :: () {
         glDisableVertexAttribArray(xx i);
     }
     for i : 0..OGL_MAX_TEX_SLOTS-1 {
-        glActiveTexture(xx (GL_TEXTURE0 + i));
-        glBindTexture(GL_TEXTURE_2D, 0);
+        //glActiveTexture(xx (GL_TEXTURE0 + i));
+        //glBindTexture(GL_TEXTURE_2D, 0);
     }
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     glBindVertexArray(global_context.vao);
