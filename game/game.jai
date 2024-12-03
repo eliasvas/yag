@@ -109,7 +109,7 @@ main :: () {
         // render a white quad?
         ogl_rt_clear(null);
         ogl_rt_clear(*shadow_rt);
-        proj := m4_persp(90.0, viewport.width/viewport.height, 0.1, 1000);
+        proj := m4_persp(45.0, viewport.width/viewport.height, 0.1, 1000);
         xskydome_render(*skydome, viewport, *c, proj);
         ogl_rt_bind(null);
         ogl_clear_all_state();
@@ -122,9 +122,9 @@ main :: () {
         ogl_set_viewport(0,0,1024,1024);
         ogl_rt_bind(*shadow_rt);
         ogl_bind_sp(*shadow_sp);
-        light_proj := m4_ortho(-20,20,-20,20,1,10);
+        light_proj := m4_ortho(-20,20,-20,20,0.1,20);
         dir_light := xdir_light_make_basic();
-        light_view := m4_look_at(dir_light.dl.dir * -5.0, .{0,0,0}, .{0,1,0});
+        light_view := m4_look_at(dir_light.dl.dir * 10.0, .{0,0,0}, .{0,1,0});
         ogl_sp_set_uniform(*shadow_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
         ogl_sp_set_uniform(*shadow_sp, "view", oglShaderDataType.MAT4, light_view.raw.data);
         ogl_sp_set_uniform(*shadow_sp, "proj", oglShaderDataType.MAT4, light_proj.raw.data);
@@ -132,14 +132,19 @@ main :: () {
 
 
         // then render the scene with the shadow map bound
-        lsp := m4_mult(light_proj, light_view);
+        lsm := m4_mult(light_proj, light_view);
         ogl_set_viewport(0,0,1280,720);
         ogl_rt_bind(null);
         ogl_bind_sp(*bp_sp);
         ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
+
         ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, view.raw.data);
         ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
-        ogl_sp_set_uniform(*bp_sp, "light_space_matrix", oglShaderDataType.MAT4, lsp.raw.data);
+
+        //ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, light_view.raw.data);
+        //ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, light_proj.raw.data);
+
+        ogl_sp_set_uniform(*bp_sp, "light_space_matrix", oglShaderDataType.MAT4, lsm.raw.data);
         render_sample_scene(*bp_sp);
 
 
