@@ -1,7 +1,6 @@
 #import "Basic";
 #import "String";
 #import "chaos";
-// TODO: A nice debug drawing API for points/lines/triangles, no textures only wire/solid!
 
 my_win : xWindow;
 bp_sp : oglSP;
@@ -10,6 +9,7 @@ white_img : oglTex;
 blue_img : oglTex;
 diff_img : oglTex;
 spec_img : oglTex;
+trans_red_img : oglTex;
 
 cube_mesh : xMesh;
 sphere_mesh : xMesh;
@@ -18,12 +18,21 @@ skydome : xSkydome;
 shadow_sp : oglSP;
 shadow_rt : oglRT;
 
+
+proj : m4;
+view : m4;
+
+proj_test : m4;
+view_test : m4;
+test_view_pos : v3;
+
 main :: () {
     c : xCam;
     viewport: v4 = .{0,0,1280,720};
 
     assert(xwin_init(*my_win, "chaos", viewport.width, viewport.height, xWindowFlags.RESIZABLE));
     ogl_init();
+    ximm_init();
 
     white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
     ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
@@ -31,7 +40,12 @@ main :: () {
     blue := u8.[ 0x00,0x00,0xFF,0xFF ];
     ogl_tex_init(*blue_img, .{1,1}, blue.data, oglTexFormat.RGBA8U);
 
-    assert(ogl_rt_init(*shadow_rt, .{1024,1024}, .RGBA32F));
+    trans_red := u8.[ 0xFF,0x00,0x00,0x7F ];
+    ogl_tex_init(*trans_red_img, .{1,1}, trans_red.data, oglTexFormat.RGBA8U);
+
+
+
+    assert(ogl_rt_init(*shadow_rt, .{4096,4096}, .RGBA32F));
 
 
 
@@ -104,27 +118,42 @@ main :: () {
             xim_consume_events(wevents);
             xim_capture_end();
         }
+
+        // This is a test for shadow mapping frustum bounds, @DELETEME
+        if xim_kkey_pressed(.SC_UP) test_view_pos.z+=1;
+        if xim_kkey_pressed(.SC_LEFT) test_view_pos.x+=1;
+        if xim_kkey_pressed(.SC_DOWN) test_view_pos.z-=1;
+        if xim_kkey_pressed(.SC_RIGHT) test_view_pos.x-=1;
+
+
         if (xim_kkey_pressed(.SC_ESCAPE)) exit(1); 
         xcam_update(*c, xx 1.0/60.0);
         // render a white quad?
         ogl_rt_clear(null);
         ogl_rt_clear(*shadow_rt);
-        proj := m4_persp(45.0, viewport.width/viewport.height, 0.1, 1000);
+        proj = m4_persp(45.0, viewport.width/viewport.height, 0.1, 1000);
         xskydome_render(*skydome, viewport, *c, proj);
         ogl_rt_bind(null);
         ogl_clear_all_state();
 
+        view = xcam_get_view_mat(*c);
 
-        view := xcam_get_view_mat(*c);
+        proj_test = m4_persp(45.0, viewport.width/viewport.height, 0.1, 10);
+        view_test = m4_trans(test_view_pos);
+
+
+        corners := xfrustum_get_corners_in_ws(proj_test,view_test);
+        dir_light := xdir_light_make_basic();
+        light_view := xfrustum_calc_vm_for_dir_light(corners, dir_light.dl);
+        light_proj := xfrustum_calc_pm_for_dir_light(corners, light_view, dir_light.dl);
 
 
         // render the shadow map first
-        ogl_set_viewport(0,0,1024,1024);
+        ogl_set_viewport(0,0,4096,4096);
         ogl_rt_bind(*shadow_rt);
         ogl_bind_sp(*shadow_sp);
-        light_proj := m4_ortho(-20,20,-20,20,0.1,20);
-        dir_light := xdir_light_make_basic();
-        light_view := m4_look_at(dir_light.dl.dir * 10.0, .{0,0,0}, .{0,1,0});
+        //light_proj := m4_ortho(-20,20,-20,20,0.1,20);
+        //light_view := m4_look_at(dir_light.dl.dir * 10.0, .{0,0,0}, .{0,1,0});
         ogl_sp_set_uniform(*shadow_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
         ogl_sp_set_uniform(*shadow_sp, "view", oglShaderDataType.MAT4, light_view.raw.data);
         ogl_sp_set_uniform(*shadow_sp, "proj", oglShaderDataType.MAT4, light_proj.raw.data);
@@ -147,8 +176,7 @@ main :: () {
         ogl_sp_set_uniform(*bp_sp, "light_space_matrix", oglShaderDataType.MAT4, lsm.raw.data);
         render_sample_scene(*bp_sp);
 
-
-
+        ximm_flush(proj, view);
         xwin_swap(*my_win);
     }
 
@@ -168,10 +196,29 @@ render_sample_scene :: (sp : *oglSP) {
     point_light := xpoint_light_make_basic(light_pos);
     xlight_set_to_shader(*point_light, sp);
 
-    // render base cube 
+    // render far frustum corners
+    viewport: v4 = .{0,0,1280,720};
+
+    if (sp == *bp_sp) {
+      //render the VP frustum
+      corners := xfrustum_get_corners_in_ws(proj_test,view_test);
+      xfrustum_debug_draw_corners(corners, .{0,0,1,0.5});
+
+      // render the shadow_map frustum
+      dir_light := xdir_light_make_basic();
+      light_view := xfrustum_calc_vm_for_dir_light(corners, dir_light.dl);
+      light_proj := xfrustum_calc_pm_for_dir_light(corners, light_view, dir_light.dl);
+      corners2 := xfrustum_get_corners_in_ws(light_proj,light_view);
+      xfrustum_debug_draw_corners(corners2, .{0,1,0,0.5});
+
+
+    }
+
+
+    // render big cube 
+    big_cube_mat := xMaterial.{sm=xsimple_material_make(*trans_red_img,*white_img, 8), kind=.SIMPLE};
     bmodel := m4_mult(m4_trans(.{0,-2,0}),m4_scale(.{100,1,100}));
-    bcube_mat := xMaterial.{sm=xsimple_material_make(*diff_img, *spec_img, 5000), kind=.SIMPLE};
-    xmesh_render(*cube_mesh, sp, *bcube_mat, bmodel);
+    xmesh_render(*cube_mesh, sp, *big_cube_mat, bmodel);
 
     // render the cube
     model := m4_mult(m4_trans(.{0,2,0}),m4_rotate(90.0 * cast(float)seconds_since_init()/40.0, .{0,1,0}));
@@ -193,7 +240,6 @@ render_sample_scene :: (sp : *oglSP) {
     sphere_mat := xMaterial.{sm=xsimple_material_make(*blue_img,*white_img, 8), kind=.SIMPLE};
     sphere_mat.sm.specular_mod = .{0.7,0.7,0.7,1};
     xmesh_render(*sphere_mesh, sp, *sphere_mat, m4_trans(.{3,3,0}));
-
 }
 
 

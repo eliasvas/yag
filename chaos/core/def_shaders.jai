@@ -143,7 +143,7 @@ void main()
    vec3 dl = calc_dir_light(dir_light, norm, view_dir);
    vec3 pl = calc_point_light(point_light, norm, world_pos, view_dir);
 
-   FragColor = vec4(pl + dl, 1.0);
+   FragColor = vec4(pl + dl, texture(material.diffuse, tc).w);
 }
 DONE
 
@@ -158,5 +158,31 @@ void main() {
 }
 DONE
 
+
+
+WS_VERT_SHADER :: #string DONE
+#version 430 core
+layout (location = 0) in vec3 in_wpos;
+layout (location = 1) in vec4 in_color;
+uniform mat4 proj;
+uniform mat4 view;
+out vec4 f_color;
+
+void main()
+{
+   gl_Position = proj*view*vec4(in_wpos.xyz, 1.0);
+   f_color = in_color;
+}
+DONE
+
+WS_FRAG_SHADER :: #string DONE
+#version 430 core
+out vec4 FragColor;
+in vec4 f_color;
+
+void main() {
+   FragColor = f_color;
+}
+DONE
 
 

@@ -92,6 +92,12 @@ v4_dot :: (a : v4, b : v4) -> float {return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w;}
 v4_len :: (v : v4) -> float { return sqrt(v4_dot(v,v));}
 v4_norm :: (v : v4) -> v4 {return v*(1.0/v4_len(v));}
 
+iv4:: struct {
+  x,y,z,w : u32;
+  #place x; r,g,b,a : u32;
+  #place x; arr : [4]u32;
+}
+
 ////////////////////////
 // Matrices
 ////////////////////////
