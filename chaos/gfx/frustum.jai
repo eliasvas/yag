@@ -84,13 +84,14 @@ xfrustum_calc_center_in_ws :: (corners : []v3) -> v3 {
 // proj and view are projection and view of the frustum we want to 'enclose'
 xfrustum_calc_vm_for_dir_light :: (corners : []v3, dl : xDirectionalLight) -> m4 {
   center := xfrustum_calc_center_in_ws(corners);
-  light_view := m4_look_at(dl.dir/100.0 + center, center, .{0,1,0});
+  // TODO: look into how i implement look_at
+  light_view := m4_look_at(center, center - dl.dir, .{0,1,0});
   return light_view;
 }
 
 // here we calculate the bounds of the ortho projection by taking into account ws coords
 // and transforming them to light's coordinate system, so we are producing an AABB
-xfrustum_calc_pm_for_dir_light :: (corners : []v3, dl_view : m4, dl : xDirectionalLight, z_mult : float32 = 2.0) -> m4 {
+xfrustum_calc_pm_for_dir_light :: (corners : []v3, dl_view : m4, dl : xDirectionalLight, z_mult : float32 = 1.0) -> m4 {
   min_x := FLOAT32_MAX;
   min_y := FLOAT32_MAX;
   min_z := FLOAT32_MAX;
@@ -109,11 +110,10 @@ xfrustum_calc_pm_for_dir_light :: (corners : []v3, dl_view : m4, dl : xDirection
     max_z = max(max_z, v.z);
   }
 
-  //min_z = ifx min_z < 0.0 then min_z*z_mult else min_z/z_mult;
-  //max_z = ifx max_z < 0.0 then max_z/z_mult else max_z*z_mult;
+  min_z = ifx min_z < 0.0 then min_z*z_mult else min_z/z_mult;
+  max_z = ifx max_z < 0.0 then max_z/z_mult else max_z*z_mult;
 
   light_proj := m4_ortho(min_x,max_x,min_y,max_y,min_z,max_z);
-  //light_proj := m4_ortho(min_x,max_x,min_y,max_y,-100,100);
   return light_proj;
 }
 
@@ -132,3 +132,49 @@ xfrustum_debug_draw_corners :: (corners : []v3, col : v4 = .{0.5,0.5,0.5,0.5}) {
   }
 }
 
+xfrustum_calc_lsm :: (view : m4, proj : m4, dir_light : xDirectionalLight, draw_view_frustum : bool = true, draw_lsm_frustum : bool = true) -> m4 {
+  // here we get the world space coordinates of our frustum, for the view and proj we specified
+  corners := xfrustum_get_corners_in_ws(proj,view);
+  if draw_view_frustum then xfrustum_debug_draw_corners(corners, .{0,0,1,0.5});
+  // here we calculate the view and projection of the frustum for the shadow_map(s),
+  // so it can enclose the whole sub-frustum we calculated above
+  light_view := xfrustum_calc_vm_for_dir_light(corners, dir_light);
+  light_proj := xfrustum_calc_pm_for_dir_light(corners, light_view, dir_light);
+  if draw_lsm_frustum {
+      corners_lsm := xfrustum_get_corners_in_ws(light_proj,light_view);
+      xfrustum_debug_draw_corners(corners_lsm, .{0,1,0,0.5});
+  }
+  // we combine light_view and light_proj to get a light_space_matrix for all sub-frusta
+  lsm := m4_mult(light_proj, light_view);
+  return lsm;
+}
+
+xfrustum_calc_lsms_and_set_to_shader :: (sp : *oglSP, view : m4, proj : []m4, dir_light : xDirectionalLight, draw_view_frustum : bool = true, draw_lsm_frustum : bool = true){
+  assert(proj.count> 0);
+
+  for p : proj {
+    lsm_i := xfrustum_calc_lsm(view,p,dir_light, draw_view_frustum, draw_lsm_frustum);
+    ogl_sp_set_uniform(sp, "light_space_matrix", oglShaderDataType.MAT4, lsm_i.raw.data);
+    ogl_sp_set_uniform(sp, "lsm", oglShaderDataType.MAT4, lsm_i.raw.data);
+  }
+
+}
+
+CSM_VERT_SHADER :: #string DONE
+#version 430 core
+layout (location = 0) in vec3 in_pos;
+layout (location = 1) in vec3 in_norm;
+layout (location = 2) in vec2 in_tc;
+uniform mat4 model;
+uniform mat4 lsm;
+
+void main()
+{
+   gl_Position = lsm*model*vec4(in_pos.xyz, 1.0);
+}
+DONE
+
+CSM_FRAG_SHADER :: #string DONE
+void main(){
+}
+DONE

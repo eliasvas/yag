@@ -299,7 +299,7 @@ ogl_sp_set_dyn_state :: (shader : *oglSP, state : oglDynState) {
     gl_state : GLuint = ogl_dyn_state_to_gl_state(state);
     glEnable(gl_state);
     if #complete state == {
-	case .DEPTH; glDepthFunc(GL_LEQUAL);
+	case .DEPTH; glDepthFunc(GL_LESS);
 	case .CULL; glCullFace(GL_BACK);
 	case .STENCIL; glStencilFunc(GL_EQUAL, 1, 0xFF);
 	case .BLEND; glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -316,7 +316,9 @@ oglTexFormat :: enum {
     R8U;
     RGBA8U;
     RGB8U;
+
     RGBA32F;
+    R32F;
 };
 oglTex :: struct {
     dim : v2;
@@ -354,6 +356,7 @@ ogl_tex_init :: (tex : *oglTex, dimensions : v2, data : *u8, data_format : oglTe
 	    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, xx dim.x, xx dim.y, 0, GL_RED, GL_UNSIGNED_BYTE, data);
 	};
 	case oglTexFormat.RGBA32F; #through;
+	case oglTexFormat.R32F; #through;
 	case; print("invalid texture format=[%]", format);
     }
     return (impl_state != null);
@@ -388,27 +391,30 @@ ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool 
     attachments : [4]GLuint;
 
     if #complete format == {
+	case oglTexFormat.R32F; #through;
 	case oglTexFormat.RGBA32F; {
+            tex_format = xx (ifx format == oglTexFormat.RGBA32F then GL_RGBA32F else GL_R32F);
+            internal_format :GLuint = xx (ifx format == oglTexFormat.RGBA32F then GL_RGBA else GL_RED);
             glGenFramebuffers(1, xx *impl_state);
             glBindFramebuffer(GL_FRAMEBUFFER, xx impl_state);
             // - position color buffer
             glGenTextures(1, *attachments[0]);
             glBindTexture(GL_TEXTURE_2D, attachments[0]);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, xx dim.x, xx dim.y, 0, GL_RGBA, GL_FLOAT, null);
+            glTexImage2D(GL_TEXTURE_2D, 0, xx tex_format, xx dim.x, xx dim.y, 0, internal_format, GL_FLOAT, null);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, attachments[0], 0);
             // - normal color buffer
             glGenTextures(1, *attachments[1]);
             glBindTexture(GL_TEXTURE_2D, attachments[1]);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, xx dim.x, xx dim.y, 0, GL_RGBA, GL_FLOAT, null);
+            glTexImage2D(GL_TEXTURE_2D, 0, xx tex_format, xx dim.x, xx dim.y, 0, internal_format, GL_FLOAT, null);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, attachments[1], 0);
             // - color + specular color buffer
             glGenTextures(1, *attachments[2]);
             glBindTexture(GL_TEXTURE_2D, attachments[2]);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, xx dim.x, xx dim.y, 0, GL_RGBA, GL_FLOAT, null);
+            glTexImage2D(GL_TEXTURE_2D, 0, xx tex_format, xx dim.x, xx dim.y, 0, internal_format, GL_FLOAT, null);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, attachments[2], 0);
