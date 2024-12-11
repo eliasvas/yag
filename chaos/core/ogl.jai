@@ -136,7 +136,7 @@ gl_check_shader_link_errors :: (sp_handle : GLuint) -> bool {
     }
     return (success == 0);
 }
-gl_make_sp :: (vs_source : string, fs_source : string) -> GLuint {
+gl_make_sp :: (vs_source : string, fs_source : string, gs_source : string = "") -> GLuint {
     sp : GLuint = 0;
 
     vs : GLuint = glCreateShader(GL_VERTEX_SHADER);
@@ -151,9 +151,19 @@ gl_make_sp :: (vs_source : string, fs_source : string) -> GLuint {
     assert(fs != 0);
     assert(!gl_check_shader_compile_errors(fs));
 
+    gs : GLuint;
+    if gs_source.count {
+        gs = glCreateShader(GL_GEOMETRY_SHADER);
+        glShaderSource(gs, 1, *gs_source.data, xx 0);
+        glCompileShader(gs);
+        assert(gs != 0);
+        assert(!gl_check_shader_compile_errors(gs));
+    }
+
     sp = glCreateProgram();
     glAttachShader(sp, vs);
     glAttachShader(sp, fs);
+    if gs_source.count then glAttachShader(sp, gs);
     glLinkProgram(sp);
     assert(!gl_check_shader_link_errors(sp));
 
@@ -178,9 +188,9 @@ ogl_get_component_num_for_data_type :: (type : oglShaderDataType) -> u32 {
 ogl_attrib_make :: (vbo_idx : u32, type : oglShaderDataType, stride : u32, offset : u32, instanced : bool) -> oglShaderAttrib {
     return oglShaderAttrib.{ vbo_idx, stride, offset, type, instanced };
 }
-ogl_sp_init :: (shader : *oglSP, vs_source : string, fs_source : string) -> bool {
+ogl_sp_init :: (shader : *oglSP, vs_source : string, fs_source : string, gs_source : string = "") -> bool {
     using shader;
-    impl_state = cast(*void)gl_make_sp(vs_source, fs_source);
+    impl_state = cast(*void)gl_make_sp(vs_source, fs_source, gs_source);
     attrib_count = 0;
     //ogl_check_error();
     return (cast(s64)impl_state !=0);

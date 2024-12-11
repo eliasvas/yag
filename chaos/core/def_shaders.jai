@@ -166,6 +166,7 @@ layout (location = 0) in vec3 in_wpos;
 layout (location = 1) in vec4 in_color;
 uniform mat4 proj;
 uniform mat4 view;
+
 out vec4 f_color;
 
 void main()
@@ -184,5 +185,3 @@ void main() {
    FragColor = f_color;
 }
 DONE
-
-

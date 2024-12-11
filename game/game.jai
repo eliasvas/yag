@@ -2,7 +2,6 @@
 #import "String";
 #import "chaos";
 
-my_win : xWindow;
 bp_sp : oglSP;
 light_sp : oglSP;
 white_img : oglTex;
@@ -27,12 +26,7 @@ view_test : m4;
 test_view_pos : v3;
 
 main :: () {
-    c : xCam;
-    viewport: v4 = .{0,0,1280,720};
-
-    assert(xwin_init(*my_win, "chaos", viewport.width, viewport.height, xWindowFlags.RESIZABLE));
-    ogl_init();
-    ximm_init();
+    xeng_init();
 
     white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
     ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
@@ -42,8 +36,6 @@ main :: () {
 
     trans_red := u8.[ 0xFF,0x00,0x00,0x7F ];
     ogl_tex_init(*trans_red_img, .{1,1}, trans_red.data, oglTexFormat.RGBA8U);
-
-
 
     assert(ogl_rt_init(*shadow_rt, .{4096,4096}, .R32F));
 
@@ -111,13 +103,7 @@ main :: () {
     sphere_mesh = xmesh_gen_sphere(1.0, 64,64);
 
     while true {
-        // input stuff
-        {
-            wevents := xwin_capture_events(*my_win);
-            xim_capture_begin();
-            xim_consume_events(wevents);
-            xim_capture_end();
-        }
+        xeng_frame_init();
 
         // This is a test for shadow mapping frustum bounds, @DELETEME
         if xim_kkey_pressed(.SC_UP) test_view_pos.z+=1;
@@ -127,19 +113,18 @@ main :: () {
 
 
         if (xim_kkey_pressed(.SC_ESCAPE)) exit(1); 
-        xcam_update(*c, xx 1.0/60.0);
         // render a white quad?
         ogl_rt_clear(null);
         ogl_rt_clear(*shadow_rt);
         // because precision of the depth buffer is logarithmic, for best results we can set this to 1, because 0-1 is a BIG range of numbers sadly
-        proj = m4_persp(45.0, viewport.width/viewport.height, 0.1, 1000);
-        xskydome_render(*skydome, viewport, *c, proj);
+        proj = m4_persp(45.0, xwin_get_fovx(*xeng().win), 1, 1000);
+        xskydome_render(*skydome, xwin_get_viewport(*xeng().win), *xeng().c, proj);
         ogl_rt_bind(null);
         ogl_clear_all_state();
 
-        view = xcam_get_view_mat(*c);
+        view = xcam_get_view_mat(*xeng().c);
 
-        proj_test = m4_persp(45.0, viewport.width/viewport.height, 0.1, 10);
+        proj_test = m4_persp(45.0, xwin_get_fovx(*xeng().win), 0.1, 10);
         view_test = m4_trans(test_view_pos);
 
         // render the shadow map first
@@ -159,14 +144,12 @@ main :: () {
         ogl_set_viewport(0,0,1280,720);
         ogl_rt_bind(null);
         ogl_bind_sp(*bp_sp);
-        ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *c.pos);
+        ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *xeng().c.pos);
         ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, view.raw.data);
         ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
         render_sample_scene(*bp_sp);
 
-
-        ximm_flush(proj, view);
-        xwin_swap(*my_win);
+        xeng_frame_end();
     }
 
 }

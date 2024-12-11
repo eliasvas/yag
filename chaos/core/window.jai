@@ -17,6 +17,8 @@ xWindow :: struct {
 
 
 
+
+
 xWindowEvent :: struct {
     xWindowEventKind :: enum {
         NONE;
@@ -46,6 +48,14 @@ xWindowEvent :: struct {
         };
         //gamepad_event(s) ...
     };
+}
+
+xwin_get_viewport :: (win : *xWindow) ->v4 {
+    return .{0,0,win.dim.x,win.dim.y};
+}
+
+xwin_get_fovx :: (win : *xWindow) ->float32 {
+    return win.dim.x / win.dim.y;
 }
 
 xwin_get_dim :: (win : *xWindow) -> v2 {
