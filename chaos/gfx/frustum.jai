@@ -86,6 +86,7 @@ xfrustum_calc_vm_for_dir_light :: (corners : []v3, dl : xDirectionalLight) -> m4
   center := xfrustum_calc_center_in_ws(corners);
   // TODO: look into how i implement look_at
   light_view := m4_look_at(center, center - dl.dir, .{0,1,0});
+  //light_view := m4_look_at(center + dl.dir, center, .{0,1,0});
   return light_view;
 }
 
@@ -132,17 +133,27 @@ xfrustum_debug_draw_corners :: (corners : []v3, col : v4 = .{0.5,0.5,0.5,0.5}) {
   }
 }
 
-xfrustum_calc_lsm :: (view : m4, proj : m4, dir_light : xDirectionalLight, draw_view_frustum : bool = true, draw_lsm_frustum : bool = true) -> m4 {
+
+xFrustumDefaultColor :: v4.{0,0,1,0.5};
+
+xFrustumCascadeColors :: v4.[
+  v4.{1,0,0,0.5},
+  v4.{0.4,0,0.6,0.5},
+  v4.{0.2,0.9,0.2,0.5},
+  v4.{1,1,0.5,0.5}
+];
+
+xfrustum_calc_lsm :: (view : m4, proj : m4, dir_light : xDirectionalLight, cascade_index : u32, draw_view_frustum : bool = true, draw_lsm_frustum : bool = true) -> m4 {
   // here we get the world space coordinates of our frustum, for the view and proj we specified
   corners := xfrustum_get_corners_in_ws(proj,view);
-  if draw_view_frustum then xfrustum_debug_draw_corners(corners, .{0,0,1,0.5});
+  if draw_view_frustum then xfrustum_debug_draw_corners(corners, xFrustumDefaultColor);
   // here we calculate the view and projection of the frustum for the shadow_map(s),
   // so it can enclose the whole sub-frustum we calculated above
   light_view := xfrustum_calc_vm_for_dir_light(corners, dir_light);
   light_proj := xfrustum_calc_pm_for_dir_light(corners, light_view, dir_light);
   if draw_lsm_frustum {
       corners_lsm := xfrustum_get_corners_in_ws(light_proj,light_view);
-      xfrustum_debug_draw_corners(corners_lsm, .{0,1,0,0.5});
+      xfrustum_debug_draw_corners(corners_lsm, xFrustumCascadeColors[cascade_index]);
   }
   // we combine light_view and light_proj to get a light_space_matrix for all sub-frusta
   lsm := m4_mult(light_proj, light_view);
@@ -150,12 +161,10 @@ xfrustum_calc_lsm :: (view : m4, proj : m4, dir_light : xDirectionalLight, draw_
 }
 
 xfrustum_calc_lsms_and_set_to_shader :: (sp : *oglSP, view : m4, proj : []m4, dir_light : xDirectionalLight, draw_view_frustum : bool = true, draw_lsm_frustum : bool = true){
-  assert(proj.count> 0);
-
-  for p : proj {
-    lsm_i := xfrustum_calc_lsm(view,p,dir_light, draw_view_frustum, draw_lsm_frustum);
-    ogl_sp_set_uniform(sp, "light_space_matrix", oglShaderDataType.MAT4, lsm_i.raw.data);
-    ogl_sp_set_uniform(sp, "lsm", oglShaderDataType.MAT4, lsm_i.raw.data);
+  for p,idx : proj {
+    lsm_i := xfrustum_calc_lsm(view,p,dir_light, xx idx, draw_view_frustum, draw_lsm_frustum);
+    name := sprint("lsm[%]", idx);
+    ogl_sp_set_uniform(sp, name, oglShaderDataType.MAT4, lsm_i.raw.data);
   }
 
 }
@@ -166,15 +175,35 @@ layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_norm;
 layout (location = 2) in vec2 in_tc;
 uniform mat4 model;
-uniform mat4 lsm;
+
+uniform mat4 lsm[4];
+
+out VS_OUT {
+    vec3 world_pos;
+} vs_out;
 
 void main()
 {
-   gl_Position = lsm*model*vec4(in_pos.xyz, 1.0);
+  vs_out.world_pos = (model*vec4(in_pos.xyz, 1.0)).xyz;
+  gl_Position = lsm[1] * vec4(vs_out.world_pos,1.0);
+  //gl_Position = vec4(vs_out.world_pos, 1.0);
 }
 DONE
 
 CSM_FRAG_SHADER :: #string DONE
+float FragColor[4];
+
+in VS_OUT {
+    vec3 world_pos;
+} fs_in;
+
+//layout (std140, binding = 0) uniform LightSpaceMatrices { mat4 lsm[4]; };
+uniform mat4 lsm[4];
+
 void main(){
+  for (int i = 0; i < 4; ++i) {
+    FragColor[i] = (lsm[i] * vec4(fs_in.world_pos,1.0)).z;
+  }
+  //gl_FragDepth = FragColor[1];
 }
 DONE

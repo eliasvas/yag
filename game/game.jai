@@ -22,6 +22,10 @@ proj : m4;
 view : m4;
 
 proj_test : m4;
+proj_test0 : m4;
+proj_test1 : m4;
+proj_test2 : m4;
+
 view_test : m4;
 test_view_pos : v3;
 
@@ -37,7 +41,7 @@ main :: () {
     trans_red := u8.[ 0xFF,0x00,0x00,0x7F ];
     ogl_tex_init(*trans_red_img, .{1,1}, trans_red.data, oglTexFormat.RGBA8U);
 
-    assert(ogl_rt_init(*shadow_rt, .{4096,4096}, .R32F));
+    assert(ogl_rt_init(*shadow_rt, .{2048,2048}, .R32F));
 
 
 
@@ -105,6 +109,11 @@ main :: () {
     while true {
         xeng_frame_init();
 
+        ImGui.Begin("Texture Viewer");
+        shadow_rt_depth := ogl_rt_get_attachment(*shadow_rt,.DS);
+        ImGui.Image(xx shadow_rt_depth.impl_state, .{shadow_rt.dim.x,shadow_rt.dim.y});
+        ImGui.End();
+
         // This is a test for shadow mapping frustum bounds, @DELETEME
         if xim_kkey_pressed(.SC_UP) test_view_pos.z+=1;
         if xim_kkey_pressed(.SC_LEFT) test_view_pos.x+=1;
@@ -125,6 +134,11 @@ main :: () {
         view = xcam_get_view_mat(*xeng().c);
 
         proj_test = m4_persp(45.0, xwin_get_fovx(*xeng().win), 0.1, 10);
+
+        proj_test0 = m4_persp(45.0, xwin_get_fovx(*xeng().win), 0.1, 2);
+        proj_test1 = m4_persp(45.0, xwin_get_fovx(*xeng().win), 2, 9);
+        proj_test2 = m4_persp(45.0, xwin_get_fovx(*xeng().win), 9, 10);
+
         view_test = m4_trans(test_view_pos);
 
         // render the shadow map first
@@ -132,7 +146,7 @@ main :: () {
         dir_light := xdir_light_make_basic();
         light_view := xfrustum_calc_vm_for_dir_light(corners, dir_light.dl);
         light_proj := xfrustum_calc_pm_for_dir_light(corners, light_view, dir_light.dl);
-        ogl_set_viewport(0,0,4096,4096);
+        ogl_set_viewport(0,0,shadow_rt.dim.x,shadow_rt.dim.y);
         ogl_rt_bind(*shadow_rt);
         ogl_bind_sp(*shadow_sp);
         ogl_sp_set_uniform(*shadow_sp, "view", oglShaderDataType.MAT4, light_view.raw.data);
@@ -173,7 +187,11 @@ render_sample_scene :: (sp : *oglSP) {
     // render frustum / lsm
     draw : bool = (sp == *bp_sp);
 
-    cascade_pms := m4.[proj_test];
+    //cascade_pms := m4.[proj_test, proj_test0, proj_test1, proj_test2];
+    //cascade_pms := m4.[proj_test];
+    //xfrustum_calc_lsms_and_set_to_shader(sp, view_test, cascade_pms, dir_light.dl, draw, draw);
+
+    cascade_pms := m4.[proj_test0, proj_test1, proj_test2];
     xfrustum_calc_lsms_and_set_to_shader(sp, view_test, cascade_pms, dir_light.dl, draw, draw);
 
 

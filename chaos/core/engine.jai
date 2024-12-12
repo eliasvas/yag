@@ -57,8 +57,8 @@ xeng_frame_init :: () {
   ImGui_ImplSdl_NewFrame(xx win.impl_state);
   ImGui.NewFrame();
   //ImGui.Text("Hello, world!");
-  show_demo : bool = true;
-  ImGui.ShowDemoWindow(*show_demo);
+  //show_demo : bool = true;
+  //ImGui.ShowDemoWindow(*show_demo);
   ///////////////////////
 }
 

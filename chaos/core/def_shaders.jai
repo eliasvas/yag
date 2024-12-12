@@ -8,17 +8,19 @@ layout (location = 2) in vec2 in_tc;
 uniform mat4 proj;
 uniform mat4 view;
 uniform mat4 model;
-uniform mat4 light_space_matrix; // World Space -> light's Clip Space
+uniform mat4 lsm[4]; // World Space -> light's Clip Space
 out vec2 tc;
 out vec3 world_pos;
 out vec3 f_normal;
-out vec4 f_lsp_vert_coords;
+out vec4 f_lsp_vert_coords[4];
 void main()
 {
    gl_Position = proj*view*model*vec4(in_pos.xyz, 1.0);
    world_pos = vec3(model*vec4(in_pos.xyz, 1.0));
    f_normal = mat3(transpose(inverse(model))) * in_norm;
-   f_lsp_vert_coords = light_space_matrix*model*vec4(in_pos.xyz, 1.0);
+   for (int i = 0; i < 4; ++i) {
+      f_lsp_vert_coords[i] = lsm[i]*model*vec4(in_pos.xyz, 1.0);
+   }
    tc = in_tc;
 }
 DONE
@@ -28,7 +30,7 @@ BP_FRAG_SHADER :: #string DONE
 in vec2 tc;
 in vec3 world_pos;
 in vec3 f_normal;
-in vec4 f_lsp_vert_coords;
+in vec4 f_lsp_vert_coords[4];
 uniform sampler2D shadow_map;
 
 
@@ -106,7 +108,7 @@ vec3 calc_dir_light(DirLight light, vec3 normal, vec3 view_dir)
     vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
     vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
     vec3 specular = light.specular * spec * vec3(texture(material.specular, tc)*material.specular_mod);
-    float s = calc_shadow(f_lsp_vert_coords);
+    float s = calc_shadow(f_lsp_vert_coords[1]);
     return (ambient + (1.0-s)*(diffuse + specular));
 }
 
@@ -167,21 +169,51 @@ layout (location = 1) in vec4 in_color;
 uniform mat4 proj;
 uniform mat4 view;
 
-out vec4 f_color;
+out VS_OUT {
+    vec4 color;
+} vs_out;
 
 void main()
 {
    gl_Position = proj*view*vec4(in_wpos.xyz, 1.0);
-   f_color = in_color;
+   vs_out.color = in_color;
 }
 DONE
 
 WS_FRAG_SHADER :: #string DONE
 #version 430 core
 out vec4 FragColor;
-in vec4 f_color;
+
+in GS_OUT {
+    vec4 color;
+} fs_in;
 
 void main() {
-   FragColor = f_color;
+   FragColor = fs_in.color;
 }
 DONE
+
+// This is a simple passthrough geometry shader to get the hang of things!
+WS_NORM_VIS_GEOM_SHADER :: #string DONE
+#version 430 core
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 6) out;
+
+in VS_OUT {
+    vec4 color;
+} gs_in[]; // array because we are processing 3 verts at a time!
+
+out GS_OUT {
+    vec4 color;
+} gs_out;
+
+void main() {
+   for (int i = 0; i < 3; ++i) {
+      gl_Position = gl_in[i].gl_Position;
+      gs_out.color = gs_in[i].color;
+      EmitVertex();
+   }
+   EndPrimitive();
+}
+DONE
+
