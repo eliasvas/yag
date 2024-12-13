@@ -8,6 +8,8 @@ xEngine :: struct {
   white_img : oglTex;
   proj : m4;
   view : m4;
+
+  dir_light : xLight;
 }
 
 g_engine : xEngine;
@@ -31,6 +33,7 @@ xeng_init :: () {
   // 5. make some misc stuff
   white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
   ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
+  dir_light = xdir_light_make_basic();
   // 6. we initialize imgui (we will replace this with OUR gui lib soon enough)
   imgui_context := ImGui.CreateContext();
   ImGui_ImplSdl_Init(xx win.impl_state);

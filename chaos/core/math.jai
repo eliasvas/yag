@@ -243,6 +243,11 @@ m4_inverse :: (m: m4, epsilon := 0.0001) -> m4, bool {
   assert(bits_equal(*mult,*expected));
 }
 
+rad_to_deg :: (d : float) -> float {
+  RAD2DEG :: #run (180.0/acos(-1.0));
+  return RAD2DEG * d;
+}
+
 deg_to_rad :: (d : float) -> float {
   DEG2RAD :: #run (acos(-1.0) / 180.0);
   return DEG2RAD * d;
@@ -262,6 +267,44 @@ m4_persp :: (fovX : float32, aspect_ratio : float32, front : float, back : float
   m._44 =  0.0;
   return m;
 }
+
+//////////////////////////////////////////
+// Perspective matrix specifics extraction
+//////////////////////////////////////////
+persp_get_near :: (pm : m4) -> float32 { return pm._34 / (pm._33 -1); }
+persp_get_far :: (pm : m4) -> float32 { n := persp_get_near(pm); return n*(pm._33-1)/(pm._33+1); }
+
+persp_get_aspect_ratio :: (pm : m4) -> float32 {
+  front := persp_get_near(pm);
+  right := (1.0/pm._11) * front;
+  top := (1.0/pm._22) * front;
+  return (1.0/top)*right;
+}
+persp_get_fovx :: (pm : m4) -> float32 {
+  front := persp_get_near(pm);
+  right := (1.0/pm._11) * front;
+  tangent := right / front; 
+  return 2 * rad_to_deg(atan(tangent));
+}
+
+// TODO: can we NOT have a max cascades maybe? possible dynamic allocation though
+MAX_CASCADES :: 4;
+m4_persp_gen_cascades :: (pm : m4, cascades_count : u32) -> [MAX_CASCADES]m4 {
+  pm_near := persp_get_near(pm);
+  pm_far := persp_get_far(pm);
+  pm_aspect := persp_get_aspect_ratio(pm);
+  pm_fovx := persp_get_fovx(pm);
+  assert(cascades_count > 0 && cascades_count <= MAX_CASCADES);
+  cascades : [MAX_CASCADES]m4;
+  for i : 0..cascades_count-1 {
+    step := (pm_far - pm_near) / cascades_count;
+    near := pm_near + i * step;
+    far := pm_near + (i+1) * step;
+    cascades[i] = m4_persp(pm_fovx, pm_aspect, near, far);
+  }
+  return cascades;
+}
+////////////////////////////////////////////
 
 m4_ortho :: (l : float32, r : float32, b : float32, t : float32, n : float32, f : float32) -> m4 {
   m : m4 = m4_I;

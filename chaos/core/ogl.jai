@@ -329,6 +329,7 @@ oglTexFormat :: enum {
 
     RGBA32F;
     R32F;
+    D32F; // will create array texture FBO for layered rendering
 };
 oglTex :: struct {
     dim : v2;
@@ -367,6 +368,7 @@ ogl_tex_init :: (tex : *oglTex, dimensions : v2, data : *u8, data_format : oglTe
 	};
 	case oglTexFormat.RGBA32F; #through;
 	case oglTexFormat.R32F; #through;
+	case oglTexFormat.D32F; #through;
 	case; print("invalid texture format=[%]", format);
     }
     return (impl_state != null);
@@ -380,7 +382,7 @@ ogl_tex_deinit :: (tex : *oglTex) {
 ogl_bind_tex_to_slot :: (tex : *oglTex, slot : u32) {
     using tex;
     glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(GL_TEXTURE_2D, cast(GLuint)impl_state);
+    glBindTexture(xx ifx tex.format == .D32F then GL_TEXTURE_2D_ARRAY else GL_TEXTURE_2D, cast(GLuint)impl_state);
 }
 
 ///////////////////////////////
@@ -393,6 +395,7 @@ oglRT :: struct {
     format : oglTexFormat; // for color attachments
     impl_state : *void;
 };
+g_light_depth_maps : GLuint;
 ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool {
     using rt;
     dim = rt_dim;
@@ -401,6 +404,25 @@ ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool 
     attachments : [4]GLuint;
 
     if #complete format == {
+	case oglTexFormat.D32F;
+            glGenFramebuffers(1, xx *impl_state);
+            cascade_count :: 4;
+
+            glGenTextures(1, *g_light_depth_maps);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, g_light_depth_maps);
+            glTexImage3D( GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT32F, xx dim.x, xx dim.y,cascade_count+1,0, GL_DEPTH_COMPONENT, GL_FLOAT, xx 0);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+            border_color := float32.[1,1,1,1];
+            glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, border_color.data);
+            glBindFramebuffer(GL_FRAMEBUFFER, xx impl_state);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, g_light_depth_maps, 0);
+            glDrawBuffer(GL_NONE);
+            glReadBuffer(GL_NONE);
+            assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+            glBindFramebuffer(GL_FRAMEBUFFER, xx 0);
 	case oglTexFormat.R32F; #through;
 	case oglTexFormat.RGBA32F; {
             tex_format = xx (ifx format == oglTexFormat.RGBA32F then GL_RGBA32F else GL_R32F);
@@ -430,22 +452,17 @@ ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool 
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, attachments[2], 0);
 	    attachments_gl := u32.[ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 ];
             glDrawBuffers(3, *attachments_gl[0]);
-	    //rbo : GLuint;
-            //glGenRenderbuffers(1, *rbo);
-            //glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-            //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, xx dim.x, xx dim.y);
-            //glBindRenderbuffer(GL_RENDERBUFFER, 0);
             ds_tex : GLuint;
             glGenTextures(1, *ds_tex);
             glBindTexture(GL_TEXTURE_2D, ds_tex);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, xx dim.x, xx dim.y, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, null);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, xx dim.x, xx dim.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, null);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
             border_col := float32.[1.0, 1.0, 1.0, 1.0];
             glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_col.data);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, ds_tex, 0);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, ds_tex, 0);
 
             assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 	};
@@ -459,15 +476,28 @@ ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool 
 ogl_rt_bind :: (rt : *oglRT) {
     using rt;
     glBindFramebuffer(GL_FRAMEBUFFER, xx (ifx rt != null then impl_state else null));
+
+    // FIXME: this is unfathomably UGLY! why are we doing this exactly?
+    if rt && rt.format == .D32F {
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_TEXTURE_2D_ARRAY, g_light_depth_maps, 0);
+    }
 }
 ogl_rt_clear :: (rt : *oglRT) {
     using rt;
     ogl_rt_bind(rt);
+
+    // FIXME: this is unfathomably UGLY! why are we doing this exactly?
+    if rt && rt.format == .D32F {
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_TEXTURE_2D_ARRAY, g_light_depth_maps, 0);
+    }
+
     glClearColor(0.0, 0.0, 0.0, 0.0);
     //glClearColor(1.0, 1.0, 1.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // stencil?
     ogl_rt_bind(null);
 }
+
+// FIXME: what about .D32F case (texture array?)
 ogl_rt_get_attachment :: (rt : *oglRT, attachment : oglRTAttachment) -> oglTex {
     using rt;
     tex : oglTex;
@@ -478,7 +508,7 @@ ogl_rt_get_attachment :: (rt : *oglRT, attachment : oglRTAttachment) -> oglTex {
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, xx *prev_fbo);
     ogl_rt_bind(rt);
     if attachment == .DS {
-        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, xx GL_DEPTH_STENCIL_ATTACHMENT, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, xx *tex.impl_state);
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, xx GL_DEPTH_ATTACHMENT, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, xx *tex.impl_state);
     }else {
         glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, xx (GL_COLOR_ATTACHMENT0 + attachment), GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, xx *tex.impl_state);
     }

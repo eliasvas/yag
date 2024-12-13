@@ -165,6 +165,9 @@ xfrustum_calc_lsms_and_set_to_shader :: (sp : *oglSP, view : m4, proj : []m4, di
     lsm_i := xfrustum_calc_lsm(view,p,dir_light, xx idx, draw_view_frustum, draw_lsm_frustum);
     name := sprint("lsm[%]", idx);
     ogl_sp_set_uniform(sp, name, oglShaderDataType.MAT4, lsm_i.raw.data);
+    dist := sprint("cascade_plane_distances[%]", idx);
+    far := persp_get_far(proj[idx]);
+    ogl_sp_set_uniform(sp, dist, oglShaderDataType.FLOAT, *far);
   }
 
 }
@@ -175,35 +178,31 @@ layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_norm;
 layout (location = 2) in vec2 in_tc;
 uniform mat4 model;
-
-uniform mat4 lsm[4];
-
-out VS_OUT {
-    vec3 world_pos;
-} vs_out;
-
-void main()
-{
-  vs_out.world_pos = (model*vec4(in_pos.xyz, 1.0)).xyz;
-  gl_Position = lsm[1] * vec4(vs_out.world_pos,1.0);
-  //gl_Position = vec4(vs_out.world_pos, 1.0);
+void main() {
+  gl_Position = model*vec4(in_pos.xyz, 1.0);
 }
 DONE
 
 CSM_FRAG_SHADER :: #string DONE
-float FragColor[4];
-
-in VS_OUT {
-    vec3 world_pos;
-} fs_in;
-
-//layout (std140, binding = 0) uniform LightSpaceMatrices { mat4 lsm[4]; };
-uniform mat4 lsm[4];
-
+#version 430 core
 void main(){
-  for (int i = 0; i < 4; ++i) {
-    FragColor[i] = (lsm[i] * vec4(fs_in.world_pos,1.0)).z;
-  }
-  //gl_FragDepth = FragColor[1];
 }
 DONE
+
+CSM_GEOM_SHADER :: #string DONE
+#version 430 core
+layout(triangles, invocations = 4) in;
+layout(triangle_strip, max_vertices = 3) out;
+    
+uniform mat4 lsm[4];
+    
+void main() {          
+    for (int i = 0; i < 3; ++i) {
+        gl_Position = lsm[gl_InvocationID] * gl_in[i].gl_Position;
+        gl_Layer = gl_InvocationID;
+        EmitVertex();
+    }
+    EndPrimitive();
+}
+DONE
+

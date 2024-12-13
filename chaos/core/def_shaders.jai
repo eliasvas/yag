@@ -31,7 +31,7 @@ in vec2 tc;
 in vec3 world_pos;
 in vec3 f_normal;
 in vec4 f_lsp_vert_coords[4];
-uniform sampler2D shadow_map;
+uniform sampler2DArray shadow_map;
 
 
 uniform vec3 view_pos;
@@ -67,31 +67,52 @@ struct PointLight {
 // TODO: make multiple
 uniform PointLight point_light;
 
+uniform int cascade_count = 4;
+uniform float cascade_plane_distances[4];
+uniform mat4 view_test;
+
 out vec4 FragColor;
 
 float g_shadow_bias = 0.005;
-float calc_shadow(vec4 light_space_coords) {
+float calc_shadow(vec4 light_space_coords, int cascade_index) {
    vec3 ndc_coords = light_space_coords.xyz / light_space_coords.w;
    vec3 coords01 = ndc_coords * 0.5 + 0.5;
    vec2 light_tc = coords01.xy;
-   float depth_in_shadow_map = texture(shadow_map, light_tc).r;
+   float depth_in_shadow_map = texture(shadow_map, vec3(light_tc,cascade_index)).r;
    // 1. if our fragment is further that shadow maps far plane, we disable shadow
    if (coords01.z > 1.0) {
       return 0.0;
    }
    // 2. if the depth in shadow map is less than our fragment's, the fragment is in shadow
    float shadow = 0.0;
-   vec2 texel_size = 1.0 / textureSize(shadow_map, 0);
+   vec2 texel_size = 1.0 / textureSize(shadow_map, 0).xy;
    for(int x = -1; x <= 1; ++x)
    {
      for(int y = -1; y <= 1; ++y)
      {
-       float pcf_d = texture(shadow_map, coords01.xy + vec2(x, y) * texel_size).r; 
+       float pcf_d = texture(shadow_map, vec3(coords01.xy + vec2(x, y) * texel_size,cascade_index)).r; 
        shadow += coords01.z - g_shadow_bias > pcf_d ? 1.0 : 0.0;        
      }
    }
    shadow /= 9.0;
    return shadow;
+}
+
+
+int calc_cascade_map_layer_index() {
+   vec4 frag_pos_lsp = view_test * vec4(world_pos,1.0);
+   float frag_depth = abs(frag_pos_lsp).z;
+   int layer = -1;
+   for (int i = 0; i < cascade_count; ++i) {
+      if (frag_depth < cascade_plane_distances[i]) {
+         layer = i;
+         break;
+      }
+   }
+   if (layer == -1) {
+      layer = cascade_count;
+   }
+   return layer;
 }
 
 vec3 calc_dir_light(DirLight light, vec3 normal, vec3 view_dir)
@@ -108,13 +129,14 @@ vec3 calc_dir_light(DirLight light, vec3 normal, vec3 view_dir)
     vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
     vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
     vec3 specular = light.specular * spec * vec3(texture(material.specular, tc)*material.specular_mod);
-    float s = calc_shadow(f_lsp_vert_coords[1]);
+    int layer = calc_cascade_map_layer_index();
+    float s = calc_shadow(f_lsp_vert_coords[layer], layer);
     return (ambient + (1.0-s)*(diffuse + specular));
 }
 
 vec3 calc_point_light(PointLight light, vec3 normal, vec3 world_pos, vec3 view_dir)
 {
-    vec3 light_dir = normalize(light.pos- world_pos);
+    vec3 light_dir = normalize(light.pos-world_pos);
     // diffuse factor
     float diff = max(dot(normal, light_dir), 0.0);
     // specular factor

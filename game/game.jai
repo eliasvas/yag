@@ -1,6 +1,8 @@
 #import "Basic";
 #import "String";
 #import "chaos";
+// TODO: get a good bitmap font, like in microui, and BAKE it in font rendering code path
+// TODO: instead of xeng(), do just xeng
 
 bp_sp : oglSP;
 light_sp : oglSP;
@@ -22,9 +24,6 @@ proj : m4;
 view : m4;
 
 proj_test : m4;
-proj_test0 : m4;
-proj_test1 : m4;
-proj_test2 : m4;
 
 view_test : m4;
 test_view_pos : v3;
@@ -41,7 +40,7 @@ main :: () {
     trans_red := u8.[ 0xFF,0x00,0x00,0x7F ];
     ogl_tex_init(*trans_red_img, .{1,1}, trans_red.data, oglTexFormat.RGBA8U);
 
-    assert(ogl_rt_init(*shadow_rt, .{2048,2048}, .R32F));
+    assert(ogl_rt_init(*shadow_rt, .{2048,2048}, .D32F));
 
 
 
@@ -87,7 +86,9 @@ main :: () {
     ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
 
     // create Shadow-Pass Shader
-    ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_FRAG_SHADER);
+    // FIXME: compute shaders should be at the middle in SP init
+    //ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_FRAG_SHADER);
+    ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_FRAG_SHADER, CSM_GEOM_SHADER);
     ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false));
     ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
     ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
@@ -109,9 +110,13 @@ main :: () {
     while true {
         xeng_frame_init();
 
-        ImGui.Begin("Texture Viewer");
-        shadow_rt_depth := ogl_rt_get_attachment(*shadow_rt,.DS);
-        ImGui.Image(xx shadow_rt_depth.impl_state, .{shadow_rt.dim.x,shadow_rt.dim.y});
+        //ImGui.Begin("Texture Viewer");
+        //shadow_rt_depth := ogl_rt_get_attachment(*shadow_rt,.DS);
+        //ImGui.Image(xx shadow_rt_depth.impl_state, .{shadow_rt.dim.x,shadow_rt.dim.y});
+        //ImGui.End();
+        ImGui.Begin("CSM");
+        ImGui.SliderFloat3("light_dir", xx *xeng().dir_light.dl.dir, -1.0, 1.0); 
+        xeng().dir_light.dl.dir = v3_norm(xeng().dir_light.dl.dir);
         ImGui.End();
 
         // This is a test for shadow mapping frustum bounds, @DELETEME
@@ -133,19 +138,13 @@ main :: () {
 
         view = xcam_get_view_mat(*xeng().c);
 
-        proj_test = m4_persp(45.0, xwin_get_fovx(*xeng().win), 0.1, 10);
-
-        proj_test0 = m4_persp(45.0, xwin_get_fovx(*xeng().win), 0.1, 2);
-        proj_test1 = m4_persp(45.0, xwin_get_fovx(*xeng().win), 2, 9);
-        proj_test2 = m4_persp(45.0, xwin_get_fovx(*xeng().win), 9, 10);
-
+        proj_test = m4_persp(45.0, xwin_get_fovx(*xeng().win), 1, 20);
         view_test = m4_trans(test_view_pos);
 
         // render the shadow map first
         corners := xfrustum_get_corners_in_ws(proj_test,view_test);
-        dir_light := xdir_light_make_basic();
-        light_view := xfrustum_calc_vm_for_dir_light(corners, dir_light.dl);
-        light_proj := xfrustum_calc_pm_for_dir_light(corners, light_view, dir_light.dl);
+        light_view := xfrustum_calc_vm_for_dir_light(corners, xeng().dir_light.dl);
+        light_proj := xfrustum_calc_pm_for_dir_light(corners, light_view, xeng().dir_light.dl);
         ogl_set_viewport(0,0,shadow_rt.dim.x,shadow_rt.dim.y);
         ogl_rt_bind(*shadow_rt);
         ogl_bind_sp(*shadow_sp);
@@ -175,8 +174,7 @@ render_sample_scene :: (sp : *oglSP) {
     ogl_sp_set_uniform(sp, "shadow_map", oglShaderDataType.INT, *shadow_map_slot);
 
     // Directional Light
-    dir_light := xdir_light_make_basic();
-    xlight_set_to_shader(*dir_light, sp);
+    xlight_set_to_shader(*xeng().dir_light, sp);
     // Point Light
     light_pos := v3.{3,2,3};
     point_light := xpoint_light_make_basic(light_pos);
@@ -187,12 +185,13 @@ render_sample_scene :: (sp : *oglSP) {
     // render frustum / lsm
     draw : bool = (sp == *bp_sp);
 
-    //cascade_pms := m4.[proj_test, proj_test0, proj_test1, proj_test2];
-    //cascade_pms := m4.[proj_test];
-    //xfrustum_calc_lsms_and_set_to_shader(sp, view_test, cascade_pms, dir_light.dl, draw, draw);
 
-    cascade_pms := m4.[proj_test0, proj_test1, proj_test2];
-    xfrustum_calc_lsms_and_set_to_shader(sp, view_test, cascade_pms, dir_light.dl, draw, draw);
+    view_test = m4_trans(test_view_pos);
+    ogl_sp_set_uniform(sp, "view_test", oglShaderDataType.MAT4, view_test.raw.data);
+
+
+    proj_test_cascades := m4_persp_gen_cascades(proj_test, 3);
+    xfrustum_calc_lsms_and_set_to_shader(sp, view_test, proj_test_cascades, xeng().dir_light.dl, draw, draw);
 
 
     // render big cube 
