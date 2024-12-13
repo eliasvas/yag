@@ -1,6 +1,3 @@
-// TODO: make an xFrustum struct that hold all points? or maybe just have the matrices?
-// TODO: maybe even integrate with math library, for projection matrix and stuff
-
 xfrustum_get_ndc_cube_corners:: () -> [8]v3 {
   corners : [8]v3;
   corner_count := 0;
@@ -143,15 +140,15 @@ xFrustumCascadeColors :: v4.[
   v4.{1,1,0.5,0.5}
 ];
 
-xfrustum_calc_lsm :: (view : m4, proj : m4, dir_light : xDirectionalLight, cascade_index : u32, draw_view_frustum : bool = true, draw_lsm_frustum : bool = true) -> m4 {
+xfrustum_calc_lsm :: (view : m4, proj : m4, dir_light : xDirectionalLight, cascade_index : u32, debug_draw : bool = true) -> m4 {
   // here we get the world space coordinates of our frustum, for the view and proj we specified
   corners := xfrustum_get_corners_in_ws(proj,view);
-  if draw_view_frustum then xfrustum_debug_draw_corners(corners, xFrustumDefaultColor);
+  if debug_draw then xfrustum_debug_draw_corners(corners, xFrustumDefaultColor);
   // here we calculate the view and projection of the frustum for the shadow_map(s),
   // so it can enclose the whole sub-frustum we calculated above
   light_view := xfrustum_calc_vm_for_dir_light(corners, dir_light);
   light_proj := xfrustum_calc_pm_for_dir_light(corners, light_view, dir_light);
-  if draw_lsm_frustum {
+  if debug_draw {
       corners_lsm := xfrustum_get_corners_in_ws(light_proj,light_view);
       xfrustum_debug_draw_corners(corners_lsm, xFrustumCascadeColors[cascade_index]);
   }
@@ -160,16 +157,16 @@ xfrustum_calc_lsm :: (view : m4, proj : m4, dir_light : xDirectionalLight, casca
   return lsm;
 }
 
-xfrustum_calc_lsms_and_set_to_shader :: (sp : *oglSP, view : m4, proj : []m4, dir_light : xDirectionalLight, draw_view_frustum : bool = true, draw_lsm_frustum : bool = true){
+xfrustum_calc_lsms_and_set_to_shader :: (sp : *oglSP, view : m4, proj : []m4, dir_light : xDirectionalLight, debug_draw : bool = true){
   for p,idx : proj {
-    lsm_i := xfrustum_calc_lsm(view,p,dir_light, xx idx, draw_view_frustum, draw_lsm_frustum);
+    lsm_i := xfrustum_calc_lsm(view,p,dir_light, xx idx, debug_draw);
     name := sprint("lsm[%]", idx);
     ogl_sp_set_uniform(sp, name, oglShaderDataType.MAT4, lsm_i.raw.data);
     dist := sprint("cascade_plane_distances[%]", idx);
     far := persp_get_far(proj[idx]);
     ogl_sp_set_uniform(sp, dist, oglShaderDataType.FLOAT, *far);
   }
-
+  ogl_sp_set_uniform(sp, "view_csm", oglShaderDataType.MAT4, view.raw.data);
 }
 
 CSM_VERT_SHADER :: #string DONE
@@ -197,7 +194,7 @@ layout(triangle_strip, max_vertices = 3) out;
 uniform mat4 lsm[4];
     
 void main() {          
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 4; ++i) {
         gl_Position = lsm[gl_InvocationID] * gl_in[i].gl_Position;
         gl_Layer = gl_InvocationID;
         EmitVertex();
@@ -205,4 +202,28 @@ void main() {
     EndPrimitive();
 }
 DONE
+
+xCSMData :: struct {
+  cview : m4; // the view matrix use as Cameras view (for frustum generation) 
+  cproj : m4; // the projection matrix used as Cameras projection (for cascade generation)
+  debug_draw : bool = false;
+  debug_frustum : bool = false;
+  cascade_count : u32 = 3;
+}
+
+xcsm_data_calc :: (csm_data : *xCSMData) {
+  using csm_data;
+
+  debug_frust_pos :v3= .{0,0,50} + .{xeng().view._14, xeng().view._24,xeng().view._34};
+  cview = ifx debug_frustum then m4_trans(debug_frust_pos) else xeng().view;
+
+  debug_proj := m4_persp_gen_cascades(xeng().proj, 4)[0];
+  cproj = ifx debug_frustum then debug_proj else xeng().proj;
+}
+
+xcsm_data_set_to_shader :: (sp : *oglSP, csm_data : *xCSMData, dir_light : xDirectionalLight, draw : bool) {
+  using csm_data;
+  proj_cascades := m4_persp_gen_cascades(cproj, cascade_count);
+  xfrustum_calc_lsms_and_set_to_shader(sp, cview, proj_cascades, dir_light, draw & debug_draw);
+}
 

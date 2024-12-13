@@ -69,7 +69,8 @@ uniform PointLight point_light;
 
 uniform int cascade_count = 4;
 uniform float cascade_plane_distances[4];
-uniform mat4 view_test;
+
+uniform mat4 view_csm; //for debug purposes we might want our view matrix to be different
 
 out vec4 FragColor;
 
@@ -100,7 +101,7 @@ float calc_shadow(vec4 light_space_coords, int cascade_index) {
 
 
 int calc_cascade_map_layer_index() {
-   vec4 frag_pos_lsp = view_test * vec4(world_pos,1.0);
+   vec4 frag_pos_lsp = view_csm * vec4(world_pos,1.0);
    float frag_depth = abs(frag_pos_lsp).z;
    int layer = -1;
    for (int i = 0; i < cascade_count; ++i) {

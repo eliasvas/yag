@@ -20,14 +20,6 @@ shadow_sp : oglSP;
 shadow_rt : oglRT;
 
 
-proj : m4;
-view : m4;
-
-proj_test : m4;
-
-view_test : m4;
-test_view_pos : v3;
-
 main :: () {
     xeng_init();
 
@@ -115,41 +107,26 @@ main :: () {
         //ImGui.Image(xx shadow_rt_depth.impl_state, .{shadow_rt.dim.x,shadow_rt.dim.y});
         //ImGui.End();
         ImGui.Begin("CSM");
-        ImGui.SliderFloat3("light_dir", xx *xeng().dir_light.dl.dir, -1.0, 1.0); 
+        ImGui.SliderFloat3("light dir", xx *xeng().dir_light.dl.dir, -1.0, 1.0); 
         xeng().dir_light.dl.dir = v3_norm(xeng().dir_light.dl.dir);
+        ImGui.SliderInt("cascade count",xx *xeng().csm_data.cascade_count, 1, 4);
+        ImGui.Checkbox("CSM debug draw", *xeng().csm_data.debug_draw);
+        ImGui.Checkbox("CSM debug frustum", *xeng().csm_data.debug_frustum);
         ImGui.End();
-
-        // This is a test for shadow mapping frustum bounds, @DELETEME
-        if xim_kkey_pressed(.SC_UP) test_view_pos.z+=1;
-        if xim_kkey_pressed(.SC_LEFT) test_view_pos.x+=1;
-        if xim_kkey_pressed(.SC_DOWN) test_view_pos.z-=1;
-        if xim_kkey_pressed(.SC_RIGHT) test_view_pos.x-=1;
-
 
         if (xim_kkey_pressed(.SC_ESCAPE)) exit(1); 
         // render a white quad?
         ogl_rt_clear(null);
         ogl_rt_clear(*shadow_rt);
         // because precision of the depth buffer is logarithmic, for best results we can set this to 1, because 0-1 is a BIG range of numbers sadly
-        proj = m4_persp(45.0, xwin_get_fovx(*xeng().win), 1, 1000);
-        xskydome_render(*skydome, xwin_get_viewport(*xeng().win), *xeng().c, proj);
+        xskydome_render(*skydome, xwin_get_viewport(*xeng().win), *xeng().c, xeng().proj);
         ogl_rt_bind(null);
         ogl_clear_all_state();
 
-        view = xcam_get_view_mat(*xeng().c);
-
-        proj_test = m4_persp(45.0, xwin_get_fovx(*xeng().win), 1, 20);
-        view_test = m4_trans(test_view_pos);
-
         // render the shadow map first
-        corners := xfrustum_get_corners_in_ws(proj_test,view_test);
-        light_view := xfrustum_calc_vm_for_dir_light(corners, xeng().dir_light.dl);
-        light_proj := xfrustum_calc_pm_for_dir_light(corners, light_view, xeng().dir_light.dl);
         ogl_set_viewport(0,0,shadow_rt.dim.x,shadow_rt.dim.y);
         ogl_rt_bind(*shadow_rt);
         ogl_bind_sp(*shadow_sp);
-        ogl_sp_set_uniform(*shadow_sp, "view", oglShaderDataType.MAT4, light_view.raw.data);
-        ogl_sp_set_uniform(*shadow_sp, "proj", oglShaderDataType.MAT4, light_proj.raw.data);
         render_sample_scene(*shadow_sp);
 
 
@@ -158,8 +135,8 @@ main :: () {
         ogl_rt_bind(null);
         ogl_bind_sp(*bp_sp);
         ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *xeng().c.pos);
-        ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, view.raw.data);
-        ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
+        ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, xeng().view.raw.data);
+        ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, xeng().proj.raw.data);
         render_sample_scene(*bp_sp);
 
         xeng_frame_end();
@@ -183,15 +160,8 @@ render_sample_scene :: (sp : *oglSP) {
     viewport: v4 = .{0,0,1280,720};
 
     // render frustum / lsm
-    draw : bool = (sp == *bp_sp);
-
-
-    view_test = m4_trans(test_view_pos);
-    ogl_sp_set_uniform(sp, "view_test", oglShaderDataType.MAT4, view_test.raw.data);
-
-
-    proj_test_cascades := m4_persp_gen_cascades(proj_test, 3);
-    xfrustum_calc_lsms_and_set_to_shader(sp, view_test, proj_test_cascades, xeng().dir_light.dl, draw, draw);
+    debug_draw : bool = (sp != *shadow_sp);
+    xcsm_data_set_to_shader(sp, *xeng().csm_data, xeng().dir_light.dl, debug_draw);
 
 
     // render big cube 

@@ -10,6 +10,8 @@ xEngine :: struct {
   view : m4;
 
   dir_light : xLight;
+  // CSM stuff - TODO: probably should be somewhere else, maybe a struct?
+  csm_data : xCSMData;
 }
 
 g_engine : xEngine;
@@ -17,7 +19,6 @@ g_engine : xEngine;
 xeng :: ()  -> *xEngine {
   return *g_engine;
 }
-
 
 xeng_init :: () {
   using g_engine;
@@ -42,10 +43,11 @@ xeng_init :: () {
 
 }
 
+// TODO: this should be called frame_begin
 xeng_frame_init :: () {
   using g_engine;
   xcam_update(*c, xx 1.0/60.0);
-  proj = m4_persp(45.0, xwin_get_fovx(*win), 1, 1000);
+  proj = m4_persp(45.0, xwin_get_fovx(*win), 1, 100);
   view = xcam_get_view_mat(*c);
   // input handling for the frame
   {
@@ -63,6 +65,9 @@ xeng_frame_init :: () {
   //show_demo : bool = true;
   //ImGui.ShowDemoWindow(*show_demo);
   ///////////////////////
+
+  // CSM stuff
+  xcsm_data_calc(*csm_data);
 }
 
 xeng_frame_end :: () {
@@ -73,9 +78,6 @@ xeng_frame_end :: () {
   ImGui.Render();
   io := ImGui.GetIO();
   glViewport(0, 0, xx io.DisplaySize.x, xx io.DisplaySize.y);
-  //clear_color := Vector4.{0.45, 0.55, 0.60, 1.00};
-  //glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-  //glClear(GL_COLOR_BUFFER_BIT);
   ImGui_ImplSdl_RenderDrawLists(ImGui.GetDrawData());
   ////////////////////////
 
