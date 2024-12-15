@@ -60,8 +60,7 @@ ogl_buf_to_gl_buf :: (kind : oglBufKind) ->GLuint {
     }
     return gl_buf_kind;
 }
-ogl_buf_init :: (buf : *oglBuf, bkind : oglBufKind, data : *void, data_count : u32, data_size : u32) -> bool {
-    using buf;
+ogl_buf_init :: (using buf : *oglBuf, bkind : oglBufKind, data : *void, data_count : u32, data_size : u32) -> bool {
     kind = bkind;
     count = data_count;
     size = data_size * data_count;
@@ -73,33 +72,50 @@ ogl_buf_init :: (buf : *oglBuf, bkind : oglBufKind, data : *void, data_count : u
     //ogl_check_error();
     return true;
 }
-ogl_buf_deinit :: (buf : *oglBuf) -> bool {
-    using buf;
+// TODO the using's should be in function declaration
+ogl_buf_deinit :: (using buf : *oglBuf) -> bool {
     glDeleteBuffers(1, xx impl_state);
     return true;
 }
-ogl_buf_update :: (buf : *oglBuf, data : *void, data_count : u32, data_size : u32) {
-    using buf;
-    ogl_bind_vertex_buffer(buf);
+ogl_buf_update :: (using buf : *oglBuf, data : *void, data_count : u32, data_size : u32) {
     count = data_count;
     size = data_size * data_count;
     buffer_kind := ogl_buf_to_gl_buf(kind);
-    if data != null {
+    glBindBuffer(buffer_kind, xx buf.impl_state);
+    //if data != null {
         glBufferData(buffer_kind, size, data, GL_STREAM_DRAW);
+    //}
+}
+ogl_buf_sub_update :: (using buf : *oglBuf, offset : s64, data : *void, data_count : u32, data_size : u32) {
+    buffer_kind := ogl_buf_to_gl_buf(kind);
+    glBindBuffer(buffer_kind, xx buf.impl_state);
+    count = data_count;
+    size = data_size * data_count;
+    if data != null {
+        buffer_kind := ogl_buf_to_gl_buf(kind);
+        glBufferSubData(buffer_kind, offset, size, data);
     }
 }
-ogl_bind_index_buffer :: (buf : *oglBuf) {
-    using buf;
+
+// FIXME: we don't need these?
+ogl_bind_index_buffer :: (using buf : *oglBuf) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, xx impl_state);
 }
-ogl_bind_vertex_buffer :: (buf : *oglBuf) {
-    using buf;
+ogl_bind_vertex_buffer :: (using buf : *oglBuf) {
     if buf {
 	glBindBuffer(GL_ARRAY_BUFFER, xx impl_state);
     } else {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 }
+ogl_bind_uniform_buffer :: (using buf : *oglBuf) {
+    if buf {
+	glBindBuffer(GL_UNIFORM_BUFFER, xx impl_state);
+    } else {
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+}
+
 
 ///////////////////////////////
 // ogl Shaders
@@ -114,6 +130,26 @@ oglShaderDataType :: enum {
     VEC4;
     MAT4;
 };
+
+gl_data_type_to_ogl_data_type :: (gl_data_type : s64) -> oglShaderDataType {
+    type := oglShaderDataType.FLOAT;
+    if gl_data_type == {
+        case GL_FLOAT;
+            type = .FLOAT;
+        case GL_INT;
+            type = .INT;
+        case GL_FLOAT_VEC2;
+            type = .VEC2;
+        case GL_FLOAT_VEC3;
+            type = .VEC3;
+        case GL_FLOAT_VEC4;
+            type = .VEC4;
+        case GL_FLOAT_MAT4;
+            type = .MAT4;
+        case;
+    };
+    return type;
+}
 
 oglShaderAttrib :: struct {
     vbo_idx   : u32;
@@ -528,7 +564,7 @@ OGL_MAX_VARS_PER_UB :: 32;
 
 // TODO: maybe we shouldn't call them just 'vars'
 oglUBOVarInfo :: struct {
-    name : string;
+    //name : string;
     offset : s64;
     type : oglShaderDataType;
     count  : s64; // for array types, how many we got
@@ -540,27 +576,59 @@ oglUB :: struct {
     uniform_buf : oglBuf;
     md : oglUBOMetaData;
     index : int;
-    //name : string;
+    name : string;
 }
 
 ogl_ub_load :: (using ub : *oglUB, sp : *oglSP, block_index : int = 0) {
   init(*md.table, OGL_MAX_VARS_PER_UB);
-  // TBA
   index = block_index;
+  block_size : GLuint;
+  glGetActiveUniformBlockiv(xx sp.impl_state, 0, GL_UNIFORM_BLOCK_DATA_SIZE, xx *block_size);
+  ogl_buf_init(*uniform_buf, .UNIFORM, null, 1, xx block_size);
+  var_count : GLint;
+  glGetActiveUniformBlockiv(xx sp.impl_state, xx index, GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS, *var_count);
+  var_indices : [OGL_MAX_VARS_PER_UB]GLuint;
+  glGetActiveUniformBlockiv(xx sp.impl_state, xx index, GL_UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES, xx *var_indices);
+  var_offsets: [OGL_MAX_VARS_PER_UB]GLuint;
+  glGetActiveUniformsiv(xx sp.impl_state, xx var_count, var_indices.data, GL_UNIFORM_OFFSET, xx var_offsets.data);
+
+  for i : 0..var_count-1 {
+    name : [256]u8;
+    name_len : u32;
+    array_count : s32;
+    type : GLenum;
+    glGetActiveUniform(xx sp.impl_state, var_indices[i], 256, *name_len, *array_count, *type, name.data);
+    str_name : string;
+    str_name.data = name.data;
+    str_name.count = name_len;
+    data_type := gl_data_type_to_ogl_data_type(xx type);
+    var_info := oglUBOVarInfo.{var_offsets[i], data_type, array_count};
+    //print("var % = %\n", str_name, var_info);
+    vn := alloc_string(name_len);
+    memcpy(vn.data, name.data, name_len);
+    inline table_add(*md.table, vn, var_info); 
+    // optional - jut for clarity
+    _, found := table_find(*md.table, vn);
+    assert(found);
+  }
+
 }
 
 ogl_ub_init :: (using ub : *oglUB, size : s64, block_index : int = 0) {
   init(*md.table, OGL_MAX_VARS_PER_UB);
-  ogl_buf_init(*ub.uniform_buf, .UNIFORM, null, 1, xx size);
+  ogl_buf_init(*uniform_buf, .UNIFORM, null, 1, xx size);
   index = block_index;
 }
 
 ogl_ub_deinit :: (using ub : *oglUB) {
-  //FIXME: all the oglUBOVarInfo's inside the table should be free'd too - @LEAK here
+  for val, key: md.table {
+      free(key.data);
+  }
   deinit(*md.table);
 }
 
-ogl_ub_bind :: (using ub : *oglUB) {
+// binds Uniform Block in correct slot
+ogl_ub_bind_to_slot :: (using ub : *oglUB) {
   glBindBufferBase(GL_UNIFORM_BUFFER, xx index, xx uniform_buf.impl_state);
 }
 
@@ -568,8 +636,14 @@ ogl_ub_set :: (using ub : *oglUB, buf : *u8) {
   ogl_buf_update(*uniform_buf, buf, 1, xx uniform_buf.size);
 }
 
-ogl_ub_set :: (using ub : *oglUB, var_name : string, data : *u8) {
-  //TBA
+ogl_ub_set :: (using ub : *oglUB, var_name : string, data : *u8) -> bool {
+  var_info, found := table_find(*md.table, var_name);
+  if found {
+    data_size := ogl_get_component_num_for_data_type(var_info.type) * size_of(float32);
+    ogl_buf_sub_update(*uniform_buf, var_info.offset, data, xx var_info.count, data_size);
+    return true;
+  }
+  return false;
 }
 
 ///////////////////////////////

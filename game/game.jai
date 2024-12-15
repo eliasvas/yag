@@ -83,6 +83,10 @@ main :: () {
     ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
     ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
 
+    // Uniform Blocks
+
+    ogl_ub_load(*xeng().global_data_ub, *bp_sp, 0);
+
 
     // json tests
     root_json := xjson_parse_wholefile_string(SAMPLE_JSON);
