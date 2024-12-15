@@ -12,6 +12,8 @@ xEngine :: struct {
   dir_light : xLight;
   // CSM stuff - TODO: probably should be somewhere else, maybe a struct?
   csm_data : xCSMData;
+
+  global_data_ub : oglUB;
 }
 
 g_engine : xEngine;
@@ -27,6 +29,7 @@ xeng_init :: () {
   assert(xwin_init(*win, "chaos", viewport.width, viewport.height, xWindowFlags.RESIZABLE));
   // 2. ogl init (our graphics wrapper)
   ogl_init();
+  ogl_ub_init(*global_data_ub, size_of(m4)*2);
   // 3. immediate drawing module init
   ximm_init();
   // 4. camera init
@@ -46,6 +49,7 @@ xeng_init :: () {
 // TODO: this should be called frame_begin
 xeng_frame_init :: () {
   using g_engine;
+  // TODO: maybe we should do all the RT clears here too!
   xcam_update(*c, xx 1.0/60.0);
   proj = m4_persp(45.0, xwin_get_fovx(*win), 1, 100);
   view = xcam_get_view_mat(*c);
@@ -68,6 +72,11 @@ xeng_frame_init :: () {
 
   // CSM stuff
   xcsm_data_calc(*csm_data);
+
+  // global UBO stuff (this is done only ONCE per-frame)
+  pv : [2]m4 = .[m4_transpose(proj), m4_transpose(view)];
+  ogl_ub_set(*global_data_ub, xx pv.data);
+  ogl_ub_bind(*global_data_ub);
 }
 
 xeng_frame_end :: () {

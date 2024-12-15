@@ -40,20 +40,32 @@ oglBufKind :: enum {
 };
 oglBuf :: struct {
     count      : s64;
+    // @CHECK: is this per-element or for all?
     size       : s64; //in bytes
     kind       : oglBufKind;
     impl_state : *void;
 };
 
-// TODO: Currently only vertex/index buffers are supported, do uniform buffers as well
+ogl_buf_to_gl_buf :: (kind : oglBufKind) ->GLuint {
+    gl_buf_kind : GLuint = 0; 
+    if kind == {
+        case .VERTEX;
+            gl_buf_kind = GL_ARRAY_BUFFER;
+        case .INDEX;
+            gl_buf_kind = GL_ELEMENT_ARRAY_BUFFER;
+        case .UNIFORM;
+            gl_buf_kind = GL_UNIFORM_BUFFER;
+        case;
+            assert(0 && "unimplemented buffer kind - implement this!");
+    }
+    return gl_buf_kind;
+}
 ogl_buf_init :: (buf : *oglBuf, bkind : oglBufKind, data : *void, data_count : u32, data_size : u32) -> bool {
     using buf;
     kind = bkind;
     count = data_count;
     size = data_size * data_count;
-
-    buffer_kind : GLuint = xx (ifx kind == oglBufKind.VERTEX then GL_ARRAY_BUFFER else GL_ELEMENT_ARRAY_BUFFER);
-
+    buffer_kind := ogl_buf_to_gl_buf(kind);
     glGenBuffers(1, xx *impl_state);
     glBindBuffer(buffer_kind, xx buf.impl_state);
     ogl_buf_update(buf, data,data_count,data_size);
@@ -71,7 +83,7 @@ ogl_buf_update :: (buf : *oglBuf, data : *void, data_count : u32, data_size : u3
     ogl_bind_vertex_buffer(buf);
     count = data_count;
     size = data_size * data_count;
-    buffer_kind : GLuint = xx (ifx kind == oglBufKind.VERTEX then GL_ARRAY_BUFFER else GL_ELEMENT_ARRAY_BUFFER);
+    buffer_kind := ogl_buf_to_gl_buf(kind);
     if data != null {
         glBufferData(buffer_kind, size, data, GL_STREAM_DRAW);
     }
@@ -188,7 +200,8 @@ ogl_get_component_num_for_data_type :: (type : oglShaderDataType) -> u32 {
 ogl_attrib_make :: (vbo_idx : u32, type : oglShaderDataType, stride : u32, offset : u32, instanced : bool) -> oglShaderAttrib {
     return oglShaderAttrib.{ vbo_idx, stride, offset, type, instanced };
 }
-ogl_sp_init :: (shader : *oglSP, vs_source : string, fs_source : string, gs_source : string = "") -> bool {
+ogl_sp_init :: (shader : *oglSP, vs_source : string, fs_source : string) -> bool { return ogl_sp_init(shader, vs_source, "", fs_source); }
+ogl_sp_init :: (shader : *oglSP, vs_source : string, gs_source : string, fs_source : string) -> bool {
     using shader;
     impl_state = cast(*void)gl_make_sp(vs_source, fs_source, gs_source);
     attrib_count = 0;
@@ -395,7 +408,6 @@ oglRT :: struct {
     format : oglTexFormat; // for color attachments
     impl_state : *void;
 };
-g_light_depth_maps : GLuint;
 ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool {
     using rt;
     dim = rt_dim;
@@ -408,6 +420,7 @@ ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool 
             glGenFramebuffers(1, xx *impl_state);
             cascade_count :: 4;
 
+            g_light_depth_maps : GLuint;
             glGenTextures(1, *g_light_depth_maps);
             glBindTexture(GL_TEXTURE_2D_ARRAY, g_light_depth_maps);
             glTexImage3D( GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT32F, xx dim.x, xx dim.y,cascade_count+1,0, GL_DEPTH_COMPONENT, GL_FLOAT, xx 0);
@@ -476,28 +489,16 @@ ogl_rt_init :: (rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) -> bool 
 ogl_rt_bind :: (rt : *oglRT) {
     using rt;
     glBindFramebuffer(GL_FRAMEBUFFER, xx (ifx rt != null then impl_state else null));
-
-    // FIXME: this is unfathomably UGLY! why are we doing this exactly?
-    if rt && rt.format == .D32F {
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_TEXTURE_2D_ARRAY, g_light_depth_maps, 0);
-    }
 }
 ogl_rt_clear :: (rt : *oglRT) {
     using rt;
     ogl_rt_bind(rt);
 
-    // FIXME: this is unfathomably UGLY! why are we doing this exactly?
-    if rt && rt.format == .D32F {
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_TEXTURE_2D_ARRAY, g_light_depth_maps, 0);
-    }
-
     glClearColor(0.0, 0.0, 0.0, 0.0);
-    //glClearColor(1.0, 1.0, 1.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // stencil?
     ogl_rt_bind(null);
 }
 
-// FIXME: what about .D32F case (texture array?)
 ogl_rt_get_attachment :: (rt : *oglRT, attachment : oglRTAttachment) -> oglTex {
     using rt;
     tex : oglTex;
@@ -516,6 +517,59 @@ ogl_rt_get_attachment :: (rt : *oglRT, attachment : oglRTAttachment) -> oglTex {
     glBindFramebuffer(GL_FRAMEBUFFER, prev_fbo);
     // ---------------------
     return tex;
+}
+
+///////////////////////////////
+// ogl Uniform Blocks
+///////////////////////////////
+
+// TODO: Can we make this dynamic for ogl_ub_load maybe?
+OGL_MAX_VARS_PER_UB :: 32;
+
+// TODO: maybe we shouldn't call them just 'vars'
+oglUBOVarInfo :: struct {
+    name : string;
+    offset : s64;
+    type : oglShaderDataType;
+    count  : s64; // for array types, how many we got
+}
+oglUBOMetaData :: struct {
+    table : Table(string, oglUBOVarInfo, null, null);
+}
+oglUB :: struct {
+    uniform_buf : oglBuf;
+    md : oglUBOMetaData;
+    index : int;
+    //name : string;
+}
+
+ogl_ub_load :: (using ub : *oglUB, sp : *oglSP, block_index : int = 0) {
+  init(*md.table, OGL_MAX_VARS_PER_UB);
+  // TBA
+  index = block_index;
+}
+
+ogl_ub_init :: (using ub : *oglUB, size : s64, block_index : int = 0) {
+  init(*md.table, OGL_MAX_VARS_PER_UB);
+  ogl_buf_init(*ub.uniform_buf, .UNIFORM, null, 1, xx size);
+  index = block_index;
+}
+
+ogl_ub_deinit :: (using ub : *oglUB) {
+  //FIXME: all the oglUBOVarInfo's inside the table should be free'd too - @LEAK here
+  deinit(*md.table);
+}
+
+ogl_ub_bind :: (using ub : *oglUB) {
+  glBindBufferBase(GL_UNIFORM_BUFFER, xx index, xx uniform_buf.impl_state);
+}
+
+ogl_ub_set :: (using ub : *oglUB, buf : *u8) {
+  ogl_buf_update(*uniform_buf, buf, 1, xx uniform_buf.size);
+}
+
+ogl_ub_set :: (using ub : *oglUB, var_name : string, data : *u8) {
+  //TBA
 }
 
 ///////////////////////////////

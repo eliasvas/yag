@@ -5,36 +5,46 @@ BP_VERT_SHADER :: #string DONE
 layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_norm;
 layout (location = 2) in vec2 in_tc;
-uniform mat4 proj;
-uniform mat4 view;
 uniform mat4 model;
 uniform mat4 lsm[4]; // World Space -> light's Clip Space
-out vec2 tc;
-out vec3 world_pos;
-out vec3 f_normal;
-out vec4 f_lsp_vert_coords[4];
+
+layout(std140, binding = 0) uniform GlobalData {
+   mat4 proj;
+   mat4 view;
+};
+
+out VS_OUT
+{
+   vec2 tc;
+   vec3 world_pos;
+   vec3 normal;
+   vec4 lsp_vert_coords[4];
+} vs_out;
+
 void main()
 {
    gl_Position = proj*view*model*vec4(in_pos.xyz, 1.0);
-   world_pos = vec3(model*vec4(in_pos.xyz, 1.0));
-   f_normal = mat3(transpose(inverse(model))) * in_norm;
+   vs_out.world_pos = vec3(model*vec4(in_pos.xyz, 1.0));
+   vs_out.normal = mat3(transpose(inverse(model))) * in_norm;
    for (int i = 0; i < 4; ++i) {
-      f_lsp_vert_coords[i] = lsm[i]*model*vec4(in_pos.xyz, 1.0);
+      vs_out.lsp_vert_coords[i] = lsm[i]*model*vec4(in_pos.xyz, 1.0);
    }
-   tc = in_tc;
+   vs_out.tc = in_tc;
 }
 DONE
 
 BP_FRAG_SHADER :: #string DONE
 #version 430 core
-in vec2 tc;
-in vec3 world_pos;
-in vec3 f_normal;
-in vec4 f_lsp_vert_coords[4];
-uniform sampler2DArray shadow_map;
+out vec4 FragColor;
 
+in VS_OUT
+{
+   vec2 tc;
+   vec3 world_pos;
+   vec3 normal;
+   vec4 lsp_vert_coords[4];
+} fs_in;
 
-uniform vec3 view_pos;
 struct BlinnPhongMaterial {
    sampler2D diffuse;
    vec4 diffuse_mod;
@@ -42,7 +52,6 @@ struct BlinnPhongMaterial {
    vec4 specular_mod;
    float shininess;
 };
-uniform BlinnPhongMaterial material;
 
 struct DirLight {
     vec3 dir;
@@ -51,7 +60,6 @@ struct DirLight {
     vec3 diffuse;
     vec3 specular;
 };
-uniform DirLight dir_light;
 
 struct PointLight {
     vec3 pos;
@@ -64,15 +72,18 @@ struct PointLight {
     float linear;
     float quadratic;
 };
-// TODO: make multiple
+
+// TODO: make multiple PointLight's possible
 uniform PointLight point_light;
 
+uniform DirLight dir_light;
+uniform BlinnPhongMaterial material;
+uniform vec3 view_pos;
 uniform int cascade_count = 4;
 uniform float cascade_plane_distances[4];
-
 uniform mat4 view_csm; //for debug purposes we might want our view matrix to be different
+uniform sampler2DArray shadow_map;
 
-out vec4 FragColor;
 
 float g_shadow_bias = 0.005;
 float calc_shadow(vec4 light_space_coords, int cascade_index) {
@@ -101,7 +112,7 @@ float calc_shadow(vec4 light_space_coords, int cascade_index) {
 
 
 int calc_cascade_map_layer_index() {
-   vec4 frag_pos_lsp = view_csm * vec4(world_pos,1.0);
+   vec4 frag_pos_lsp = view_csm * vec4(fs_in.world_pos,1.0);
    float frag_depth = abs(frag_pos_lsp).z;
    int layer = -1;
    for (int i = 0; i < cascade_count; ++i) {
@@ -127,11 +138,11 @@ vec3 calc_dir_light(DirLight light, vec3 normal, vec3 view_dir)
     vec3 halfway_dir = normalize(light_dir + view_dir);  
     float spec = pow(max(dot(normal, halfway_dir), 0.0), material.shininess);
     // combine results
-    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
-    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
-    vec3 specular = light.specular * spec * vec3(texture(material.specular, tc)*material.specular_mod);
+    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, fs_in.tc)*material.diffuse_mod);
+    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, fs_in.tc)*material.diffuse_mod);
+    vec3 specular = light.specular * spec * vec3(texture(material.specular, fs_in.tc)*material.specular_mod);
     int layer = calc_cascade_map_layer_index();
-    float s = calc_shadow(f_lsp_vert_coords[layer], layer);
+    float s = calc_shadow(fs_in.lsp_vert_coords[layer], layer);
     return (ambient + (1.0-s)*(diffuse + specular));
 }
 
@@ -149,9 +160,9 @@ vec3 calc_point_light(PointLight light, vec3 normal, vec3 world_pos, vec3 view_d
     float distance    = length(light.pos - world_pos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
     // combine results
-    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
-    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, tc)*material.diffuse_mod);
-    vec3 specular = light.specular * spec * vec3(texture(material.specular, tc)*material.specular_mod);
+    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, fs_in.tc)*material.diffuse_mod);
+    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, fs_in.tc)*material.diffuse_mod);
+    vec3 specular = light.specular * spec * vec3(texture(material.specular, fs_in.tc)*material.specular_mod);
     ambient  *= attenuation;
     diffuse  *= attenuation;
     specular *= attenuation;
@@ -160,15 +171,15 @@ vec3 calc_point_light(PointLight light, vec3 normal, vec3 world_pos, vec3 view_d
 
 void main()
 {
-   vec3 norm = normalize(f_normal);
-   vec3 view_dir = normalize(view_pos - world_pos);
+   vec3 norm = normalize(fs_in.normal);
+   vec3 view_dir = normalize(view_pos - fs_in.world_pos);
 
    g_shadow_bias = max(0.05 * (1.0 - dot(norm, dir_light.dir)), 0.005);
 
    vec3 dl = calc_dir_light(dir_light, norm, view_dir);
-   vec3 pl = calc_point_light(point_light, norm, world_pos, view_dir);
+   vec3 pl = calc_point_light(point_light, norm, fs_in.world_pos, view_dir);
 
-   FragColor = vec4(pl + dl, texture(material.diffuse, tc).w);
+   FragColor = vec4(pl + dl, texture(material.diffuse, fs_in.tc).w);
 }
 DONE
 
@@ -189,6 +200,8 @@ WS_VERT_SHADER :: #string DONE
 #version 430 core
 layout (location = 0) in vec3 in_wpos;
 layout (location = 1) in vec4 in_color;
+
+// TODO: these should be a UBO
 uniform mat4 proj;
 uniform mat4 view;
 
@@ -207,7 +220,7 @@ WS_FRAG_SHADER :: #string DONE
 #version 430 core
 out vec4 FragColor;
 
-in GS_OUT {
+in VS_OUT {
     vec4 color;
 } fs_in;
 
@@ -215,28 +228,3 @@ void main() {
    FragColor = fs_in.color;
 }
 DONE
-
-// This is a simple passthrough geometry shader to get the hang of things!
-WS_NORM_VIS_GEOM_SHADER :: #string DONE
-#version 430 core
-layout (triangles) in;
-layout (triangle_strip, max_vertices = 6) out;
-
-in VS_OUT {
-    vec4 color;
-} gs_in[]; // array because we are processing 3 verts at a time!
-
-out GS_OUT {
-    vec4 color;
-} gs_out;
-
-void main() {
-   for (int i = 0; i < 3; ++i) {
-      gl_Position = gl_in[i].gl_Position;
-      gs_out.color = gs_in[i].color;
-      EmitVertex();
-   }
-   EndPrimitive();
-}
-DONE
-

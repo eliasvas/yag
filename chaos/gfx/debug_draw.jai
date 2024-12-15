@@ -33,9 +33,8 @@ xDebugVertex :: struct {
 }
 
 ximm_init :: () {
-    // create Immediate Shader
-    ogl_sp_init(*imm_sp, WS_VERT_SHADER, WS_FRAG_SHADER, WS_NORM_VIS_GEOM_SHADER);
-    //ogl_sp_init(*imm_sp, WS_VERT_SHADER, WS_FRAG_SHADER);
+    // create Immediate World Space Shader
+    ogl_sp_init(*imm_sp, WS_VERT_SHADER, WS_FRAG_SHADER);
     ogl_sp_add_attrib(*imm_sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xDebugVertex),xx offset_of(xDebugVertex, #code wpos),false));
     ogl_sp_add_attrib(*imm_sp, ogl_attrib_make(1,oglShaderDataType.VEC4,size_of(xDebugVertex),xx offset_of(xDebugVertex, #code color),false));
 
@@ -61,4 +60,4 @@ ximm_flush :: (proj : m4, view : m4) {
   ogl_sp_set_dyn_state(*imm_sp, .BLEND);
   ogl_sp_set_dyn_state(*imm_sp, .DEPTH);
   ogl_draw(oglPrimitive.TRIANGLES, 0, xx imm_tri_data.count);
-}
+}    //ogl_sp_init(*imm_sp, WS_VERT_SHADER, WS_FRAG_SHADER);

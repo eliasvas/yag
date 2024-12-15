@@ -78,9 +78,7 @@ main :: () {
     ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
 
     // create Shadow-Pass Shader
-    // FIXME: compute shaders should be at the middle in SP init
-    //ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_FRAG_SHADER);
-    ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_FRAG_SHADER, CSM_GEOM_SHADER);
+    ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_GEOM_SHADER, CSM_FRAG_SHADER);
     ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false));
     ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
     ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
@@ -102,14 +100,11 @@ main :: () {
     while true {
         xeng_frame_init();
 
-        //ImGui.Begin("Texture Viewer");
-        //shadow_rt_depth := ogl_rt_get_attachment(*shadow_rt,.DS);
-        //ImGui.Image(xx shadow_rt_depth.impl_state, .{shadow_rt.dim.x,shadow_rt.dim.y});
-        //ImGui.End();
         ImGui.Begin("CSM");
         ImGui.SliderFloat3("light dir", xx *xeng().dir_light.dl.dir, -1.0, 1.0); 
         xeng().dir_light.dl.dir = v3_norm(xeng().dir_light.dl.dir);
         ImGui.SliderInt("cascade count",xx *xeng().csm_data.cascade_count, 1, 4);
+        ImGui.SliderFloat("zMult factor", xx *xeng().csm_data.z_mult, 1.0, 10.0); 
         ImGui.Checkbox("CSM debug draw", *xeng().csm_data.debug_draw);
         ImGui.Checkbox("CSM debug frustum", *xeng().csm_data.debug_frustum);
         ImGui.End();
@@ -135,8 +130,6 @@ main :: () {
         ogl_rt_bind(null);
         ogl_bind_sp(*bp_sp);
         ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *xeng().c.pos);
-        ogl_sp_set_uniform(*bp_sp, "view", oglShaderDataType.MAT4, xeng().view.raw.data);
-        ogl_sp_set_uniform(*bp_sp, "proj", oglShaderDataType.MAT4, xeng().proj.raw.data);
         render_sample_scene(*bp_sp);
 
         xeng_frame_end();
