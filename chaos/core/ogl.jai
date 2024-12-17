@@ -666,6 +666,9 @@ ogl_deinit :: () {
 ogl_set_viewport :: (x : float32 , y : float32, w : float32, h : float32) {
     glViewport(xx x,xx y,xx w,xx h);
 }
+ogl_set_viewport :: (vp : v4) {
+    glViewport(xx vp.x,xx vp.y,xx vp.z,xx vp.w);
+}
 ogl_set_scissor :: (x : float32 , y : float32, w : float32, h : float32) {
     glScissor(xx x,xx y,xx w,xx h);
 }

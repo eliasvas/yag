@@ -54,10 +54,8 @@ ximm_flush :: (proj : m4, view : m4) {
   ogl_rt_bind(null);
   ogl_bind_vertex_buffer(*tri_buf);
   ogl_bind_sp(*imm_sp);
-  ogl_set_viewport(0,0,1280,720);
-  ogl_sp_set_uniform(*imm_sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
-  ogl_sp_set_uniform(*imm_sp, "view", oglShaderDataType.MAT4, view.raw.data);
+  ogl_set_viewport(xwin_get_viewport(*xeng().win));
   ogl_sp_set_dyn_state(*imm_sp, .BLEND);
   ogl_sp_set_dyn_state(*imm_sp, .DEPTH);
   ogl_draw(oglPrimitive.TRIANGLES, 0, xx imm_tri_data.count);
-}    //ogl_sp_init(*imm_sp, WS_VERT_SHADER, WS_FRAG_SHADER);
+}

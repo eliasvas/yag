@@ -130,7 +130,7 @@ main :: () {
 
 
         // then render the scene with the shadow map bound
-        ogl_set_viewport(0,0,1280,720);
+        ogl_set_viewport(xwin_get_viewport(*xeng().win));
         ogl_rt_bind(null);
         ogl_bind_sp(*bp_sp);
         ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *xeng().c.pos);
@@ -154,12 +154,9 @@ render_sample_scene :: (sp : *oglSP) {
     point_light := xpoint_light_make_basic(light_pos);
     xlight_set_to_shader(*point_light, sp);
 
-    viewport: v4 = .{0,0,1280,720};
-
     // render frustum / lsm
     debug_draw : bool = (sp != *shadow_sp);
     xcsm_data_set_to_shader(sp, *xeng().csm_data, xeng().dir_light.dl, debug_draw);
-
 
     // render big cube 
     big_cube_mat := xMaterial.{sm=xsimple_material_make(*trans_red_img,*white_img, 8), kind=.SIMPLE};

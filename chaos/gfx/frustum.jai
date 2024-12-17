@@ -200,7 +200,9 @@ CSM_VERT_SHADER :: #string DONE
 layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_norm;
 layout (location = 2) in vec2 in_tc;
+
 uniform mat4 model;
+
 void main() {
   gl_Position = model*vec4(in_pos.xyz, 1.0);
 }
@@ -216,7 +218,7 @@ CSM_GEOM_SHADER :: #string DONE
 #version 430 core
 layout(triangles, invocations = 4) in;
 layout(triangle_strip, max_vertices = 3) out;
-    
+ 
 uniform mat4 lsm[4];
     
 void main() {          

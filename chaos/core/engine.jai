@@ -10,7 +10,6 @@ xEngine :: struct {
   view : m4;
 
   dir_light : xLight;
-  // CSM stuff - TODO: probably should be somewhere else, maybe a struct?
   csm_data : xCSMData;
 
   global_data_ub : oglUB;
@@ -50,6 +49,7 @@ xeng_init :: () {
 xeng_frame_init :: () {
   using g_engine;
   // TODO: maybe we should do all the RT clears here too!
+  xwin_update_size(*win);
   xcam_update(*c, xx 1.0/60.0);
   proj = m4_persp(45.0, xwin_get_fovx(*win), 1, 100);
   view = xcam_get_view_mat(*c);

@@ -5,6 +5,7 @@ BP_VERT_SHADER :: #string DONE
 layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_norm;
 layout (location = 2) in vec2 in_tc;
+
 uniform mat4 model;
 uniform mat4 lsm[4]; // World Space -> light's Clip Space
 
@@ -183,27 +184,15 @@ void main()
 }
 DONE
 
-EMPTY_FRAG_SHADER :: #string DONE
-#version 430 core
-out vec4 FragColor;
-
-void main() {
-   // gl_FragDepth = gl_FragCoord.z;
-   float actual_depth = gl_FragCoord.z;
-   FragColor = vec4(vec3(actual_depth),1.0);
-}
-DONE
-
-
-
 WS_VERT_SHADER :: #string DONE
 #version 430 core
 layout (location = 0) in vec3 in_wpos;
 layout (location = 1) in vec4 in_color;
 
-// TODO: these should be a UBO
-uniform mat4 proj;
-uniform mat4 view;
+layout(std140, binding = 0) uniform GlobalData {
+   mat4 proj;
+   mat4 view;
+};
 
 out VS_OUT {
     vec4 color;

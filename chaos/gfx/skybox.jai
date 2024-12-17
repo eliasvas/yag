@@ -29,8 +29,7 @@ xskydome_make :: () -> xSkydome {
   return skydome;
 }
 
-xskydome_render :: (skydome : *xSkydome, viewport : v4, cam : *xCam, proj : m4) {
-  using skydome;
+xskydome_render :: (using skydome : *xSkydome, viewport : v4, cam : *xCam, proj : m4) {
   // we cancel translation, the skydome is to be rendered at the center
   view := xcam_get_view_mat(cam);
   view._14 = 0;
@@ -43,14 +42,13 @@ xskydome_render :: (skydome : *xSkydome, viewport : v4, cam : *xCam, proj : m4) 
   ogl_bind_sp(*sp);
   ogl_set_viewport(viewport.x, viewport.y, viewport.width, viewport.height); // TODO: make an API for this
   ogl_sp_set_uniform(*sp, "sky_color", oglShaderDataType.VEC3, *cloud_color);
-  ogl_sp_set_uniform(*sp, "view", oglShaderDataType.MAT4, view.raw.data);
-  ogl_sp_set_uniform(*sp, "proj", oglShaderDataType.MAT4, proj.raw.data);
-  //ogl_sp_set_dyn_state(*sp, .DEPTH);
+  ogl_sp_set_uniform(*sp, "vview", oglShaderDataType.MAT4, view.raw.data);
+  ogl_sp_set_uniform(*sp, "pproj", oglShaderDataType.MAT4, proj.raw.data);
+  ogl_sp_set_dyn_state(*sp, .DEPTH);
 
   xmesh_render(*sphere_mesh, *sp, null, m4_I);
 
   xgrid_render(*skydome.grid, viewport, cam, proj);
-
 }
 
 
@@ -59,26 +57,34 @@ SKYBOX_VERT_SHADER :: #string DONE
 layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_norm;
 layout (location = 2) in vec2 in_tc;
-out vec3 f_world_pos;
 
-uniform mat4 view;
-uniform mat4 proj;
+out VS_OUT {
+  vec3 world_pos;
+} vs_out;
+uniform mat4 pproj;
+uniform mat4 vview;
+
+
 void main() {
-  f_world_pos = in_pos;
-  gl_Position = proj*view*vec4(in_pos,1.0);
+  vs_out.world_pos = in_pos;
+  gl_Position = pproj*vview*vec4(in_pos,1.0);
 }
 DONE
 
 SKYBOX_FRAG_SHADER :: #string DONE
 #version 430 core
-in vec3 f_world_pos;
 out vec4 FragColor;
+
+in VS_OUT {
+  vec3 world_pos;
+} fs_in;
 
 uniform vec3 color_bottom = vec3(0.2,0.05,0.05);
 uniform vec3 color_top = vec3(0.05,0.05,0.2);
 
+
 void main() {
-  vec3 col = mix(color_bottom, color_top, f_world_pos.y + 1.0 / 2.0);
+  vec3 col = mix(color_bottom, color_top, fs_in.world_pos.y + 1.0 / 2.0);
   FragColor = vec4(col, 1.0);
 }
 DONE
