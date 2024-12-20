@@ -3,8 +3,10 @@
 // TODO: keep reading the paper (after HDR is done)
 // TODO: Its really slow, we need to do the trick where we draw OVER other triangles, see leanropengl skybox chapter i think?
 
+// TODO: make a color.jai for HSV and stuff
 xSkydome :: struct {
   sp  : oglSP;
+  ub_b1  : oglUBlock;
   noise_tex : oglTex; // This is optional right?
   sky_color   : v3 = .{0.3,0.5,0.8};
   cloud_color : v3 = .{1,1,1};
@@ -22,6 +24,7 @@ xskydome_make :: () -> xSkydome {
   ogl_sp_add_attrib(*sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false));
   ogl_sp_add_attrib(*sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
   ogl_sp_add_attrib(*sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
+  ogl_ublock_load(*ub_b1, *sp, 1);
   white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
   ogl_tex_init(*noise_tex, .{1,1}, white.data, oglTexFormat.RGBA8U);
   sphere_mesh = xmesh_gen_sphere(1,8,8,true);
@@ -29,26 +32,35 @@ xskydome_make :: () -> xSkydome {
   return skydome;
 }
 
-xskydome_render :: (using skydome : *xSkydome, viewport : v4, cam : *xCam, proj : m4) {
+xskydome_render :: (using skydome : *xSkydome) {
   // we cancel translation, the skydome is to be rendered at the center
-  view := xcam_get_view_mat(cam);
+  view := xcam_get_view_mat(*xeng().c);
   view._14 = 0;
   view._24 = 0;
   view._34 = 0;
   // draw the skybox
   ogl_rt_bind(null);
   ogl_clear_all_state();
-  ogl_bind_vertex_buffer(null);
-  ogl_bind_sp(*sp);
-  ogl_set_viewport(viewport.x, viewport.y, viewport.width, viewport.height); // TODO: make an API for this
-  ogl_sp_set_uniform(*sp, "sky_color", oglShaderDataType.VEC3, *cloud_color);
-  ogl_sp_set_uniform(*sp, "vview", oglShaderDataType.MAT4, view.raw.data);
-  ogl_sp_set_uniform(*sp, "pproj", oglShaderDataType.MAT4, proj.raw.data);
-  ogl_sp_set_dyn_state(*sp, .DEPTH);
+  ogl_set_viewport(xwin_get_viewport(*xeng().win));
+
+  viewt := m4_transpose(view);
+  ogl_ublock_set(*ub_b1, "view", xx viewt.raw.data);
+  projt := m4_transpose(xeng().proj);
+  ogl_ublock_set(*ub_b1, "proj", xx projt.raw.data);
+  color_bottom := v3.{0.2,0.05, 0.05};
+  ogl_ublock_set(*ub_b1, "color_bottom", xx *color_bottom);
+  color_top := v3.{0.05, 0.05, 0.2};
+  ogl_ublock_set(*ub_b1, "color_top", xx *color_top);
+  ogl_ublock_bind_to_slot(*ub_b1);
+
+  //vec3 color_bottom = vec3(0.2,0.05,0.05);
+  //vec3 color_top = vec3(0.05,0.05,0.2);
+
+  //ogl_sp_set_dyn_state(*sp, .DEPTH);
 
   xmesh_render(*sphere_mesh, *sp, null, m4_I);
 
-  xgrid_render(*skydome.grid, viewport, cam, proj);
+  xgrid_render(*skydome.grid);
 }
 
 
@@ -61,13 +73,17 @@ layout (location = 2) in vec2 in_tc;
 out VS_OUT {
   vec3 world_pos;
 } vs_out;
-uniform mat4 pproj;
-uniform mat4 vview;
 
+layout(std140, binding = 1) uniform SkyboxData {
+  mat4 proj;
+  mat4 view;
+  vec3 color_bottom;
+  vec3 color_top;
+};
 
 void main() {
   vs_out.world_pos = in_pos;
-  gl_Position = pproj*vview*vec4(in_pos,1.0);
+  gl_Position = proj*view*vec4(in_pos,1.0);
 }
 DONE
 
@@ -79,9 +95,12 @@ in VS_OUT {
   vec3 world_pos;
 } fs_in;
 
-uniform vec3 color_bottom = vec3(0.2,0.05,0.05);
-uniform vec3 color_top = vec3(0.05,0.05,0.2);
-
+layout(std140, binding = 1) uniform SkyboxData {
+  mat4 proj;
+  mat4 view;
+  vec3 color_bottom;
+  vec3 color_top;
+};
 
 void main() {
   vec3 col = mix(color_bottom, color_top, fs_in.world_pos.y + 1.0 / 2.0);

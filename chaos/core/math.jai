@@ -2,16 +2,16 @@
 #import "Math";
 #import "Bit_Operations";
 /*
-* This is the math layer for the whole engine.
-* We use the GLTF coordinate system (rhs), our <right,up,frw> vectors are:
-* - World Space <-x,+y,+z> (think about smiley face in front of camera)
-* - Camera Space <+x,+y,-z> (we are facing the negative-z axis)
-* )
-* For some good resources on GameDev math I recommend:
-* https://www.scratchapixel.com/index.html
-* https://learnopengl.com/
-* https://immersivemath.com/ila/index.html
-* TODO: we need to add support for Quaternions
+  * This is the math layer for the whole engine.
+  * We use the GLTF coordinate system (rhs), our <right,up,frw> vectors are:
+  * - World Space <-x,+y,+z> (think about smiley face in front of camera)
+  * - Camera Space <+x,+y,-z> (we are facing the negative-z axis)
+  * )
+  * For some good resources on GameDev math I recommend:
+  * https://www.scratchapixel.com/index.html
+  * https://learnopengl.com/
+  * https://immersivemath.com/ila/index.html
+  * TODO: we need to add support for Quaternions
 */
 
 ////////////////////////
@@ -116,20 +116,20 @@ iv4:: struct {
 * */
 
 m4 :: struct {
-    _11, _12, _13, _14 : float;
-    _21, _22, _23, _24 : float;
-    _31, _32, _33, _34 : float;
-    _41, _42, _43, _44 : float;
+  _11, _12, _13, _14 : float;
+  _21, _22, _23, _24 : float;
+  _31, _32, _33, _34 : float;
+  _41, _42, _43, _44 : float;
 
-    #place _11; v:    [4] v4; // row vectors (for correct OpenGL storage right?)
-    #place _11; coef: [4][4] float;
-    #place _11; raw:  [16]   float;
+  #place _11; v:    [4] v4; // row vectors (for correct OpenGL storage right?)
+  #place _11; coef: [4][4] float;
+  #place _11; raw:  [16]   float;
 }
 
 m4_I :: m4.{_11 = 1, _22 = 1, _33 = 1, _44 = 1};
 
 row :: (m: m4, i: int) -> v4 {
-    return m.v[i];
+  return m.v[i];
 }
 
 column :: (m: m4, i: int) -> v4 {
@@ -154,13 +154,13 @@ m4_scale :: (v : v3) -> m4 {
 
 // This is SUPER slow, @FIX
 m4_mult :: (a: m4, b: m4) -> m4{
-    res : m4 = ---;
-    for r : 0..3 {
-      for c : 0..3 {
-        res.coef[r][c] = v4_dot(row(a,r), column(b,c)); 
-      }
+  res : m4 = ---;
+  for r : 0..3 {
+    for c : 0..3 {
+      res.coef[r][c] = v4_dot(row(a,r), column(b,c)); 
     }
-    return res;
+  }
+  return res;
 }
 
 m4_multv :: (a : m4, v : v4) -> v4 {
@@ -198,39 +198,39 @@ m4_transpose :: (m: m4) -> m4 {
 }
 
 m4_inverse :: (m: m4, epsilon := 0.0001) -> m4, bool {
-    a := v3.{m._11, m._21, m._31};
-    b := v3.{m._12, m._22, m._32};
-    c := v3.{m._13, m._23, m._33};
-    d := v3.{m._14, m._24, m._34};
+  a := v3.{m._11, m._21, m._31};
+  b := v3.{m._12, m._22, m._32};
+  c := v3.{m._13, m._23, m._33};
+  d := v3.{m._14, m._24, m._34};
 
-    x := m._41;
-    y := m._42;
-    z := m._43;
-    w := m._44;
+  x := m._41;
+  y := m._42;
+  z := m._43;
+  w := m._44;
 
-    s := v3_cross(a, b);
-    t := v3_cross(c, d);
-    u := a * y - b * x;
-    v := c * w - d * z;
+  s := v3_cross(a, b);
+  t := v3_cross(c, d);
+  u := a * y - b * x;
+  v := c * w - d * z;
 
-    det := v3_dot(s, v) + v3_dot(t, u);
-    inv_det := 1.0 / det;
-    s *= inv_det;
-    t *= inv_det;
-    u *= inv_det;
-    v *= inv_det;
+  det := v3_dot(s, v) + v3_dot(t, u);
+  inv_det := 1.0 / det;
+  s *= inv_det;
+  t *= inv_det;
+  u *= inv_det;
+  v *= inv_det;
 
-    r0 := v3_cross(b, v) + t * y;
-    r1 := v3_cross(v, a) - t * x;
-    r2 := v3_cross(d, u) + s * w;
-    r3 := v3_cross(u, c) - s * z;
+  r0 := v3_cross(b, v) + t * y;
+  r1 := v3_cross(v, a) - t * x;
+  r2 := v3_cross(d, u) + s * w;
+  r3 := v3_cross(u, c) - s * z;
 
-    return .{
-            r0.x, r0.y, r0.z, -v3_dot(b, t),
-            r1.x, r1.y, r1.z,  v3_dot(a, t),
-            r2.x, r2.y, r2.z, -v3_dot(d, s),
-            r3.x, r3.y, r3.z,  v3_dot(c, s)},
-        abs(det) < epsilon;
+  return .{
+    r0.x, r0.y, r0.z, -v3_dot(b, t),
+    r1.x, r1.y, r1.z,  v3_dot(a, t),
+    r2.x, r2.y, r2.z, -v3_dot(d, s),
+    r3.x, r3.y, r3.z,  v3_dot(c, s)},
+  abs(det) < epsilon;
 }
 
 //@NOTE: We can see here that M * M^-1 = I, as it SHOULD

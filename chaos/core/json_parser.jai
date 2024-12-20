@@ -7,104 +7,104 @@
 // TODO: Currently, only correct(TM) files are parsed. Make some error value (second return value maybe), no debug info needed.
 
 /*
-    This is a simple Json Parser, which we will use for configuration files
-    as well as the base for our glTF 2.0 loading, which will be the main
-    3D file format for the engine.
+  This is a simple Json Parser, which we will use for configuration files
+  as well as the base for our glTF 2.0 loading, which will be the main
+  3D file format for the engine.
 
-    In Json there exist 3 types :
-      - values (String, Bool, Number, Null)
-      - objects (string : JsonNode pairs)
-      - arrrays (multiples of JsonNode)
+  In Json there exist 3 types :
+    - values (String, Bool, Number, Null)
+    - objects (string : JsonNode pairs)
+    - arrrays (multiples of JsonNode)
 
-    Usage: TBA
+  Usage: TBA
 */
 
 xjson_parse_wholefile_string :: (wholefile : string) -> *xJsonNode {
-    //print("Json:\n %\n------\n", SAMPLE_JSON);
-    tokens := xjson_tokenize(wholefile);
-    //print("tokens: %\n", tokens);
-    root_node := xjson_parse_tokens(tokens);
-    //xjson_print_node(root_node, 0);
-    return root_node;
+  //print("Json:\n %\n------\n", SAMPLE_JSON);
+  tokens := xjson_tokenize(wholefile);
+  //print("tokens: %\n", tokens);
+  root_node := xjson_parse_tokens(tokens);
+  //xjson_print_node(root_node, 0);
+  return root_node;
 }
 
 xJsonTokenKind :: enum u8 {
-    LBRACE;
-    RBRACE;
-    LBRACKET;
-    RBRACKET;
-    COLON;
-    COMMA;
-    STRING;
-    NUMBER;
-    TRUE;
-    FALSE;
-    NULL;
+  LBRACE;
+  RBRACE;
+  LBRACKET;
+  RBRACKET;
+  COLON;
+  COMMA;
+  STRING;
+  NUMBER;
+  TRUE;
+  FALSE;
+  NULL;
 };
 
 xJsonToken :: struct {
-    kind : xJsonTokenKind;
-    value : string;
+  kind : xJsonTokenKind;
+  value : string;
 };
 
 xjson_tokenize :: (wholefile : string) -> [] xJsonToken {
-    tokens : [..] xJsonToken;
-    pos := 0;
-    while pos != wholefile.count {
-        c : u8 = wholefile[pos];
-        if c == {
-            case #char "{";
-                array_add(*tokens, .{kind=.LBRACE});
-                pos +=1;
-            case #char "}";
-                array_add(*tokens, .{kind=.RBRACE});
-                pos +=1;
-            case #char "[";
-                array_add(*tokens, .{kind=.LBRACKET});
-                pos +=1;
-            case #char "]";
-                array_add(*tokens, .{kind=.RBRACKET});
-                pos +=1;
-            case #char ":";
-                array_add(*tokens, .{kind=.COLON});
-                pos +=1;
-            case #char ",";
-                array_add(*tokens, .{kind=.COMMA});
-                pos +=1;
-            case #char "\"";
-                pos+=1;
-                s : string = .{data=*wholefile[pos],count=0};
-                c = wholefile[pos];
-                while c != #char "\"" {
-                    s.count+=1;
-                    c = wholefile[pos+s.count];
-                }
-                pos+=s.count+1;
-                array_add(*tokens, .{kind=.STRING,value=s});
-            case;
-                if to_string(*wholefile[pos], 4) == "true" {
-                    pos+=4;
-                    array_add(*tokens, .{kind=.TRUE});
-                } else if to_string(*wholefile[pos], 4) == "null" {
-                    pos+=4;
-                    array_add(*tokens, .{kind=.NULL});
-                } else if to_string(*wholefile[pos], 5) == "false" {
-                    pos+=5;
-                    array_add(*tokens, .{kind=.FALSE});
-                } else if is_digit(c) || c==#char"-" || c==#char"." {
-                    s : string = .{data=*wholefile[pos], count=0};
-                    while is_digit(c) || c==#char"-" || c==#char"." {
-                        s.count+=1;
-                        c = wholefile[pos+s.count];
-                    }
-                    pos+=s.count;
-                    array_add(*tokens, .{kind=.NUMBER, value=s});
-                }else {
-                    pos+=1;
-                }
+  tokens : [..] xJsonToken;
+  pos := 0;
+  while pos != wholefile.count {
+    c : u8 = wholefile[pos];
+    if c == {
+      case #char "{";
+        array_add(*tokens, .{kind=.LBRACE});
+        pos +=1;
+      case #char "}";
+        array_add(*tokens, .{kind=.RBRACE});
+        pos +=1;
+      case #char "[";
+        array_add(*tokens, .{kind=.LBRACKET});
+        pos +=1;
+      case #char "]";
+        array_add(*tokens, .{kind=.RBRACKET});
+        pos +=1;
+      case #char ":";
+        array_add(*tokens, .{kind=.COLON});
+        pos +=1;
+      case #char ",";
+        array_add(*tokens, .{kind=.COMMA});
+        pos +=1;
+      case #char "\"";
+        pos+=1;
+        s : string = .{data=*wholefile[pos],count=0};
+        c = wholefile[pos];
+        while c != #char "\"" {
+          s.count+=1;
+          c = wholefile[pos+s.count];
         }
-    }
-    return tokens;
+        pos+=s.count+1;
+        array_add(*tokens, .{kind=.STRING,value=s});
+      case;
+        if to_string(*wholefile[pos], 4) == "true" {
+          pos+=4;
+          array_add(*tokens, .{kind=.TRUE});
+        } else if to_string(*wholefile[pos], 4) == "null" {
+          pos+=4;
+          array_add(*tokens, .{kind=.NULL});
+        } else if to_string(*wholefile[pos], 5) == "false" {
+          pos+=5;
+          array_add(*tokens, .{kind=.FALSE});
+        } else if is_digit(c) || c==#char"-" || c==#char"." {
+          s : string = .{data=*wholefile[pos], count=0};
+          while is_digit(c) || c==#char"-" || c==#char"." {
+            s.count+=1;
+            c = wholefile[pos+s.count];
+          }
+          pos+=s.count;
+          array_add(*tokens, .{kind=.NUMBER, value=s});
+        }else {
+          pos+=1;
+        }
+      }
+  }
+  return tokens;
 }
 
 // TODO: should this number be different for ints/floats?
@@ -141,7 +141,6 @@ xjson_parse_tokens :: (tokens : []xJsonToken) -> *xJsonNode {
 
 xjson_parse_value :: (tokens : []xJsonToken, pos : *s64) -> *xJsonNode {
   token := tokens[pos.*];
-
   if token.kind == {
     case .NULL;
       return xjson_node_make(.NULL, "null");

@@ -12,7 +12,7 @@ xEngine :: struct {
   dir_light : xLight;
   csm_data : xCSMData;
 
-  global_data_ub : oglUB;
+  global_data_ub : oglUBlock;
 }
 
 g_engine : xEngine;
@@ -28,7 +28,7 @@ xeng_init :: () {
   assert(xwin_init(*win, "chaos", viewport.width, viewport.height, xWindowFlags.RESIZABLE));
   // 2. ogl init (our graphics wrapper)
   ogl_init();
-  ogl_ub_init(*global_data_ub, size_of(m4)*2);
+  ogl_ublock_init(*global_data_ub, size_of(m4)*2);
   // 3. immediate drawing module init
   ximm_init();
   // 4. camera init
@@ -51,14 +51,15 @@ xeng_frame_init :: () {
   // TODO: maybe we should do all the RT clears here too!
   xwin_update_size(*win);
   xcam_update(*c, xx 1.0/60.0);
-  proj = m4_persp(45.0, xwin_get_fovx(*win), 1, 100);
+  //proj = m4_persp(45.0, xwin_get_fovx(*win), 1, 100);
+  proj = m4_persp(45.0, xwin_get_fovx(*win), 0.5, 100);
   view = xcam_get_view_mat(*c);
   // input handling for the frame
   {
-      wevents := xwin_capture_events(*win);
-      xim_capture_begin();
-      xim_consume_events(wevents);
-      xim_capture_end();
+    wevents := xwin_capture_events(*win);
+    xim_capture_begin();
+    xim_consume_events(wevents);
+    xim_capture_end();
   }
 
   // ImGui bullshit
@@ -75,16 +76,16 @@ xeng_frame_init :: () {
 
   // global UBO stuff (this is done only ONCE per-frame)
   pv : [2]m4 = .[m4_transpose(proj), m4_transpose(view)];
-  ogl_ub_set(*global_data_ub, xx pv.data);
-  ogl_ub_bind_to_slot(*xeng().global_data_ub);
+  ogl_ublock_set(*global_data_ub, xx pv.data);
+  ogl_ublock_bind_to_slot(*xeng().global_data_ub);
 
   // The other _set API
-  //ogl_ub_load(*xeng().global_data_ub, *bp_sp, 0);
+  //ogl_ublock_load(*xeng().global_data_ub, *bp_sp, 0);
   //pt := m4_transpose(xeng().proj);
-  //ogl_ub_set(*xeng().global_data_ub, "proj", xx *pt);
+  //ogl_ublock_set(*xeng().global_data_ub, "proj", xx *pt);
   //pvv := m4_transpose(xeng().view);
-  //ogl_ub_set(*xeng().global_data_ub, "view", xx *pvv);
-  //ogl_ub_bind(*xeng().global_data_ub);
+  //ogl_ublock_set(*xeng().global_data_ub, "view", xx *pvv);
+  //ogl_ublock_bind(*xeng().global_data_ub);
 
 
 
