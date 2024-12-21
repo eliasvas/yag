@@ -6,3 +6,4 @@
 #load "light.jai";
 #load "frustum.jai";
 #load "debug_draw.jai";
+#load "rend3d.jai";

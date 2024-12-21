@@ -13,7 +13,7 @@ xCam :: struct {
   world_up : v3 = .{0,1,0};
   yaw : float = -90.0;
   pitch : float;
-  speed : float = 1.0; 
+  speed : float = 20.0; 
   mouse_sens : float = 0.15;
 }
 

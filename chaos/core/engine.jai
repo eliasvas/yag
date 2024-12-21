@@ -1,5 +1,6 @@
 // TODO: perform timing stuff, calc dt / frame_time etc
 xEngine :: struct {
+  frame_start_time : float64;
   dt : float64;
 
   win : xWindow;
@@ -48,9 +49,10 @@ xeng_init :: () {
 // TODO: this should be called frame_begin
 xeng_frame_init :: () {
   using g_engine;
+  frame_start_time = seconds_since_init();
   // TODO: maybe we should do all the RT clears here too!
   xwin_update_size(*win);
-  xcam_update(*c, xx 1.0/60.0);
+  xcam_update(*c, cast(float32)dt);
   //proj = m4_persp(45.0, xwin_get_fovx(*win), 1, 100);
   proj = m4_persp(45.0, xwin_get_fovx(*win), 0.5, 100);
   view = xcam_get_view_mat(*c);
@@ -103,4 +105,6 @@ xeng_frame_end :: () {
   ////////////////////////
 
   xwin_swap(*win);
+  frame_end_time := seconds_since_init();
+  dt = frame_end_time - frame_start_time;
 }

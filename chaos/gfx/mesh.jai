@@ -143,8 +143,6 @@ xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8,
 xmesh_render :: (mesh : *xMesh, sp : *oglSP, m : *xMaterial = null, model : m4) {
   using mesh;
 
-  ogl_clear_all_state(); // VERY important, TODO: make clear_all_state more powerful
-
   ogl_bind_vertex_buffer(*mesh.vbo);
   if has_ibo {
     ogl_bind_index_buffer(*mesh.ibo);
@@ -152,6 +150,7 @@ xmesh_render :: (mesh : *xMesh, sp : *oglSP, m : *xMaterial = null, model : m4) 
   if m {
         xmaterial_set_to_shader(m, sp);
   }
+  // FIXME: WHY WHY WHY do we need to bind the sp after the vbo
   ogl_bind_sp(sp);
   ogl_sp_set_uniform(sp, "model", oglShaderDataType.MAT4, model.raw.data);
   ogl_sp_set_dyn_state(sp, .BLEND);
