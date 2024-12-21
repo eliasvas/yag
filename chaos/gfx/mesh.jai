@@ -143,15 +143,25 @@ xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8,
 xmesh_render :: (mesh : *xMesh, sp : *oglSP, m : *xMaterial = null, model : m4) {
   using mesh;
 
-  ogl_bind_vertex_buffer(*mesh.vbo);
-  if has_ibo {
-    ogl_bind_index_buffer(*mesh.ibo);
-  }
+
+  bp_attribs := oglShaderAttrib.[
+    ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false),
+    ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false),
+    ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false)
+  ];
+
+  bindings := oglBindingDesc.{
+    *mesh.ibo,
+    .[*mesh.vbo],
+    .[bp_attribs],
+  };
+
+ 
+  //ogl_bind_sp(sp);
+  ogl_sp_apply_bindings(sp, bindings);
   if m {
-        xmaterial_set_to_shader(m, sp);
+    xmaterial_set_to_shader(m, sp);
   }
-  // FIXME: WHY WHY WHY do we need to bind the sp after the vbo
-  ogl_bind_sp(sp);
   ogl_sp_set_uniform(sp, "model", oglShaderDataType.MAT4, model.raw.data);
   ogl_sp_set_dyn_state(sp, .BLEND);
   if has_ibo {

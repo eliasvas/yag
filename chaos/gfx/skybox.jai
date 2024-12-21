@@ -21,9 +21,8 @@ xskydome_make :: () -> xSkydome {
   using skydome : xSkydome;
 
   ogl_sp_init(*sp, SKYBOX_VERT_SHADER, SKYBOX_FRAG_SHADER);
-  ogl_sp_add_attrib(*sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false));
-  ogl_sp_add_attrib(*sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
-  ogl_sp_add_attrib(*sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
+
+
   ogl_ublock_load(*ub_b1, *sp, 1);
   white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
   ogl_tex_init(*noise_tex, .{1,1}, white.data, oglTexFormat.RGBA8U);
@@ -58,6 +57,7 @@ xskydome_render :: (using skydome : *xSkydome) {
 
   //ogl_sp_set_dyn_state(*sp, .DEPTH);
 
+  ogl_bind_sp(*sp);
   xmesh_render(*sphere_mesh, *sp, null, m4_I);
 
   xgrid_render(*skydome.grid);

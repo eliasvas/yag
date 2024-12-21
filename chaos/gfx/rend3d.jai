@@ -21,16 +21,8 @@ xRend3D :: struct {
 xr3d_init :: (using rend : *xRend3D) {
   // create Blinn-Phong Shader
   ogl_sp_init(*bp_sp, BP_VERT_SHADER, BP_FRAG_SHADER);
-  ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false));
-  ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
-  ogl_sp_add_attrib(*bp_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
-
   // create Shadow-Pass Shader
   ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_GEOM_SHADER, CSM_FRAG_SHADER);
-  ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false));
-  ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false));
-  ogl_sp_add_attrib(*shadow_sp, ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false));
-
   // initialize the shadow Render Target
   assert(ogl_rt_init(*shadow_rt, .{2048,2048}, .D32F));
 }

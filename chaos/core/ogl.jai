@@ -8,27 +8,21 @@
 // maybe some sort of cache should be implemented inside our oglContext
 // TODO: minimize the code: texture/RT generation could be improved a lot - the less code the better!
 
-// for debugging
-//assert(glGetError() == GL_NO_ERROR);
-
-/*
-The library contains some primitive types for rendering. Namely:
-oglSP - shader program - you pass fragment+vertex shaders to create a shader program
-oglShaderAttrib - shader attrib description - describe whats inside your vertex buffer
-oglBuf - gpu buffer - your index/vertex/uniform buffer
-oglTex - regular texture - you provide a data pointer + dimensions + internal format
-oglRT - render target - contains textures as attachments (4xCOL + 1xDS)
-oglPrimitive - rendering primitive - the primitive you wanna use to draw your draw-call
-*/
-
 /*
 Exposition:
-OpenGL SUCKS! Tons of global state, undefined behaviour, horrible anachronistic API and countless other things. It does one thing right though, cross-platform support. Pretty much every OS supports OpenGLES3. ogl is a wrapper that addresses most issues plaguing current-day OpenGL. The interface is modern enough (D3D11 look and feel), which is a sweet spot because you can prototype fast without having to think about synchronization or pipelines or other low level stuff. Its a single-file OpenGL abstraction that is Gud enough.
-*/
-
-/*
-Usage:
-TBA
+  OpenGL SUCKS! Tons of global state, undefined behaviour, horrible anachronistic API and countless other things. It does one thing right though, cross-platform support. Pretty much every OS supports OpenGLES3. ogl is a wrapper that addresses most issues plaguing current-day OpenGL. The interface is modern enough (D3D11 look and feel), which is a sweet spot because you can prototype fast without having to think about synchronization or pipelines or other low level stuff. Its a single-file OpenGL abstraction that is Gud enough.
+General usage:
+  The basis around this wrapper is the SP (shader program), it ecompasses most of the drawcall. You should initialize your SP with correct attributes from your GLSL shaders. To begin drawing you first bind your Render Target (null for fbo0), then bind the SP then you bind the vertex and index buffer along with any shader bindings (be it texture samplers or uniform blocks) and also any dynamic state you wish to configure (for example enable depth testing with LESS condition) and then you simply draw your specified amount of vertices.
+Sample drawcall:
+  ogl_bind_rt(*my_rt);
+  ogl_bind_sp(*my_sp);
+  ogl_set_viewport(0,0,my_rt.dim.x, my_rt.dim.y);
+  ogl_set_scissor(0,0,my_rt.dim.x, my_rt.dim.y);
+  ogl_bind_vertex_buffer(*my_vbo);
+  ogl_bind_index_buffer(*my_ibo);
+  ogl_add_binding(0,0, *ublock_0);
+  ogl_add_binding(0,1, *tex0);
+  ogl_draw(.TRIANGLES, 0, 36);
 */
 
 
@@ -79,7 +73,6 @@ ogl_buf_init :: (using buf : *oglBuf, bkind : oglBufKind, data : *void, data_cou
   glBindBuffer(buffer_kind, xx buf.impl_state);
   ogl_buf_update(buf, data,data_count,data_size);
   glBindBuffer(buffer_kind, 0);
-  //ogl_check_error();
   return true;
 }
 // TODO the using's should be in function declaration
@@ -107,16 +100,26 @@ ogl_buf_sub_update :: (using buf : *oglBuf, offset : s64, data : *void, data_cou
   }
 }
 
-// FIXME: we don't need these?
 ogl_bind_index_buffer :: (using buf : *oglBuf) {
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, xx impl_state);
+  if buf {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, xx impl_state);
+  } else {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  }
 }
-ogl_bind_vertex_buffer :: (using buf : *oglBuf) {
+
+  //bp_attribs := oglShaderAttrib.[
+  //  ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false),
+  //  ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false),
+  //  ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false)
+  //];
+ogl_bind_vertex_buffer :: (using buf : *oglBuf, attribs : []oglShaderAttrib = .[]) {
   if buf {
     glBindBuffer(GL_ARRAY_BUFFER, xx impl_state);
   } else {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
+  ogl_bind_attribs(attribs);
 }
 ogl_bind_uniform_buffer :: (using buf : *oglBuf) {
   if buf {
@@ -160,15 +163,14 @@ gl_data_type_to_ogl_data_type :: (gl_data_type : s64) -> oglShaderDataType {
 }
 
 oglShaderAttrib :: struct {
-  vbo_idx   : u32;
-  stride    : u32;
+  loc       : u32;
   offset    : u32;
+  stride    : u32;
   type      : oglShaderDataType;
-  instanced : bool; // whether the attribute is instanced
+  instanced : bool;
 };
 oglSP :: struct {
-  attribs      : [OGL_MAX_ATTRIBS]oglShaderAttrib;
-  attrib_count : s64;
+  attribs      : []oglShaderAttrib;
   impl_state   : *void;
 };
 
@@ -241,13 +243,15 @@ ogl_get_component_num_for_data_type :: (type : oglShaderDataType) -> u32 {
   }
   return comp_count;
 }
-ogl_attrib_make :: (vbo_idx : u32, type : oglShaderDataType, stride : u32, offset : u32, instanced : bool) -> oglShaderAttrib {
-  return oglShaderAttrib.{ vbo_idx, stride, offset, type, instanced };
+
+// TODO: first offset then stride in function def
+ogl_attrib_make :: (loc : u32, type : oglShaderDataType, stride : u32, offset : u32, instanced : bool) -> oglShaderAttrib {
+  return oglShaderAttrib.{ loc, offset,stride, type, instanced };
 }
+
 ogl_sp_init :: (using sp: *oglSP, vs_source : string, fs_source : string) -> bool { return ogl_sp_init(sp, vs_source, "", fs_source); }
 ogl_sp_init :: (using sp: *oglSP, vs_source : string, gs_source : string, fs_source : string) -> bool {
   impl_state = cast(*void)gl_make_sp(vs_source, fs_source, gs_source);
-  attrib_count = 0;
   //ogl_check_error();
   return (cast(s64)impl_state !=0);
 }
@@ -255,31 +259,24 @@ ogl_sp_deinit :: (using sp : *oglSP) -> bool {
   glDeleteProgram(cast(GLuint)impl_state);
   return true;
 }
-ogl_sp_add_attrib :: (using sp: *oglSP, attrib : oglShaderAttrib) {
-  attribs[attrib_count] = attrib;
-  attrib_count += 1;
-  // TODO: This probably should be like a dynamic array [..]
-  assert(attrib_count < OGL_MAX_ATTRIBS);
-}
 ogl_bind_attrib :: (attrib : *oglShaderAttrib) {
   using attrib;
-  glEnableVertexAttribArray(vbo_idx);
+  glEnableVertexAttribArray(loc); 
   if type == oglShaderDataType.INT {
-    glVertexAttribIPointer(vbo_idx, cast(GLint)ogl_get_component_num_for_data_type(type), GL_FLOAT, stride, cast(*void)offset);
+    glVertexAttribIPointer(loc, cast(GLint)ogl_get_component_num_for_data_type(type), GL_FLOAT, stride, cast(*void)offset);
   } else {
-    glVertexAttribPointer(vbo_idx, cast(GLint)ogl_get_component_num_for_data_type(type), GL_FLOAT, GL_FALSE, stride, cast(*void)offset);
+    glVertexAttribPointer(loc, cast(GLint)ogl_get_component_num_for_data_type(type), GL_FLOAT, GL_FALSE, stride, cast(*void)offset);
   }
-  glVertexAttribDivisor(vbo_idx, cast(GLuint)instanced);
+  glVertexAttribDivisor(loc, cast(GLuint)instanced);
 }
-ogl_sp_bind_attribs :: (using shader : *oglSP){
-  for i : 0..max(0,attrib_count-1) {
+ogl_bind_attribs :: (attribs : []oglShaderAttrib){
+  for i : 0..attribs.count-1 {
     ogl_bind_attrib(*attribs[i]);
   }
 }
 ogl_bind_sp :: (using sp : *oglSP){
   //ogl_clear_all_state();
   glUseProgram(cast(GLuint)impl_state);
-  ogl_sp_bind_attribs(sp);
 }
 ogl_sp_set_uniform :: (using sp : *oglSP, uniform_name : string, type : oglShaderDataType, val : *void){
   if #complete type == {
@@ -651,6 +648,38 @@ ogl_ublock_set :: (using ub : *oglUBlock, var_name : string, data : *u8) -> bool
 }
 
 ///////////////////////////////
+// ogl Bindings 
+///////////////////////////////
+
+oglBindingDesc :: struct {
+  index_buf : *oglBuf;
+  vertex_bufs : []oglBuf;
+  attribs : [][]oglShaderAttrib; // for each vertex buf, its attribs
+}
+
+ogl_sp_apply_bindings :: (using sp : *oglSP, bindings : oglBindingDesc) {
+  if bindings.index_buf {
+    ogl_bind_index_buffer(bindings.index_buf);
+  }
+  for *vbo, idx : bindings.vertex_bufs {
+    ogl_bind_vertex_buffer(vbo, bindings.attribs[idx]);
+  } 
+
+  // disable unused locs by default
+  enabled_locs : [OGL_MAX_ATTRIBS]bool;
+  for attrib_arr, idx : bindings.attribs {
+    for attr_idx : bindings.attribs[idx] {
+      enabled_locs[attr_idx.loc] = true;
+    }
+  }
+  for idx : 0..OGL_MAX_ATTRIBS {
+    if !enabled_locs {
+      glDisableVertexAttribArray(xx idx);
+    }
+  }
+}
+
+///////////////////////////////
 // ogl Context
 ///////////////////////////////
 
@@ -681,8 +710,9 @@ ogl_set_scissor :: (x : float32 , y : float32, w : float32, h : float32) {
 ogl_clear_all_state :: () {
   //glBindFramebuffer(GL_FRAMEBUFFER, 0);
   //glBindVertexArray(global_context.vao);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  ogl_bind_vertex_buffer(null);
+  ogl_bind_index_buffer(null);
+  ogl_bind_uniform_buffer(null);
   for i : 0..OGL_MAX_ATTRIBS-1 {
     glDisableVertexAttribArray(xx i);
   }
