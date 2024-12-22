@@ -2,7 +2,6 @@
 // TODO: Make the color per-instance
 
 imm_sp : oglSP;
-
 g_imm_tri_data : [..] xDebugVertex;
 
 xImmPrimitiveTriangle :: struct {
@@ -61,10 +60,14 @@ ximm_flush :: (proj : m4, view : m4) {
     ]}
   ];
 
+  dyn_state := oglDynState.{
+    viewport = xwin_get_viewport(*xeng().win),
+    scissor = .{},
+    flags = .BLEND | .DEPTH
+  };
+
   ogl_bind_sp(*imm_sp);
   ogl_sp_apply_bindings(*imm_sp, bindings);
-  ogl_set_viewport(xwin_get_viewport(*xeng().win));
-  ogl_sp_set_dyn_state(*imm_sp, .BLEND);
-  ogl_sp_set_dyn_state(*imm_sp, .DEPTH);
+  ogl_sp_apply_dyn_state(*imm_sp, dyn_state);
   ogl_draw(oglPrimitive.TRIANGLES, 0, xx g_imm_tri_data.count);
 }

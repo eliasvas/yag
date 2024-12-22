@@ -13,7 +13,7 @@
 
 
 //////////////////////////////////
-// Generic Material Type 
+// Generic Material Type
 //////////////////////////////////
 
 xMaterialKind :: enum {
@@ -58,7 +58,7 @@ xsimple_material_make :: ( diffuse_tex : *oglTex, specular_tex : *oglTex, shinin
   mat.diffuse_tex = diffuse_tex;
   mat.specular_tex = specular_tex;
   mat.shininess = shininess;
-  
+
   return mat;
 }
 
@@ -75,7 +75,7 @@ xsimple_material_make :: ( diffuse_color : v4, specular_color : v4 = v4.{1,1,1,1
   mat.diffuse_mod = diffuse_color;
   mat.specular_mod = specular_color;
   mat.shininess = shininess;
-  
+
   return mat;
 }
 
@@ -91,9 +91,6 @@ xsimple_material_set_to_shader :: (mat : *xSimpleMaterial, sp : *oglSP) {
   ogl_sp_set_uniform(sp, "material.shininess", oglShaderDataType.FLOAT, *shininess);
   ogl_sp_set_uniform(sp, "material.diffuse_mod", oglShaderDataType.VEC4, *diffuse_mod);
   ogl_sp_set_uniform(sp, "material.specular_mod", oglShaderDataType.VEC4, *specular_mod);
-
-  // FIXME: should the depth be here?? NO NO NO NO fix dis
-  ogl_sp_set_dyn_state(sp, .DEPTH);
 }
 
 

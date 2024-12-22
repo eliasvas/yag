@@ -349,45 +349,6 @@ ogl_draw_instanced :: (prim : oglPrimitive, first : u32, count : u32, instance_c
 ogl_draw_indexed :: (prim : oglPrimitive, count : u32) {
   glDrawElements(ogl_prim_to_gl_prim(prim), count, GL_UNSIGNED_INT, null);
 }
-
-///////////////////////////////
-// ogl Dynamic State
-///////////////////////////////
-// TODO: needs a LOT of work, current customizability is very minimal
-
-oglDynState :: enum {
-  DEPTH;
-  CULL;
-  STENCIL;
-  BLEND;
-  BLEND2;
-};
-
-ogl_dyn_state_to_gl_state :: (state : oglDynState) -> GLuint {
-  gl_state : GLuint = 0;
-  if #complete state == {
-    case .DEPTH; gl_state = GL_DEPTH_TEST;
-    case .CULL; gl_state = GL_CULL_FACE;
-    case .STENCIL; gl_state = GL_STENCIL_TEST;
-    case .BLEND2; #through;
-    case .BLEND; gl_state = GL_BLEND;
-    case; print("invalid state=[%]", state);
-  }
-  return gl_state;
-}
-ogl_sp_set_dyn_state :: (shader : *oglSP, state : oglDynState) {
-  gl_state : GLuint = ogl_dyn_state_to_gl_state(state);
-  glEnable(gl_state);
-  if #complete state == {
-    case .DEPTH; glDepthFunc(GL_LESS);
-    case .CULL; glCullFace(GL_BACK);
-    case .STENCIL; glStencilFunc(GL_EQUAL, 1, 0xFF);
-    case .BLEND; glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    case .BLEND2;glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    case; print("invalid set on state=[%]", state);
-  }
-}
-
 ///////////////////////////////
 // ogl Textures
 ///////////////////////////////
@@ -707,6 +668,69 @@ ogl_sp_apply_bindings :: (using sp : *oglSP, bindings : oglBindingDesc) {
 }
 
 ///////////////////////////////
+// ogl Dynamic state 
+///////////////////////////////
+
+// TODO: needs a LOT of work, current customizability is very minimal
+
+oglDynState :: struct {
+  viewport : v4;
+  scissor : v4;
+  flags : oglDynStateFlags;
+}
+
+oglDynStateFlags :: enum_flags u16 {
+  NONE    :: 0x0;
+  DEPTH   :: 0x1;
+  CULL    :: 0x2;
+  STENCIL :: 0x4;
+  BLEND   :: 0x8;
+}
+
+ogl_dyn_state_to_gl_state :: (state : oglDynStateFlags) -> GLuint {
+  gl_state : GLuint = 0;
+  if state == {
+    case .DEPTH; gl_state = GL_DEPTH_TEST;
+    case .CULL; gl_state = GL_CULL_FACE;
+    case .STENCIL; gl_state = GL_STENCIL_TEST;
+    case .BLEND; gl_state = GL_BLEND;
+    case .NONE; gl_state = 0;
+    case; print("invalid state=[%]", state);
+  }
+  return gl_state;
+}
+
+ogl_sp_unset_dyn_state :: (state : oglDynStateFlags) {
+  gl_state : GLuint = ogl_dyn_state_to_gl_state(state);
+  glDisable(gl_state);
+}
+ogl_sp_set_dyn_state :: (state : oglDynStateFlags) {
+  gl_state : GLuint = ogl_dyn_state_to_gl_state(state);
+  glEnable(gl_state);
+  if state == {
+    case .DEPTH; glDepthFunc(GL_LESS);
+    case .CULL; glCullFace(GL_BACK);
+    case .STENCIL; glStencilFunc(GL_EQUAL, 1, 0xFF);
+    case .BLEND; glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    case; print("invalid set on state=[%]", state);
+  }
+}
+
+ogl_sp_apply_dyn_state :: (sp : *oglSP, dyn_state : oglDynState) {
+  ogl_set_viewport(dyn_state.viewport);
+  //ogl_set_scissor(dyn_state.scissor);
+  for state : enum_values_as_s64(oglDynStateFlags) {
+    if state & cast(s64)dyn_state.flags > 0 {
+      //print("set %\n", cast(oglDynStateFlags)state);
+      ogl_sp_set_dyn_state(cast(oglDynStateFlags)state);
+    } else {
+      ogl_sp_unset_dyn_state(cast(oglDynStateFlags)state);
+    }
+  }
+}
+
+
+///////////////////////////////
 // ogl Context
 ///////////////////////////////
 
@@ -733,6 +757,9 @@ ogl_set_viewport :: (vp : v4) {
 }
 ogl_set_scissor :: (x : float32 , y : float32, w : float32, h : float32) {
   glScissor(xx x,xx y,xx w,xx h);
+}
+ogl_set_scissor :: (sc : v4) {
+  glScissor(xx sc.x,xx sc.y,xx sc.z,xx sc.w);
 }
 ogl_clear_all_state :: () {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);

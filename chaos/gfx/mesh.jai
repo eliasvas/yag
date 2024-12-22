@@ -151,14 +151,12 @@ xmesh_render :: (using mesh : *xMesh, sp : *oglSP, m : *xMaterial = null, model 
       ]}
     ]
   };
- 
-  //ogl_bind_sp(sp);
+
   ogl_sp_apply_bindings(sp, bindings);
   if m {
     xmaterial_set_to_shader(m, sp);
   }
   ogl_sp_set_uniform(sp, "model", oglShaderDataType.MAT4, model.raw.data);
-  ogl_sp_set_dyn_state(sp, .BLEND);
   if has_ibo {
     ogl_bind_index_buffer(*mesh.ibo);
     ogl_draw_indexed(oglPrimitive.TRIANGLES, xx ibo.count);

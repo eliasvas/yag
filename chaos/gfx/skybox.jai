@@ -1,4 +1,4 @@
-// skydome based on this paper: 
+// skydome based on this paper:
 // https://developer.nvidia.com/gpugems/gpugems2/part-ii-shading-lighting-and-shadows/chapter-16-accurate-atmospheric-scattering
 // TODO: keep reading the paper (after HDR is done)
 // TODO: Its really slow, we need to do the trick where we draw OVER other triangles, see leanropengl skybox chapter i think?
@@ -40,7 +40,6 @@ xskydome_render :: (using skydome : *xSkydome) {
   // draw the skybox
   ogl_rt_bind(null);
   ogl_clear_all_state();
-  ogl_set_viewport(xwin_get_viewport(*xeng().win));
 
   viewt := m4_transpose(view);
   ogl_ublock_set(*ub_b1, "view", xx viewt.raw.data);
@@ -55,9 +54,13 @@ xskydome_render :: (using skydome : *xSkydome) {
   //vec3 color_bottom = vec3(0.2,0.05,0.05);
   //vec3 color_top = vec3(0.05,0.05,0.2);
 
-  //ogl_sp_set_dyn_state(*sp, .DEPTH);
-
   ogl_bind_sp(*sp);
+  dyn_state := oglDynState.{
+    viewport = xwin_get_viewport(*xeng().win),
+    scissor = .{},
+    flags = .BLEND
+  };
+  ogl_sp_apply_dyn_state(*sp, dyn_state);
   xmesh_render(*sphere_mesh, *sp, null, m4_I);
 
   xgrid_render(*skydome.grid);

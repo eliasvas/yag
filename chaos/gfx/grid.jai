@@ -3,7 +3,7 @@
 // also, look into fwidth a bit more https://www.ronja-tutorials.com/post/046-fwidth/
 
 // TODO: add blue color for z and red for x in origin
-
+// FIXME: do apply_bindings here, we have forgot!
 xGrid :: struct {
   sp : oglSP;
   grid_thick1 : float = 1.0;
@@ -23,10 +23,14 @@ xgrid_render :: (grid : *xGrid) {
   //ogl_clear_all_state();
   ogl_bind_vertex_buffer(null);
   ogl_bind_sp(*sp);
-  ogl_set_viewport(xwin_get_viewport(*xeng().win));
   ogl_sp_set_uniform(*sp, "cam_pos", oglShaderDataType.VEC3, *xeng().c.pos);
-  ogl_sp_set_dyn_state(*sp, .BLEND2);
-  ogl_sp_set_dyn_state(*sp, .DEPTH);
+
+  dyn_state := oglDynState.{
+    viewport = xwin_get_viewport(*xeng().win),
+    scissor = .{},
+    flags = .BLEND | .DEPTH
+  };
+  ogl_sp_apply_dyn_state(*imm_sp, dyn_state);
   ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
 }
 
