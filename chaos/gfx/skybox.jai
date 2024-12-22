@@ -72,6 +72,8 @@ layout (location = 2) in vec2 in_tc;
 
 out VS_OUT {
   vec3 world_pos;
+  vec3 norm;
+  vec2 tc;
 } vs_out;
 
 layout(std140, binding = 1) uniform SkyboxData {
@@ -83,6 +85,8 @@ layout(std140, binding = 1) uniform SkyboxData {
 
 void main() {
   vs_out.world_pos = in_pos;
+  vs_out.norm = in_norm;
+  vs_out.tc = in_tc;
   gl_Position = proj*view*vec4(in_pos,1.0);
 }
 DONE
@@ -93,7 +97,10 @@ out vec4 FragColor;
 
 in VS_OUT {
   vec3 world_pos;
+  vec3 norm;
+  vec2 tc;
 } fs_in;
+
 
 layout(std140, binding = 1) uniform SkyboxData {
   mat4 proj;

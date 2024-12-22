@@ -51,7 +51,7 @@ oglBuf :: struct {
 };
 
 ogl_buf_to_gl_buf :: (kind : oglBufKind) ->GLuint {
-  gl_buf_kind : GLuint = 0; 
+  gl_buf_kind : GLuint = 0;
   if kind == {
     case .VERTEX;
       gl_buf_kind = GL_ARRAY_BUFFER;
@@ -108,18 +108,12 @@ ogl_bind_index_buffer :: (using buf : *oglBuf) {
   }
 }
 
-  //bp_attribs := oglShaderAttrib.[
-  //  ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false),
-  //  ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false),
-  //  ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false)
-  //];
 ogl_bind_vertex_buffer :: (using buf : *oglBuf, attribs : []oglShaderAttrib = .[]) {
   if buf {
     glBindBuffer(GL_ARRAY_BUFFER, xx impl_state);
   } else {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
-  ogl_bind_attribs(attribs);
 }
 ogl_bind_uniform_buffer :: (using buf : *oglBuf) {
   if buf {
@@ -170,8 +164,8 @@ oglShaderAttrib :: struct {
   instanced : bool;
 };
 oglSP :: struct {
-  attribs      : []oglShaderAttrib;
   impl_state   : *void;
+  attribs :[OGL_MAX_ATTRIBS]oglAttribDesc;
 };
 
 gl_check_shader_compile_errors :: (sp_handle : GLuint) -> bool {
@@ -249,10 +243,35 @@ ogl_attrib_make :: (loc : u32, type : oglShaderDataType, stride : u32, offset : 
   return oglShaderAttrib.{ loc, offset,stride, type, instanced };
 }
 
+oglAttribDesc :: struct {
+  loc  : u32;
+  type : oglShaderDataType;
+  available : bool;
+};
+
+ogl_sp_detect_attribs :: (using sp : *oglSP) {
+  name_buf : [256]u8;
+  attrib_count : s32;
+  glGetProgramiv(xx impl_state, GL_ACTIVE_ATTRIBUTES, *attrib_count);
+  for i : 0..attrib_count-1 {
+    desc : oglAttribDesc;
+    type : GLenum;
+    size : GLint;
+    length : GLsizei;
+    glGetActiveAttrib(xx impl_state, xx i, 256, *length, *size, *type, name_buf.data);
+    name_str : string = .{length, name_buf.data};
+    loc := xx glGetAttribLocation(xx impl_state, name_buf.data);
+    if loc == -1 then continue; // we skip built-in vertex attribs like gl_VertexID
+    desc.loc = xx loc;
+    desc.available = true;
+    desc.type = gl_data_type_to_ogl_data_type(type);
+    attribs[loc] = desc;
+  }
+}
 ogl_sp_init :: (using sp: *oglSP, vs_source : string, fs_source : string) -> bool { return ogl_sp_init(sp, vs_source, "", fs_source); }
 ogl_sp_init :: (using sp: *oglSP, vs_source : string, gs_source : string, fs_source : string) -> bool {
   impl_state = cast(*void)gl_make_sp(vs_source, fs_source, gs_source);
-  //ogl_check_error();
+  ogl_sp_detect_attribs(sp);
   return (cast(s64)impl_state !=0);
 }
 ogl_sp_deinit :: (using sp : *oglSP) -> bool {
@@ -261,7 +280,7 @@ ogl_sp_deinit :: (using sp : *oglSP) -> bool {
 }
 ogl_bind_attrib :: (attrib : *oglShaderAttrib) {
   using attrib;
-  glEnableVertexAttribArray(loc); 
+  glEnableVertexAttribArray(loc);
   if type == oglShaderDataType.INT {
     glVertexAttribIPointer(loc, cast(GLint)ogl_get_component_num_for_data_type(type), GL_FLOAT, stride, cast(*void)offset);
   } else {
@@ -269,13 +288,16 @@ ogl_bind_attrib :: (attrib : *oglShaderAttrib) {
   }
   glVertexAttribDivisor(loc, cast(GLuint)instanced);
 }
-ogl_bind_attribs :: (attribs : []oglShaderAttrib){
+
+ogl_bind_attribs :: (sp : * oglSP, vbo : *oglBuf, attribs : []oglShaderAttrib){
   for i : 0..attribs.count-1 {
-    ogl_bind_attrib(*attribs[i]);
+    attrib : oglShaderAttrib = attribs[i];
+    if attrib.stride == 0 then attrib.stride = cast(u32)vbo.size / cast(u32)vbo.count;
+    attrib.type = sp.attribs[attrib.loc].type;
+    ogl_bind_attrib(*attrib);
   }
 }
 ogl_bind_sp :: (using sp : *oglSP){
-  //ogl_clear_all_state();
   glUseProgram(cast(GLuint)impl_state);
 }
 ogl_sp_set_uniform :: (using sp : *oglSP, uniform_name : string, type : oglShaderDataType, val : *void){
@@ -450,7 +472,7 @@ ogl_rt_init :: (using rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) ->
   if #complete format == {
     case oglTexFormat.D32F;
       glGenFramebuffers(1, xx *impl_state);
-      cascade_count :: 4; // FIXME: we should have a MAX_COUNT - maybe use/set the one from frustum.jai 
+      cascade_count :: 4; // FIXME: we should have a MAX_COUNT - maybe use/set the one from frustum.jai
       g_light_depth_maps : GLuint;
       glGenTextures(1, *g_light_depth_maps);
       glBindTexture(GL_TEXTURE_2D_ARRAY, g_light_depth_maps);
@@ -511,8 +533,8 @@ ogl_rt_init :: (using rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) ->
       assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     };
     case oglTexFormat.RGBA8U; #through;
-    case oglTexFormat.RGB8U; #through; 
-    case oglTexFormat.R8U; #through; 
+    case oglTexFormat.RGB8U; #through;
+    case oglTexFormat.R8U; #through;
     case; print("invalid RT texture format=[%]", format);
   }
   return (impl_state != null);
@@ -604,7 +626,7 @@ ogl_ublock_load :: (using ub : *oglUBlock, sp : *oglSP, block_index : u32 = 0) {
         //print("var % = %\n", str_name, var_info);
         vn := alloc_string(name_len);
         memcpy(vn.data, name.data, name_len);
-        inline table_add(*md.table, vn, var_info); 
+        inline table_add(*md.table, vn, var_info);
         // optional - just for clarity
         _, found := table_find(*md.table, vn);
         assert(found);
@@ -648,32 +670,37 @@ ogl_ublock_set :: (using ub : *oglUBlock, var_name : string, data : *u8) -> bool
 }
 
 ///////////////////////////////
-// ogl Bindings 
+// ogl Bindings
 ///////////////////////////////
 
+oglVertexDef :: struct {
+  vbuf : *oglBuf;
+  attribs : []oglShaderAttrib;
+};
 oglBindingDesc :: struct {
   index_buf : *oglBuf;
-  vertex_bufs : []oglBuf;
-  attribs : [][]oglShaderAttrib; // for each vertex buf, its attribs
+  vertex_bufs : []oglVertexDef;
 }
+
 
 ogl_sp_apply_bindings :: (using sp : *oglSP, bindings : oglBindingDesc) {
   if bindings.index_buf {
     ogl_bind_index_buffer(bindings.index_buf);
   }
-  for *vbo, idx : bindings.vertex_bufs {
-    ogl_bind_vertex_buffer(vbo, bindings.attribs[idx]);
-  } 
-
-  // disable unused locs by default
   enabled_locs : [OGL_MAX_ATTRIBS]bool;
-  for attrib_arr, idx : bindings.attribs {
-    for attr_idx : bindings.attribs[idx] {
-      enabled_locs[attr_idx.loc] = true;
+  for *vbo, idx : bindings.vertex_bufs {
+    if vbo.vbuf.size == 0 then continue;
+    ogl_bind_vertex_buffer(vbo.vbuf, vbo.attribs);
+    ogl_bind_attribs(sp, vbo.vbuf, vbo.attribs);
+    for attr : vbo.attribs {
+      // check that the attribute is available in shader/attr_desc
+      if sp.attribs[attr.loc].available {
+        enabled_locs[attr.loc] = true;
+      }
     }
   }
-  for idx : 0..OGL_MAX_ATTRIBS {
-    if !enabled_locs {
+  for idx : 0..OGL_MAX_ATTRIBS-1 {
+    if !enabled_locs[idx] {
       glDisableVertexAttribArray(xx idx);
     }
   }
@@ -708,8 +735,7 @@ ogl_set_scissor :: (x : float32 , y : float32, w : float32, h : float32) {
   glScissor(xx x,xx y,xx w,xx h);
 }
 ogl_clear_all_state :: () {
-  //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  //glBindVertexArray(global_context.vao);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   ogl_bind_vertex_buffer(null);
   ogl_bind_index_buffer(null);
   ogl_bind_uniform_buffer(null);
@@ -725,8 +751,5 @@ ogl_clear_all_state :: () {
   glDisable(GL_STENCIL_TEST);
   glDisable(GL_CULL_FACE);
   glDisable(GL_BLEND);
-  // strictly for debugging purposes
-  glLineWidth(4);
-  glEnable(GL_PROGRAM_POINT_SIZE);
-  glPointSize(10);
+  glBindVertexArray(global_context.vao);
 }

@@ -140,22 +140,17 @@ xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8,
   return sphere;
 }
 
-xmesh_render :: (mesh : *xMesh, sp : *oglSP, m : *xMaterial = null, model : m4) {
-  using mesh;
-
-
-  bp_attribs := oglShaderAttrib.[
-    ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code pos),false),
-    ogl_attrib_make(1,oglShaderDataType.VEC3,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code norm),false),
-    ogl_attrib_make(2,oglShaderDataType.VEC2,size_of(xBlinnPhongVertex),xx offset_of(xBlinnPhongVertex, #code tc),false)
-  ];
-
+xmesh_render :: (using mesh : *xMesh, sp : *oglSP, m : *xMaterial = null, model : m4) {
   bindings := oglBindingDesc.{
-    *mesh.ibo,
-    .[*mesh.vbo],
-    .[bp_attribs],
+    index_buf = *mesh.ibo,
+    vertex_bufs = .[
+      .{*mesh.vbo, .[
+        .{loc=0,offset=cast(u32)offset_of(xBlinnPhongVertex,#code pos)},
+        .{loc=1,offset=cast(u32)offset_of(xBlinnPhongVertex,#code norm)},
+        .{loc=2,offset=cast(u32)offset_of(xBlinnPhongVertex,#code tc)}
+      ]}
+    ]
   };
-
  
   //ogl_bind_sp(sp);
   ogl_sp_apply_bindings(sp, bindings);

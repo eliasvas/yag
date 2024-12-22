@@ -201,10 +201,22 @@ layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_norm;
 layout (location = 2) in vec2 in_tc;
 
+out VS_OUT
+{
+   vec3 world_pos;
+   vec3 normal;
+   vec2 tc;
+} vs_out;
+
+
 uniform mat4 model;
 
 void main() {
   gl_Position = model*vec4(in_pos.xyz, 1.0);
+  // we need these so that shader introspection finds norm/tc :(
+  vs_out.world_pos = gl_Position.xyz;
+  vs_out.normal = in_norm;
+  vs_out.tc = in_tc;
 }
 DONE
 

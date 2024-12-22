@@ -3,7 +3,7 @@
 
 imm_sp : oglSP;
 
-imm_tri_data : [..] xDebugVertex;
+g_imm_tri_data : [..] xDebugVertex;
 
 xImmPrimitiveTriangle :: struct {
   v0 : v3;
@@ -37,38 +37,34 @@ ximm_init :: () {
   ogl_sp_init(*imm_sp, WS_VERT_SHADER, WS_FRAG_SHADER);
 
   // FIXME: why is there a bug without this reserve?? what are we doing wrong with dynamic arrays?!
-  array_reserve(*imm_tri_data, 1000);
+  array_reserve(*g_imm_tri_data, 1000);
 }
 
 ximm_triangle :: (tri : xImmPrimitiveTriangle, color : v4) {
-  array_add(*imm_tri_data, .{tri.v0, color});
-  array_add(*imm_tri_data, .{tri.v1, color});
-  array_add(*imm_tri_data, .{tri.v2, color});
+  array_add(*g_imm_tri_data, .{tri.v0, color});
+  array_add(*g_imm_tri_data, .{tri.v1, color});
+  array_add(*g_imm_tri_data, .{tri.v2, color});
 }
 
 ximm_flush :: (proj : m4, view : m4) {
-  // FIXME: maybe here is the culprit?
-  defer imm_tri_data.count = 0;
+  //defer array_reset(*g_imm_tri_data);
+  defer g_imm_tri_data.count = 0;
   tri_buf : oglBuf;
-  ogl_buf_init(*tri_buf, .VERTEX,imm_tri_data.data,xx imm_tri_data.count,size_of(xDebugVertex));
-  ogl_clear_all_state();
+  ogl_buf_init(*tri_buf, .VERTEX,g_imm_tri_data.data,xx g_imm_tri_data.count,size_of(xDebugVertex));
   ogl_rt_bind(null);
 
-  ximm_attribs := oglShaderAttrib.[
-    ogl_attrib_make(0,oglShaderDataType.VEC3,size_of(xDebugVertex),xx offset_of(xDebugVertex, #code wpos),false),
-    ogl_attrib_make(1,oglShaderDataType.VEC4,size_of(xDebugVertex),xx offset_of(xDebugVertex, #code color),false),
+  bindings : oglBindingDesc;
+  bindings.vertex_bufs = oglVertexDef.[
+    .{*tri_buf, oglShaderAttrib.[
+      .{loc=0,offset=cast(u32)offset_of(xDebugVertex,#code wpos)},
+      .{loc=1,offset=cast(u32)offset_of(xDebugVertex,#code color)},
+    ]}
   ];
 
-  bindings := oglBindingDesc.{
-    *tri_buf,
-    .[*tri_buf],
-    .[ximm_attribs],
-  };
-  bindings.index_buf = null;
   ogl_bind_sp(*imm_sp);
   ogl_sp_apply_bindings(*imm_sp, bindings);
   ogl_set_viewport(xwin_get_viewport(*xeng().win));
   ogl_sp_set_dyn_state(*imm_sp, .BLEND);
   ogl_sp_set_dyn_state(*imm_sp, .DEPTH);
-  ogl_draw(oglPrimitive.TRIANGLES, 0, xx imm_tri_data.count);
+  ogl_draw(oglPrimitive.TRIANGLES, 0, xx g_imm_tri_data.count);
 }

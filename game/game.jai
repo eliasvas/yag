@@ -36,7 +36,7 @@ main :: () {
 
   cutoff := 50;
   // generate diffuse and specular textures
-  diffuse_tex := cast(*u32)alloc(400*400*size_of(u32)); 
+  diffuse_tex := cast(*u32)alloc(400*400*size_of(u32));
   defer free(diffuse_tex);
   for y : 0..400-1 {
     for x : 0..400-1 {
@@ -52,7 +52,7 @@ main :: () {
   }
   ogl_tex_init(*diff_img, .{400,400}, xx diffuse_tex, oglTexFormat.RGBA8U);
   // generate specular texture
-  spec_tex := cast(*u32)alloc(400*400*size_of(u32)); 
+  spec_tex := cast(*u32)alloc(400*400*size_of(u32));
   defer free(spec_tex);
   for y : 0..400-1 {
     for x : 0..400-1 {
@@ -87,14 +87,14 @@ main :: () {
 
   while true {
     xeng_frame_init();
-    if (xim_kkey_pressed(.SC_ESCAPE)) exit(1); 
+    if (xim_kkey_pressed(.SC_ESCAPE)) exit(1);
 
     // Do the CSM ImGui menu
     ImGui.Begin("CSM");
-    ImGui.SliderFloat3("light dir", xx *xeng().dir_light.dl.dir, -1.0, 1.0); 
+    ImGui.SliderFloat3("light dir", xx *xeng().dir_light.dl.dir, -1.0, 1.0);
     xeng().dir_light.dl.dir = v3_norm(xeng().dir_light.dl.dir);
     ImGui.SliderInt("cascade count",xx *xeng().csm_data.cascade_count, 1, 4);
-    ImGui.SliderFloat("zMult factor", xx *xeng().csm_data.z_mult, 1.0, 10.0); 
+    ImGui.SliderFloat("zMult factor", xx *xeng().csm_data.z_mult, 1.0, 10.0);
     ImGui.Checkbox("CSM debug draw", *xeng().csm_data.debug_draw);
     ImGui.Checkbox("CSM debug frustum", *xeng().csm_data.debug_frustum);
     fps := 1.0/(xeng().dt);
@@ -106,7 +106,6 @@ main :: () {
     ogl_rt_clear(null);
     xskydome_render(*skydome);
     ogl_rt_bind(null);
-    ogl_clear_all_state();
 
     big_cube_mat := xMaterial.{sm=xsimple_material_make(*trans_red_img,*white_img, 8), kind=.SIMPLE};
     big_model := m4_mult(m4_trans(.{0,-2,0}),m4_scale(.{100,1,100}));

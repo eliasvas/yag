@@ -20,7 +20,7 @@ xgrid_render :: (grid : *xGrid) {
   using grid;
   // draw the grid
   ogl_rt_bind(null);
-  ogl_clear_all_state();
+  //ogl_clear_all_state();
   ogl_bind_vertex_buffer(null);
   ogl_bind_sp(*sp);
   ogl_set_viewport(xwin_get_viewport(*xeng().win));
@@ -96,9 +96,9 @@ void main() {
   vec2 cell_dist = abs(cell_coords);
 
 
-  // 2. if distance is 'thickness' close to each edge, paint it 
-  if (cell_dist.x < (d+cell_line_thickness)*0.5 || cell_dist.y < cell_line_thickness*0.5) color = cell_color; 
-  else if (subcell_dist.x < (d + subcell_line_thickness)*0.5 || subcell_dist.y < subcell_line_thickness*0.5) color = subcell_color; 
+  // 2. if distance is 'thickness' close to each edge, paint it
+  if (cell_dist.x < (d+cell_line_thickness)*0.5 || cell_dist.y < cell_line_thickness*0.5) color = cell_color;
+  else if (subcell_dist.x < (d + subcell_line_thickness)*0.5 || subcell_dist.y < subcell_line_thickness*0.5) color = subcell_color;
   // 3. else discard fragment entirely
   else discard;
 
@@ -114,8 +114,8 @@ void main() {
   opacity_falloff = 1.0;
 
   //5. if within bounds we paint the x-axis red and z-axis blue
-  if (abs(world_pos.x) < (d+cell_line_thickness)*0.5) color = vec4(0.9,0.25,0.25,1); 
-  if (abs(world_pos.z) < (d+cell_line_thickness)*0.5) color = vec4(0.25,0.25,0.9,1); 
+  if (abs(world_pos.x) < (d+cell_line_thickness)*0.5) color = vec4(0.9,0.25,0.25,1);
+  if (abs(world_pos.z) < (d+cell_line_thickness)*0.5) color = vec4(0.25,0.25,0.9,1);
 
   FragColor = vec4(color.xyz * opacity_falloff, color.w);
 }

@@ -46,7 +46,6 @@ xr3d_set_light_uniforms :: (using rend : *xRend3D, sp : *oglSP) {
 }
 
 xr3d_do_shadow_pass :: (using rend : *xRend3D) {
-  ogl_clear_all_state();
   ogl_rt_clear(*shadow_rt);
   ogl_rt_bind(*shadow_rt);
   ogl_set_viewport(0,0,shadow_rt.dim.x, shadow_rt.dim.y);
@@ -60,7 +59,6 @@ xr3d_do_shadow_pass :: (using rend : *xRend3D) {
 }
 
 xr3d_do_main_pass :: (using rend : *xRend3D) {
-  ogl_clear_all_state();
   ogl_rt_bind(null);
   ogl_set_viewport(xwin_get_viewport(*xeng().win));
   //ogl_rt_clear(null);
