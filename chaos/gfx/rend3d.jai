@@ -75,10 +75,10 @@ xr3d_do_main_pass :: (using rend : *xRend3D) {
   xr3d_set_light_uniforms(rend, *bp_sp);
 
   ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *xeng().c.pos);
+
   shadow_map := ogl_rt_get_attachment(*shadow_rt, .DS);
-  shadow_map_slot :s32 = 3;
-  ogl_bind_tex_to_slot(*shadow_map, xx shadow_map_slot);
-  ogl_sp_set_uniform(*bp_sp, "shadow_map", oglShaderDataType.INT, *shadow_map_slot);
+  ogl_sp_bind_sampler_to_slot(*bp_sp, "shadow_map", *shadow_map, 3);
+
   xcsm_data_set_to_shader(*bp_sp, *xeng().csm_data, xeng().dir_light.dl, true);
 
   for bundle : bundles {

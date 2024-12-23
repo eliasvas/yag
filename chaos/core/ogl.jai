@@ -408,12 +408,16 @@ ogl_tex_deinit :: (tex : *oglTex) {
   glDeleteTextures(1,xx *impl_state);
 }
 
-// TODO: make a SANE texture slot API, currently we bind_to_slot + set_uni(.INT, tex_slot)
 ogl_bind_tex_to_slot :: (using tex : *oglTex, slot : u32) {
   glActiveTexture(GL_TEXTURE0 + slot);
   glBindTexture(xx ifx tex.format == .D32F then GL_TEXTURE_2D_ARRAY else GL_TEXTURE_2D, cast(GLuint)impl_state);
 }
 
+// TODO: maybe instead of sampler_name provide (binding=1) ?
+ogl_sp_bind_sampler_to_slot :: (using sp : *oglSP, sampler_name : string, tex : * oglTex, slot : u32) {
+  ogl_bind_tex_to_slot(tex, slot);
+  ogl_sp_set_uniform(sp, "material.specular", oglShaderDataType.INT , *slot);
+}
 ///////////////////////////////
 // ogl RTs
 ///////////////////////////////
@@ -718,10 +722,9 @@ ogl_sp_set_dyn_state :: (state : oglDynStateFlags) {
 
 ogl_sp_apply_dyn_state :: (sp : *oglSP, dyn_state : oglDynState) {
   ogl_set_viewport(dyn_state.viewport);
-  //ogl_set_scissor(dyn_state.scissor);
+  ogl_set_scissor(dyn_state.scissor);
   for state : enum_values_as_s64(oglDynStateFlags) {
     if state & cast(s64)dyn_state.flags > 0 {
-      //print("set %\n", cast(oglDynStateFlags)state);
       ogl_sp_set_dyn_state(cast(oglDynStateFlags)state);
     } else {
       ogl_sp_unset_dyn_state(cast(oglDynStateFlags)state);

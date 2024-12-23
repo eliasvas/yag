@@ -2,28 +2,41 @@
 // Tried this, should revisit https://www.youtube.com/watch?v=RqrkVmj-ntM
 // also, look into fwidth a bit more https://www.ronja-tutorials.com/post/046-fwidth/
 
-// TODO: add blue color for z and red for x in origin
-// FIXME: do apply_bindings here, we have forgot!
 xGrid :: struct {
   sp : oglSP;
   grid_thick1 : float = 1.0;
   grid_thick2 : float = 5.0;
+  ub1 : oglUBlock;
 }
 
 xgrid_make :: () -> xGrid {
-  using grid : xGrid;
-  ogl_sp_init(*sp, GRID_VERT_SHADER, GRID_FRAG_SHADER);
+  grid : xGrid;
+  ogl_sp_init(*grid.sp, GRID_VERT_SHADER, GRID_FRAG_SHADER);
+  ogl_ublock_load(*grid.ub1, *grid.sp, 1);
   return grid;
 }
 
-xgrid_render :: (grid : *xGrid) {
-  using grid;
-  // draw the grid
+xgrid_render :: (using grid : *xGrid) {
   ogl_rt_bind(null);
-  //ogl_clear_all_state();
-  ogl_bind_vertex_buffer(null);
   ogl_bind_sp(*sp);
-  ogl_sp_set_uniform(*sp, "cam_pos", oglShaderDataType.VEC3, *xeng().c.pos);
+
+  ogl_ublock_set(*ub1, "cam_pos",xx *xeng().c.pos);
+  grid_stretch_factor :float= 300;
+  ogl_ublock_set(*ub1, "grid_stretch_factor",xx *grid_stretch_factor);
+  cell_line_thickness :float= 0.1;
+  ogl_ublock_set(*ub1, "cell_line_thickness",xx *cell_line_thickness);
+  subcell_line_thickness :float= 0.05;
+  ogl_ublock_set(*ub1, "subcell_line_thickness",xx *subcell_line_thickness);
+  cell_color :v4= .{0.6,0.6,0.6,1.0};
+  ogl_ublock_set(*ub1, "cell_color",xx *cell_color);
+  subcell_color :v4= .{0.2,0.2,0.2,1.0};
+  ogl_ublock_set(*ub1, "subcell_color",xx *subcell_color);
+  ogl_ublock_bind_to_slot(*ub1);
+
+
+  bindings : oglBindingDesc = .{};
+  ogl_sp_apply_bindings(*sp, bindings);
+
 
   dyn_state := oglDynState.{
     viewport = xwin_get_viewport(*xeng().win),
@@ -51,31 +64,46 @@ layout(std140, binding = 0) uniform GlobalData {
   mat4 view;
 };
 
-uniform vec3 cam_pos;
-uniform float grid_stretch_factor = 300.0;
-out vec3 world_pos;
+layout(std140, binding = 1) uniform GridData {
+  vec4 cell_color;
+  vec4 subcell_color;
+  vec3 cam_pos;
+  float grid_stretch_factor;
+  float cell_line_thickness;
+  float subcell_line_thickness;
+};
+
+
+out VS_OUT {
+  vec3 world_pos;
+} vs_out;
 
 void main() {
   vec4 p = vec4(grid_stretch_factor * grid_plane[gl_VertexID].xyz, 1.0);
   p.x += cam_pos.x;
   p.z += cam_pos.z;
-  world_pos = p.xyz;
+  vs_out.world_pos = p.xyz;
   gl_Position = proj * view * p;
 }
 DONE
 
 GRID_FRAG_SHADER :: #string DONE
 #version 430 core
-uniform vec3 cam_pos;
 out vec4 FragColor;
-in vec3 world_pos;
 
-uniform float grid_stretch_factor = 300;
-uniform float cell_line_thickness = 0.1;
-uniform float subcell_line_thickness = 0.05;
+in VS_OUT {
+  vec3 world_pos;
+} fs_in;
 
-uniform vec4  cell_color = vec4(0.6,0.6,0.6,1.0);
-uniform vec4  subcell_color = vec4(0.2,0.2,0.2,1.0);
+layout(std140, binding = 1) uniform GridData {
+  vec4 cell_color;
+  vec4 subcell_color;
+  vec3 cam_pos;
+  float grid_stretch_factor;
+  float cell_line_thickness;
+  float subcell_line_thickness;
+};
+
 
 float fwidth_hlsl(vec2 v) {
   return max(max(abs(dFdx(v.x)), abs(dFdx(v.y))), max(abs(dFdy(v.x)), abs(dFdy(v.y))));
@@ -87,6 +115,7 @@ void main() {
   // This is used for a small fixup, for intuition dont take into account
   //float d = fwidth_hlsl(world_pos.xz);
   //float d = fwidth(world_pos.xz).x;
+  vec3 world_pos = fs_in.world_pos;
   float d = 0;
 
   vec2 subcell_size = vec2(1.0,1.0);
