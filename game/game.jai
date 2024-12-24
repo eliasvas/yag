@@ -6,11 +6,6 @@
 
 bp_sp : oglSP;
 light_sp : oglSP;
-white_img : oglTex;
-blue_img : oglTex;
-diff_img : oglTex;
-spec_img : oglTex;
-trans_red_img : oglTex;
 
 cube_mesh : xMesh;
 sphere_mesh : xMesh;
@@ -18,53 +13,39 @@ skydome : xSkydome;
 
 rend : xRend3D;
 
+make_weird_tex :: ( col0 : []u8, col1 : []u8, dim : s64, cutoff : s64) -> oglTex {
+    //c1 := u8.[ 0xFF,0x3F,0x3F,0xFF ];
+    //c2 := u8.[ 0x3F,0x3F,0x3F,0xFF ];
+  tex : oglTex;
+  // generate diffuse and specular textures
+  t := cast(*u32)alloc(dim*dim*size_of(u32));
+  defer free(t);
+  for y : 0..400-1 {
+    for x : 0..400-1 {
+      col : *u32 = *t[x + y * dim];
+      if x < cutoff || y < cutoff || x + cutoff > dim || y + cutoff > dim {
+        col.* = (cast(*u32)col0.data).*;
+      } else {
+        col.* = (cast(*u32)col1.data).*;
+      }
+    }
+  }
+  ogl_tex_init(*tex, .{cast(float)dim,cast(float)dim}, xx t, oglTexFormat.RGBA8U);
+  return tex;
+}
+
 main :: () {
   xeng_init();
 
-  white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
-  ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
+  white_img:oglTex; white := u8.[ 0xFF,0xFF,0xFF,0xFF ]; ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
 
-  blue := u8.[ 0x00,0x00,0xFF,0xFF ];
-  ogl_tex_init(*blue_img, .{1,1}, blue.data, oglTexFormat.RGBA8U);
+  blue_img:oglTex; blue := u8.[ 0x00,0x00,0xFF,0xFF ]; ogl_tex_init(*blue_img, .{1,1}, blue.data, oglTexFormat.RGBA8U);
+  green_img:oglTex; green := u8.[ 0x00,0xFF,0x00,0xFF ]; ogl_tex_init(*green_img, .{1,1}, green.data, oglTexFormat.RGBA8U);
 
-  trans_red := u8.[ 0xFF,0x00,0x00,0x7F ];
-  ogl_tex_init(*trans_red_img, .{1,1}, trans_red.data, oglTexFormat.RGBA8U);
+  trans_red_img : oglTex; trans_red := u8.[ 0xFF,0x00,0x00,0x7F ]; ogl_tex_init(*trans_red_img, .{1,1}, trans_red.data, oglTexFormat.RGBA8U);
 
-
-
-  cutoff := 50;
-  // generate diffuse and specular textures
-  diffuse_tex := cast(*u32)alloc(400*400*size_of(u32));
-  defer free(diffuse_tex);
-  for y : 0..400-1 {
-    for x : 0..400-1 {
-      c1 := u8.[ 0xFF,0x3F,0x3F,0xFF ];
-      c2 := u8.[ 0x3F,0x3F,0x3F,0xFF ];
-      col : *u32 = *diffuse_tex[x + y * 400];
-      if x < cutoff || y < cutoff || x + cutoff > 400 || y + cutoff > 400 {
-        col.* = (cast(*u32)c1.data).*;
-      } else {
-        col.* = (cast(*u32)c2.data).*;
-      }
-    }
-  }
-  ogl_tex_init(*diff_img, .{400,400}, xx diffuse_tex, oglTexFormat.RGBA8U);
-  // generate specular texture
-  spec_tex := cast(*u32)alloc(400*400*size_of(u32));
-  defer free(spec_tex);
-  for y : 0..400-1 {
-    for x : 0..400-1 {
-      white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
-      grey := u8.[ 0x00,0x00,0x00,0x00 ];
-      col : *u32 = *spec_tex[x + y * 400];
-      if x < cutoff || y < cutoff || x + cutoff > 400 || y + cutoff > 400 {
-        col.* = (cast(*u32)white.data).*;
-      } else {
-        col.* = (cast(*u32)grey.data).*;
-      }
-    }
-  }
-  ogl_tex_init(*spec_img, .{400,400}, xx spec_tex, oglTexFormat.RGBA8U);
+  diff_img := make_weird_tex(u8.[ 0xFF,0x3F,0x3F,0xFF ],u8.[ 0x3F,0x3F,0x3F,0xFF ], 400, 50);
+  spec_img := make_weird_tex(u8.[ 0xFF,0xFF,0xFF,0xFF ],u8.[ 0x00,0x00,0x00,0x00 ], 400, 50);
 
 
   xr3d_init(*rend);
@@ -101,7 +82,7 @@ main :: () {
     ImGui.TextUnformatted(frame_str.data);
     ImGui.End();
 
-    big_cube_mat := xMaterial.{sm=xsimple_material_make(*trans_red_img,*white_img, 8), kind=.SIMPLE};
+    big_cube_mat := xMaterial.{sm=xsimple_material_make(*green_img,*white_img, 8), kind=.SIMPLE};
     big_model := m4_mult(m4_trans(.{0,-2,0}),m4_scale(.{100,1,100}));
     xr3d_push_bundle(*rend, cube_mesh, big_cube_mat, big_model);
 

@@ -2,9 +2,6 @@
 #import "String";
 #import "GL" (DUMP_GL_ERRORS=true, ENABLE_ALL_EXTENSIONS=true);
 
-// FIXME: currently state management is done via ogl_state_clear_all(), this is not fine,
-// we'll have to think of a better way sadly, maybe i need to re-study the sokol architecture..
-// maybe some sort of cache should be implemented inside our oglContext
 // TODO: minimize the code: texture/RT generation could be improved a lot - the less code the better!
 
 /*
@@ -634,7 +631,6 @@ ogl_ublock_calc_array_offset :: (var_name : string) ->u32 {
 }
 
 // check if name[x] substring exists and do name[0] + x *sizeof(name[0])
-// FIXME: array handling is utterly retarded
 ogl_ublock_set :: (using ub : *oglUBlock, var_name : string, data : *u8) -> bool {
   is_array,l,r := split_from_left(var_name, #char "[");
   actual_name := ifx is_array then tprint("%[0]",l) else var_name;
@@ -801,12 +797,4 @@ ogl_clear_all_state :: () {
   glDisable(GL_CULL_FACE);
   glDisable(GL_BLEND);
   glBindVertexArray(global_context.vao);
-}
-
-// TODO: make this actually part of ogl
-ogl_copy_depth_buffer_to_default_depth :: (rt : *oglRT) {
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, xx rt.impl_state);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glBlitFramebuffer(0, 0, xx rt.dim.x, xx rt.dim.y, 0, 0, xx rt.dim.x, xx rt.dim.y, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
