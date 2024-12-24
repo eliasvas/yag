@@ -71,3 +71,37 @@ ximm_flush :: (proj : m4, view : m4) {
   ogl_sp_apply_dyn_state(*imm_sp, dyn_state);
   ogl_draw(oglPrimitive.TRIANGLES, 0, xx g_imm_tri_data.count);
 }
+
+WS_VERT_SHADER :: #string DONE
+#version 430 core
+layout (location = 0) in vec3 in_wpos;
+layout (location = 1) in vec4 in_color;
+
+layout(std140, binding = 0) uniform GlobalData {
+   mat4 proj;
+   mat4 view;
+};
+
+out VS_OUT {
+    vec4 color;
+} vs_out;
+
+void main()
+{
+   gl_Position = proj*view*vec4(in_wpos.xyz, 1.0);
+   vs_out.color = in_color;
+}
+DONE
+
+WS_FRAG_SHADER :: #string DONE
+#version 430 core
+out vec4 FragColor;
+
+in VS_OUT {
+    vec4 color;
+} fs_in;
+
+void main() {
+   FragColor = fs_in.color;
+}
+DONE

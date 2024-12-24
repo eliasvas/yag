@@ -1,7 +1,6 @@
 #import "Basic";
 #import "String";
 #import "GL" (DUMP_GL_ERRORS=true, ENABLE_ALL_EXTENSIONS=true);
-#load "def_shaders.jai";
 
 // FIXME: currently state management is done via ogl_state_clear_all(), this is not fine,
 // we'll have to think of a better way sadly, maybe i need to re-study the sokol architecture..
@@ -628,12 +627,12 @@ ogl_ublock_calc_array_offset :: (var_name : string) ->u32 {
   if found && str[str.count-1] == #char "]" {
     str.count -=1;
     for c,index : str {
-      // TODO: sue me
       offset += xx ((c - #char "0") * pow(10.0, xx index));
     }
   }
   return offset;
 }
+
 // check if name[x] substring exists and do name[0] + x *sizeof(name[0])
 // FIXME: array handling is utterly retarded
 ogl_ublock_set :: (using ub : *oglUBlock, var_name : string, data : *u8) -> bool {
@@ -643,8 +642,9 @@ ogl_ublock_set :: (using ub : *oglUBlock, var_name : string, data : *u8) -> bool
   if found {
     array_offset := ifx is_array then ogl_ublock_calc_array_offset(var_name) else 0;
     data_size := ogl_get_component_num_for_data_type(var_info.type) * size_of(float32);
+    data_size_aligned := ogl_get_component_num_for_data_type(.VEC4) * size_of(float32);
     // this max(..) is done to align with vec4's
-    ogl_buf_sub_update(*uniform_buf, var_info.offset + ifx is_array max(4*size_of(float)*array_offset,data_size * array_offset), data, 1, data_size);
+    ogl_buf_sub_update(*uniform_buf, var_info.offset + ifx is_array max(data_size,data_size_aligned) * array_offset, data, 1, data_size);
     return true;
   }else {
     print("var % not found\n", var_name);
@@ -699,6 +699,7 @@ oglDynState :: struct {
   viewport : v4;
   scissor : v4;
   flags : oglDynStateFlags;
+  extra_flags : s64;
 }
 
 oglDynStateFlags :: enum_flags u16 {
@@ -726,11 +727,11 @@ ogl_sp_unset_dyn_state :: (state : oglDynStateFlags) {
   gl_state : GLuint = ogl_dyn_state_to_gl_state(state);
   glDisable(gl_state);
 }
-ogl_sp_set_dyn_state :: (state : oglDynStateFlags) {
+ogl_sp_set_dyn_state :: (state : oglDynStateFlags, extra_flags : s64) {
   gl_state : GLuint = ogl_dyn_state_to_gl_state(state);
   glEnable(gl_state);
   if state == {
-    case .DEPTH; glDepthFunc(GL_LESS);
+    case .DEPTH; ifx extra_flags glDepthFunc(GL_ALWAYS) else glDepthFunc(GL_LEQUAL);
     case .CULL; glCullFace(GL_BACK);
     case .STENCIL; glStencilFunc(GL_EQUAL, 1, 0xFF);
     case .BLEND; glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -743,7 +744,7 @@ ogl_sp_apply_dyn_state :: (sp : *oglSP, dyn_state : oglDynState) {
   ogl_set_scissor(dyn_state.scissor);
   for state : enum_values_as_s64(oglDynStateFlags) {
     if state & cast(s64)dyn_state.flags > 0 {
-      ogl_sp_set_dyn_state(cast(oglDynStateFlags)state);
+      ogl_sp_set_dyn_state(cast(oglDynStateFlags)state, dyn_state.extra_flags);
     } else {
       ogl_sp_unset_dyn_state(cast(oglDynStateFlags)state);
     }

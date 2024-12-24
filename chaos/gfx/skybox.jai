@@ -90,7 +90,7 @@ void main() {
   vs_out.world_pos = in_pos;
   vs_out.norm = in_norm;
   vs_out.tc = in_tc;
-  gl_Position = proj*view*vec4(in_pos,1.0);
+  gl_Position = vec4(proj*view*vec4(in_pos,1.0)).xyww;
 }
 DONE
 

@@ -131,13 +131,11 @@ main :: () {
     //xr3d_do_main_pass(*rend);
     xr3d_do_g_pass(*rend);
     xr3d_do_def_pass(*rend); 
-    ogl_copy_depth_buffer_to_default_depth(*rend.g_buffer);
-
-    // do 'transparent' pass
+    //ogl_copy_depth_buffer_to_default_depth(*rend.g_buffer);
+    xr3d_do_copy_depth_from_g_buf_to_d0(*rend);
     xr3d_clear_bundles(*rend);
-
-    //FIXME: we must do the depth=MAX technique, because our RT is already full!
-    //xskydome_render(*skydome);
+    // do 'transparent' pass
+    xskydome_render(*skydome);
 
     xeng_frame_end();
   }

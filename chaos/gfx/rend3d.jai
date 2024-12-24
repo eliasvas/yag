@@ -11,7 +11,7 @@ xRenderableBundle :: struct {
 
 xRend3D :: struct {
   bundles : [..]xRenderableBundle;
-  bp_sp : oglSP;
+
 
   g_sp  : oglSP;
   g_ub1 : oglUBlock;
@@ -22,6 +22,8 @@ xRend3D :: struct {
   shadow_sp : oglSP;
   shadow_ub1 : oglUBlock;
 
+  copy_to_depth_sp : oglSP;
+
   shadow_rt : oglRT;
   g_buffer  : oglRT;
 };
@@ -29,8 +31,6 @@ xRend3D :: struct {
 
 
 xr3d_init :: (using rend : *xRend3D) {
-  // create Blinn-Phong Shader
-  ogl_sp_init(*bp_sp, BP_VERT_SHADER, BP_FRAG_SHADER);
   // create Shadow-Pass Shader
   ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_GEOM_SHADER, CSM_FRAG_SHADER);
   ogl_ublock_load(*shadow_ub1, *shadow_sp, 1);
@@ -40,6 +40,8 @@ xr3d_init :: (using rend : *xRend3D) {
   // create Fullscreen Deferred Shader
   ogl_sp_init(*def_sp, DEF_VERT_SHADER, DEF_FRAG_SHADER);
   ogl_ublock_load(*def_ub1, *def_sp, 1);
+  // create copy_to_depth Shader
+  ogl_sp_init(*copy_to_depth_sp, DEF_VERT_SHADER, COPY_TO_DEPTH_FRAG_SHADER);
   // initialize the shadow Render Target
   assert(ogl_rt_init(*shadow_rt, .{2048,2048}, .D32F));
   assert(ogl_rt_init(*g_buffer, .{xeng().win.dim.x,xeng().win.dim.y}, .RGBA32F));
@@ -105,6 +107,27 @@ xr3d_do_g_pass :: (using rend : *xRend3D) {
 }
 
 
+// This enables forward shading!
+xr3d_do_copy_depth_from_g_buf_to_d0 :: (using rend : *xRend3D) {
+  ogl_rt_bind(null);
+  ogl_bind_sp(*copy_to_depth_sp);
+  dyn_state := oglDynState.{
+    viewport = xwin_get_viewport(*xeng().win),
+    scissor = .{},
+    flags = .DEPTH,
+    extra_flags = 1
+  };
+  ogl_sp_apply_dyn_state(*def_sp, dyn_state);
+
+  bindings : oglBindingDesc = .{};
+  ogl_sp_apply_bindings(*copy_to_depth_sp, bindings);
+
+  g_ds := ogl_rt_get_attachment(*g_buffer, .DS);
+  ogl_sp_bind_sampler_to_slot(*copy_to_depth_sp, "depth_tex", *g_ds, 0);
+
+  ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
+}
+
 xr3d_do_def_pass :: (using rend : *xRend3D) {
   ogl_rt_bind(null);
   ogl_bind_sp(*def_sp);
@@ -138,41 +161,13 @@ xr3d_do_def_pass :: (using rend : *xRend3D) {
 
   vv :m4= m4_transpose(xeng().csm_data.cview);
   ogl_ublock_set(*def_ub1, "view_csm", xx vv.raw.data);
-  
 
   xr3d_set_light_uniforms(rend, *def_ub1);
-
 
   ogl_ublock_bind_to_slot(*def_ub1);
   ogl_sp_apply_dyn_state(*def_sp, dyn_state);
   ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
 }
-
-
-/*
-xr3d_do_main_pass :: (using rend : *xRend3D) {
-  ogl_rt_bind(null);
-  ogl_bind_sp(*bp_sp);
-  dyn_state := oglDynState.{
-    viewport = xwin_get_viewport(*xeng().win),
-    scissor = .{},
-    flags = .BLEND | .DEPTH
-  };
-  ogl_sp_apply_dyn_state(*bp_sp, dyn_state);
-  xr3d_set_light_uniforms(rend, *bp_sp);
-
-  ogl_sp_set_uniform(*bp_sp, "view_pos", oglShaderDataType.VEC3, *xeng().c.pos);
-
-  shadow_map := ogl_rt_get_attachment(*shadow_rt, .DS);
-  ogl_sp_bind_sampler_to_slot(*bp_sp, "shadow_map", *shadow_map, 3);
-
-  xcsm_data_set_to_shader(*bp_sp, *xeng().csm_data, xeng().dir_light.dl, true);
-
-  for bundle : bundles {
-    xmesh_render(*bundle.mesh, *bp_sp, *bundle.mat, bundle.model);
-  }
-}
-*/
 
 G_BUF_VERT_SHADER :: #string DONE
 #version 430 core
@@ -349,9 +344,6 @@ vec3 calc_dir_light(DirLight light, vec3 normal, vec3 view_dir, vec3 diffuse_col
     return (ambient + (1.0-s)*(diffuse + specular));
 }
 
-
-
-
 void main() {
   vec3 world_pos = texture(g_pos, fs_in.tc).xyz;
   vec3 norm = texture(g_norm, fs_in.tc).xyz;
@@ -364,3 +356,19 @@ void main() {
   FragColor = vec4(dl,1.0);
 }
 DONE
+
+COPY_TO_DEPTH_FRAG_SHADER :: #string DONE
+#version 430 core
+
+in VS_OUT {
+   vec2 tc;
+} fs_in;
+
+uniform sampler2D depth_tex;
+
+void main() {
+  gl_FragDepth = texture(depth_tex, fs_in.tc).r;
+}
+DONE
+
+
