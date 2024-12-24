@@ -92,11 +92,10 @@ ogl_buf_update :: (using buf : *oglBuf, data : *void, data_count : u32, data_siz
 ogl_buf_sub_update :: (using buf : *oglBuf, offset : s64, data : *void, data_count : u32, data_size : u32) {
   buffer_kind := ogl_buf_to_gl_buf(kind);
   glBindBuffer(buffer_kind, xx buf.impl_state);
-  count = data_count;
-  size = data_size * data_count;
+  s := data_size * data_count;
   if data != null {
     buffer_kind := ogl_buf_to_gl_buf(kind);
-    glBufferSubData(buffer_kind, offset, size, data);
+    glBufferSubData(buffer_kind, offset, s, data);
   }
 }
 
@@ -416,7 +415,7 @@ ogl_bind_tex_to_slot :: (using tex : *oglTex, slot : u32) {
 // TODO: maybe instead of sampler_name provide (binding=1) ?
 ogl_sp_bind_sampler_to_slot :: (using sp : *oglSP, sampler_name : string, tex : * oglTex, slot : u32) {
   ogl_bind_tex_to_slot(tex, slot);
-  ogl_sp_set_uniform(sp, "material.specular", oglShaderDataType.INT , *slot);
+  ogl_sp_set_uniform(sp, sampler_name, oglShaderDataType.INT , *slot);
 }
 ///////////////////////////////
 // ogl RTs
@@ -558,6 +557,7 @@ oglUBlock :: struct {
   name : string;
 }
 
+// FIXME: array handling is utterly retarded
 ogl_ublock_load :: (using ub : *oglUBlock, sp : *oglSP, block_index : u32 = 0) {
   init(*md.table, OGL_MAX_VARS_PER_UB);
   index = block_index;
@@ -622,11 +622,29 @@ ogl_ublock_set :: (using ub : *oglUBlock, buf : *u8) {
   ogl_buf_update(*uniform_buf, buf, 1, xx uniform_buf.size);
 }
 
+ogl_ublock_calc_array_offset :: (var_name : string) ->u32 {
+  offset : u32 = 0;
+  found,str := contains(var_name, #char "[");
+  if found && str[str.count-1] == #char "]" {
+    str.count -=1;
+    for c,index : str {
+      // TODO: sue me
+      offset += xx ((c - #char "0") * pow(10.0, xx index));
+    }
+  }
+  return offset;
+}
+// check if name[x] substring exists and do name[0] + x *sizeof(name[0])
+// FIXME: array handling is utterly retarded
 ogl_ublock_set :: (using ub : *oglUBlock, var_name : string, data : *u8) -> bool {
-  var_info, found := table_find(*md.table, var_name);
+  is_array,l,r := split_from_left(var_name, #char "[");
+  actual_name := ifx is_array then tprint("%[0]",l) else var_name;
+  var_info, found := table_find(*md.table, actual_name);
   if found {
+    array_offset := ifx is_array then ogl_ublock_calc_array_offset(var_name) else 0;
     data_size := ogl_get_component_num_for_data_type(var_info.type) * size_of(float32);
-    ogl_buf_sub_update(*uniform_buf, var_info.offset, data, xx var_info.count, data_size);
+    // this max(..) is done to align with vec4's
+    ogl_buf_sub_update(*uniform_buf, var_info.offset + ifx is_array max(4*size_of(float)*array_offset,data_size * array_offset), data, 1, data_size);
     return true;
   }else {
     print("var % not found\n", var_name);
@@ -782,4 +800,12 @@ ogl_clear_all_state :: () {
   glDisable(GL_CULL_FACE);
   glDisable(GL_BLEND);
   glBindVertexArray(global_context.vao);
+}
+
+// TODO: make this actually part of ogl
+ogl_copy_depth_buffer_to_default_depth :: (rt : *oglRT) {
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, xx rt.impl_state);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBlitFramebuffer(0, 0, xx rt.dim.x, xx rt.dim.y, 0, 0, xx rt.dim.x, xx rt.dim.y, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

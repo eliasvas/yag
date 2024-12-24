@@ -157,16 +157,17 @@ xfrustum_calc_lsm :: (view : m4, proj : m4, dir_light : xDirectionalLight, casca
   return lsm;
 }
 
-xfrustum_calc_lsms_and_set_to_shader :: (sp : *oglSP, view : m4, proj : []m4, dir_light : xDirectionalLight, z_mult : float32 = 1.0, debug_draw : bool = true){
+xfrustum_calc_lsms_and_set_to_ub :: (ub : *oglUBlock, view : m4, proj : []m4, dir_light : xDirectionalLight, z_mult : float32 = 1.0, debug_draw : bool = true){
   for p,idx : proj {
     lsm_i := xfrustum_calc_lsm(view,p,dir_light, xx idx, z_mult, debug_draw);
     name := sprint("lsm[%]", idx);
-    ogl_sp_set_uniform(sp, name, oglShaderDataType.MAT4, lsm_i.raw.data);
+    lsm_i = m4_transpose(lsm_i);
+    ogl_ublock_set(ub, name, xx lsm_i.raw.data);
     dist := sprint("cascade_plane_distances[%]", idx);
     far := persp_get_far(proj[idx]);
-    ogl_sp_set_uniform(sp, dist, oglShaderDataType.FLOAT, *far);
+    ogl_ublock_set(ub, dist, xx *far);
   }
-  ogl_sp_set_uniform(sp, "view_csm", oglShaderDataType.MAT4, view.raw.data);
+
 }
 
 xCSMData :: struct {
@@ -176,6 +177,7 @@ xCSMData :: struct {
   z_mult : float32 = 1.0;
   debug_draw : bool = false;
   debug_frustum : bool = false;
+  enabled : bool = false;
 }
 
 xcsm_data_calc :: (csm_data : *xCSMData) {
@@ -188,10 +190,10 @@ xcsm_data_calc :: (csm_data : *xCSMData) {
   cproj = ifx debug_frustum then debug_proj else xeng().proj;
 }
 
-xcsm_data_set_to_shader :: (sp : *oglSP, csm_data : *xCSMData, dir_light : xDirectionalLight, draw : bool) {
+xcsm_data_set_to_ub :: (ub : *oglUBlock, csm_data : *xCSMData, dir_light : xDirectionalLight, draw : bool) {
   using csm_data;
   proj_cascades := m4_persp_gen_cascades(cproj, cascade_count);
-  xfrustum_calc_lsms_and_set_to_shader(sp, cview, proj_cascades, dir_light, z_mult, draw & debug_draw);
+  xfrustum_calc_lsms_and_set_to_ub(ub, cview, proj_cascades, dir_light, z_mult, draw & debug_draw);
 }
 
 
@@ -208,8 +210,12 @@ out VS_OUT
    vec2 tc;
 } vs_out;
 
+layout(std140, binding = 1) uniform ShadowData {
+  mat4 lsm[4];
+  mat4 model;
+  float cascade_plane_distances[4];
+};
 
-uniform mat4 model;
 
 void main() {
   gl_Position = model*vec4(in_pos.xyz, 1.0);
@@ -231,8 +237,12 @@ CSM_GEOM_SHADER :: #string DONE
 layout(triangles, invocations = 4) in;
 layout(triangle_strip, max_vertices = 3) out;
  
-uniform mat4 lsm[4];
-    
+layout(std140, binding = 1) uniform ShadowData {
+  mat4 lsm[4];
+  mat4 model;
+  float cascade_plane_distances[4];
+};
+
 void main() {          
     for (int i = 0; i < 4; ++i) {
         gl_Position = lsm[gl_InvocationID] * gl_in[i].gl_Position;

@@ -1,5 +1,6 @@
 //FIXME: This file shouldn't exist! These shaders need to be inside /gfx
 
+// This is a relic of a bigone age - delete this!
 BP_VERT_SHADER :: #string DONE
 #version 430 core
 layout (location = 0) in vec3 in_pos;
@@ -176,6 +177,7 @@ void main()
    vec3 view_dir = normalize(view_pos - fs_in.world_pos);
 
    g_shadow_bias = max(0.05 * (1.0 - dot(norm, dir_light.dir)), 0.005);
+    //float s = calc_shadow(fs_in.lsp_vert_coords[layer], layer);
 
    vec3 dl = calc_dir_light(dir_light, norm, view_dir);
    vec3 pl = calc_point_light(point_light, norm, fs_in.world_pos, view_dir);

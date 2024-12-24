@@ -59,22 +59,22 @@ xdir_light_make_basic :: () -> xLight {
   return light;
 }
 
-xlight_set_to_shader :: (light : *xLight, sp : *oglSP) {
+xlight_set_to_ub :: (light : *xLight, ub : *oglUBlock) {
   using light;
   if kind == {
     case .DIRECTIONAL;
-      ogl_sp_set_uniform(sp, "dir_light.ambient", oglShaderDataType.VEC3, *dl.ambient);
-      ogl_sp_set_uniform(sp, "dir_light.diffuse", oglShaderDataType.VEC3, *dl.diffuse);
-      ogl_sp_set_uniform(sp, "dir_light.specular", oglShaderDataType.VEC3, *dl.specular);
-      ogl_sp_set_uniform(sp, "dir_light.dir", oglShaderDataType.VEC3, *dl.dir);
+      ogl_ublock_set(ub, "dir_light.ambient", xx *dl.ambient);
+      ogl_ublock_set(ub, "dir_light.diffuse", xx *dl.diffuse);
+      ogl_ublock_set(ub, "dir_light.specular", xx *dl.specular);
+      ogl_ublock_set(ub, "dir_light.dir", xx *dl.dir);
     case .POINT;
-      ogl_sp_set_uniform(sp, "point_light.ambient", oglShaderDataType.VEC3, *pl.ambient);
-      ogl_sp_set_uniform(sp, "point_light.diffuse", oglShaderDataType.VEC3, *pl.diffuse);
-      ogl_sp_set_uniform(sp, "point_light.specular", oglShaderDataType.VEC3, *pl.specular);
-      ogl_sp_set_uniform(sp, "point_light.pos", oglShaderDataType.VEC3, *pl.pos);
-      ogl_sp_set_uniform(sp, "point_light.constant", oglShaderDataType.FLOAT, *pl.constant);
-      ogl_sp_set_uniform(sp, "point_light.linear", oglShaderDataType.FLOAT, *pl.linear);
-      ogl_sp_set_uniform(sp, "point_light.quadratic", oglShaderDataType.FLOAT, *pl.quadratic);
+      ogl_ublock_set(ub, "point_light.ambient", xx *pl.ambient);
+      ogl_ublock_set(ub, "point_light.diffuse", xx *pl.diffuse);
+      ogl_ublock_set(ub, "point_light.specular", xx *pl.specular);
+      ogl_ublock_set(ub, "point_light.pos", xx *pl.pos);
+      ogl_ublock_set(ub, "point_light.constant", xx *pl.constant);
+      ogl_ublock_set(ub, "point_light.linear", xx *pl.linear);
+      ogl_ublock_set(ub, "point_light.quadratic", xx *pl.quadratic);
     case;
   }
 }

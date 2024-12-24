@@ -58,7 +58,7 @@ xskydome_render :: (using skydome : *xSkydome) {
   dyn_state := oglDynState.{
     viewport = xwin_get_viewport(*xeng().win),
     scissor = .{},
-    flags = .BLEND
+    flags = .DEPTH
   };
   ogl_sp_apply_dyn_state(*sp, dyn_state);
   xmesh_render(*sphere_mesh, *sp, null, m4_I);

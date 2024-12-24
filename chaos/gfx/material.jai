@@ -81,13 +81,8 @@ xsimple_material_make :: ( diffuse_color : v4, specular_color : v4 = v4.{1,1,1,1
 
 xsimple_material_set_to_shader :: (using mat : *xSimpleMaterial, sp : *oglSP) {
   // bind diffuse/specular textures
-  ogl_sp_bind_sampler_to_slot(sp, "material.diffuse", diffuse_tex, 0);
-  ogl_sp_bind_sampler_to_slot(sp, "material.specular", specular_tex, 1);
-
-  // these should be textures too!
-  ogl_sp_set_uniform(sp, "material.shininess", oglShaderDataType.FLOAT, *shininess);
-  ogl_sp_set_uniform(sp, "material.diffuse_mod", oglShaderDataType.VEC4, *diffuse_mod);
-  ogl_sp_set_uniform(sp, "material.specular_mod", oglShaderDataType.VEC4, *specular_mod);
+  ogl_sp_bind_sampler_to_slot(sp, "diffuse", diffuse_tex, 0);
+  ogl_sp_bind_sampler_to_slot(sp, "specular", specular_tex, 1);
 }
 
 

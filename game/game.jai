@@ -16,8 +16,6 @@ cube_mesh : xMesh;
 sphere_mesh : xMesh;
 skydome : xSkydome;
 
-shadow_sp : oglSP;
-
 rend : xRend3D;
 
 main :: () {
@@ -95,17 +93,13 @@ main :: () {
     xeng().dir_light.dl.dir = v3_norm(xeng().dir_light.dl.dir);
     ImGui.SliderInt("cascade count",xx *xeng().csm_data.cascade_count, 1, 4);
     ImGui.SliderFloat("zMult factor", xx *xeng().csm_data.z_mult, 1.0, 10.0);
+    ImGui.Checkbox("Shadows enabled", *xeng().csm_data.enabled);
     ImGui.Checkbox("CSM debug draw", *xeng().csm_data.debug_draw);
     ImGui.Checkbox("CSM debug frustum", *xeng().csm_data.debug_frustum);
     fps := 1.0/(xeng().dt);
     frame_str := tprint("fps: %", fps);
     ImGui.TextUnformatted(frame_str.data);
     ImGui.End();
-
-    // render the skydome/grid
-    ogl_rt_clear(null);
-    xskydome_render(*skydome);
-    ogl_rt_bind(null);
 
     big_cube_mat := xMaterial.{sm=xsimple_material_make(*trans_red_img,*white_img, 8), kind=.SIMPLE};
     big_model := m4_mult(m4_trans(.{0,-2,0}),m4_scale(.{100,1,100}));
@@ -129,9 +123,21 @@ main :: () {
 
 
 
-    xr3d_do_shadow_pass(*rend);
-    xr3d_do_main_pass(*rend);
+    if xeng().csm_data.enabled {
+      xr3d_do_shadow_pass(*rend);
+    }else {
+      ogl_rt_clear(*rend.shadow_rt);
+    }
+    //xr3d_do_main_pass(*rend);
+    xr3d_do_g_pass(*rend);
+    xr3d_do_def_pass(*rend); 
+    ogl_copy_depth_buffer_to_default_depth(*rend.g_buffer);
+
+    // do 'transparent' pass
     xr3d_clear_bundles(*rend);
+
+    //FIXME: we must do the depth=MAX technique, because our RT is already full!
+    //xskydome_render(*skydome);
 
     xeng_frame_end();
   }
