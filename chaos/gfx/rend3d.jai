@@ -58,7 +58,10 @@ xr3d_clear_bundles :: (using rend :*xRend3D) {
 
 xr3d_set_light_uniforms :: (using rend : *xRend3D, ub : *oglUBlock) {
   // Directional Light
-  xlight_set_to_ub(*xeng().dir_light, ub);
+  dl : xDirectionalLight = xeng().dir_light.dl;
+  ogl_ublock_set_uniformable_struct(ub, *dl, "dir_light");
+
+  //xlight_set_to_ub(*xeng().dir_light, ub);
   // Point Light (TODO: add more point lights!)
   //light_pos := v3.{3,2,3};
   //point_light := xpoint_light_make_basic(light_pos);

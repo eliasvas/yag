@@ -3,9 +3,7 @@
 #import "chaos";
 // TODO: get a good bitmap font, like in microui, and BAKE it in font rendering code path
 // TODO: instead of xeng(), do just xeng
-
-bp_sp : oglSP;
-light_sp : oglSP;
+// TODO: FIRE RENDERING!!!!! (lights will also be emmitted?!??!?!)
 
 cube_mesh : xMesh;
 sphere_mesh : xMesh;
@@ -14,10 +12,7 @@ skydome : xSkydome;
 rend : xRend3D;
 
 make_weird_tex :: ( col0 : []u8, col1 : []u8, dim : s64, cutoff : s64) -> oglTex {
-    //c1 := u8.[ 0xFF,0x3F,0x3F,0xFF ];
-    //c2 := u8.[ 0x3F,0x3F,0x3F,0xFF ];
   tex : oglTex;
-  // generate diffuse and specular textures
   t := cast(*u32)alloc(dim*dim*size_of(u32));
   defer free(t);
   for y : 0..400-1 {
@@ -53,9 +48,8 @@ main :: () {
 
   // json tests
   root_json := xjson_parse_wholefile_string(SAMPLE_JSON);
-  node, found := xjson_node_get(root_json, "mesh.tri_count");
+  node, found := xjson_node_get(root_json, "asset.version");
   assert(found);
-  xjson_print_node(node);
 
   sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
   t := xtimer_make(100, 5, sample_timer_cb, null);
@@ -123,3 +117,22 @@ main :: () {
 
 }
 
+
+/*
+#run {
+    apply_float :: (f: (x: float) -> float, x: float, count: int) -> float {
+        // apply the function f to x, count times.
+
+        for 1..count x = f(x);
+        return x;
+    }
+
+
+    square :: (x: $T) -> T {
+        return x*x;
+    }
+
+    a := apply_float(square, 3, 3);
+    print("a is %, of type %\n", a, type_of(a));
+}
+*/

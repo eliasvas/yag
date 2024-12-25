@@ -14,7 +14,7 @@
   In Json there exist 3 types :
     - values (String, Bool, Number, Null)
     - objects (string : JsonNode pairs)
-    - arrrays (multiples of JsonNode)
+    - arrays (multiples of JsonNode)
 
   Usage: TBA
 */
@@ -165,7 +165,7 @@ xjson_parse_value :: (tokens : []xJsonToken, pos : *s64) -> *xJsonNode {
 xjson_parse_object :: (tokens : []xJsonToken, pos : *s64) -> *xJsonNode {
   node := xjson_node_make(.OBJECT, "");
   node.table;
-  // All tables have max size 32??
+  // All tables have max size 32?? (or buckets??)
   init(*node.table, 32);
   // eat '{'
   pos.*+=1;
@@ -236,6 +236,7 @@ xjson_node_get :: (root_node : *xJsonNode, path : string) -> *xJsonNode, bool {
   return ret, found;
 }
 
+/*
 SAMPLE_JSON :: #string END
 {
   "scene": 0,
@@ -250,6 +251,82 @@ SAMPLE_JSON :: #string END
       { "count":56, "Title":"mesh2" },
       { "count":89, "Title":"mesh3" }
     ]
+  }
+}
+END
+*/
+
+
+
+SAMPLE_JSON :: #string END
+{
+  "scene": 0,
+  "scenes" : [
+    {
+      "nodes" : [ 0 ]
+    }
+  ],
+
+  "nodes" : [
+    {
+      "mesh" : 0
+    }
+  ],
+
+  "meshes" : [
+    {
+      "primitives" : [ {
+        "attributes" : {
+          "POSITION" : 1
+        },
+        "indices" : 0
+      } ]
+    }
+  ],
+
+  "buffers" : [
+    {
+      "uri" : "data:application/octet-stream;base64,AAABAAIAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAA=",
+      "byteLength" : 44
+    }
+  ],
+  "bufferViews" : [
+    {
+      "buffer" : 0,
+      "byteOffset" : 0,
+      "byteLength" : 6,
+      "target" : 34963
+    },
+    {
+      "buffer" : 0,
+      "byteOffset" : 8,
+      "byteLength" : 36,
+      "target" : 34962
+    }
+  ],
+  "accessors" : [
+    {
+      "bufferView" : 0,
+      "byteOffset" : 0,
+      "componentType" : 5123,
+      "count" : 3,
+      "type" : "SCALAR",
+      "max" : [ 2 ],
+      "min" : [ 0 ]
+    },
+    {
+      "bufferView" : 1,
+      "byteOffset" : 0,
+      "componentType" : 5126,
+      "count" : 3,
+      "type" : "VEC3",
+      "max" : [ 1.0, 1.0, 0.0 ],
+      "min" : [ 0.0, 0.0, 0.0 ]
+    }
+  ],
+  
+  "asset" : {
+    "version" : "2.0"
   }
 }
 END

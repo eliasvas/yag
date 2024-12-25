@@ -22,6 +22,7 @@ xDirectionalLight :: struct {
   ambient  : v3;
   diffuse  : v3;
   specular : v3;
+  arr : [8]v2;
 }
 
 xLight :: struct {

@@ -533,10 +533,12 @@ return tex;
 // ogl Uniform Blocks
 ///////////////////////////////
 
+// FIXME: currently, arrays are not supported inside other arrays, i think @check
+// FIXME: in GENERAL, uniform blocks do a lot of string stuff, they NEED to be faster!!
 // TODO: Can we make this dynamic for ogl_ublock_load maybe?
+
 OGL_MAX_VARS_PER_UB :: 32;
 
-// TODO: maybe we shouldn't call them just 'vars'
 oglUBOVarInfo :: struct {
   //name : string;
   offset : s64;
@@ -552,8 +554,6 @@ oglUBlock :: struct {
   index : u32;
   name : string;
 }
-
-// FIXME: array handling is utterly retarded
 ogl_ublock_load :: (using ub : *oglUBlock, sp : *oglSP, block_index : u32 = 0) {
   init(*md.table, OGL_MAX_VARS_PER_UB);
   index = block_index;
@@ -579,14 +579,12 @@ ogl_ublock_load :: (using ub : *oglUBlock, sp : *oglSP, block_index : u32 = 0) {
         array_count : s32;
         type : GLenum;
         glGetActiveUniform(xx sp.impl_state, var_indices[i], 256, *name_len, *array_count, *type, name.data);
-        str_name : string;
-        str_name.data = name.data;
-        str_name.count = name_len;
+        str_name : string = .{name_len, name.data};
+        _, str_name = split_from_left(str_name, "["); // this way, str_name will have only name, not the [0] for arrays
         data_type := gl_data_type_to_ogl_data_type(xx type);
         var_info := oglUBOVarInfo.{var_offsets[i], data_type, array_count};
-        //print("var % = %\n", str_name, var_info);
-        vn := alloc_string(name_len);
-        memcpy(vn.data, name.data, name_len);
+        vn := alloc_string(str_name.count);
+        memcpy(vn.data, name.data, str_name.count);
         inline table_add(*md.table, vn, var_info);
         // optional - just for clarity
         _, found := table_find(*md.table, vn);
@@ -630,11 +628,9 @@ ogl_ublock_calc_array_offset :: (var_name : string) ->u32 {
   return offset;
 }
 
-// check if name[x] substring exists and do name[0] + x *sizeof(name[0])
 ogl_ublock_set :: (using ub : *oglUBlock, var_name : string, data : *u8) -> bool {
-  is_array,l,r := split_from_left(var_name, #char "[");
-  actual_name := ifx is_array then tprint("%[0]",l) else var_name;
-  var_info, found := table_find(*md.table, actual_name);
+  is_array,base_name,r := split_from_left(var_name, #char "[");
+  var_info, found := table_find(*md.table, base_name);
   if found {
     array_offset := ifx is_array then ogl_ublock_calc_array_offset(var_name) else 0;
     data_size := ogl_get_component_num_for_data_type(var_info.type) * size_of(float32);
@@ -646,6 +642,51 @@ ogl_ublock_set :: (using ub : *oglUBlock, var_name : string, data : *u8) -> bool
     print("var % not found\n", var_name);
   }
   return false;
+}
+
+ogl_shader_data_type_match :: (type : string) -> bool {
+  if type == {
+    case "int";#through;
+    case "float32";#through;
+    case "float";#through;
+    case "v2";#through;
+    case "v3";#through;
+    case "v4";#through;
+    case "m4";
+      return true;
+    case;
+      return false;
+  }
+}
+
+// This will set each member from a struct to a shader uniform block - the less code the better! :D
+// FIXME: i should think this better, maybe alignas(16) is all i need for structs? i need to work on introspection tbh
+ogl_ublock_set_uniformable_struct :: (using ub : *oglUBlock, uni_struct : *$T, prefix : string) {
+  ti_us := type_info(T);
+  info_struct := cast(*Type_Info_Struct) ti_us;
+  //print("%\n", info_struct.*);
+  for m : info_struct.members {
+    var_name := tprint("%.%", prefix, m.name);
+    if m.type.type == {
+      case .ARRAY;
+        array_info := cast(*Type_Info_Array)m.type;
+        //print("array_info: %\n", array_info.element_type.type);
+        //for index : array_info.count {
+        //  var_name := tprint("%[%]", var_name, index);
+        //}
+      case .STRUCT;
+        struct_info := cast(*Type_Info_Struct)m.type;
+        if ogl_shader_data_type_match(struct_info.name) {
+          ogl_ublock_set(ub, var_name,  cast(*u8)uni_struct + m.offset_in_bytes);
+        } else {
+            ogl_ublock_set_uniformable_struct(ub, cast(*u8)uni_struct + m.offset_in_bytes, var_name);
+        }
+      case .POINTER;
+      case .STRING;
+      case .ENUM;
+      case;
+    }
+  }
 }
 
 ///////////////////////////////
