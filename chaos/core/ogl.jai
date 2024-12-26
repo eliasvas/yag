@@ -341,8 +341,8 @@ ogl_draw :: (prim : oglPrimitive, first : u32, count : u32) {
 ogl_draw_instanced :: (prim : oglPrimitive, first : u32, count : u32, instance_count : u32) {
   glDrawArraysInstanced(ogl_prim_to_gl_prim(prim), xx first, xx count, instance_count);
 }
-ogl_draw_indexed :: (prim : oglPrimitive, count : u32) {
-  glDrawElements(ogl_prim_to_gl_prim(prim), count, GL_UNSIGNED_INT, null);
+ogl_draw_indexed :: (prim : oglPrimitive, count : u32, index_size :s64= size_of(u32)) {
+  glDrawElements(ogl_prim_to_gl_prim(prim), count, xx ifx index_size == size_of(u32) then GL_UNSIGNED_INT else GL_UNSIGNED_SHORT, null);
 }
 ///////////////////////////////
 // ogl Textures
@@ -622,7 +622,7 @@ ogl_ublock_calc_array_offset :: (var_name : string) ->u32 {
   if found && str[str.count-1] == #char "]" {
     str.count -=1;
     for c,index : str {
-      offset += xx ((c - #char "0") * pow(10.0, xx index));
+      offset += xx ((c - #char "0") * pow(10.0, xx(str.count-index-1)));
     }
   }
   return offset;
@@ -688,6 +688,8 @@ ogl_ublock_set_uniformable_struct :: (using ub : *oglUBlock, uni_struct : *$T, p
     }
   }
 }
+// A good hacky plan!!!! get via introspection the struct's first field so you have struct.field and set it via glBufferSubData,
+// assuming the buffer is correctly aligned to be set to a shader! (std140 maybe)
 
 ///////////////////////////////
 // ogl Bindings
@@ -697,6 +699,7 @@ oglVertexDef :: struct {
   vbuf : *oglBuf;
   attribs : []oglShaderAttrib;
 };
+
 oglBindingDesc :: struct {
   index_buf : *oglBuf;
   vertex_bufs : []oglVertexDef;

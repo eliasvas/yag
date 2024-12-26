@@ -51,6 +51,8 @@ main :: () {
   node, found := xjson_node_get(root_json, "asset.version");
   assert(found);
 
+  triangle_mesh := xgltf_parse_mesh(SAMPLE_JSON); 
+
   sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
   t := xtimer_make(100, 5, sample_timer_cb, null);
 
@@ -96,6 +98,8 @@ main :: () {
     xr3d_push_bundle(*rend, sphere_mesh, sphere_mat, m4_trans(.{3,3,0}));
 
 
+    // render the json triangle mesh!!
+    xr3d_push_bundle(*rend, *triangle_mesh, sphere_mat, m4_trans(.{2,5,0}));
 
 
     if xeng().csm_data.enabled {
@@ -116,23 +120,3 @@ main :: () {
   }
 
 }
-
-
-/*
-#run {
-    apply_float :: (f: (x: float) -> float, x: float, count: int) -> float {
-        // apply the function f to x, count times.
-
-        for 1..count x = f(x);
-        return x;
-    }
-
-
-    square :: (x: $T) -> T {
-        return x*x;
-    }
-
-    a := apply_float(square, 3, 3);
-    print("a is %, of type %\n", a, type_of(a));
-}
-*/

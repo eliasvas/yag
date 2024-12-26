@@ -236,6 +236,17 @@ xjson_node_get :: (root_node : *xJsonNode, path : string) -> *xJsonNode, bool {
   return ret, found;
 }
 
+// TBA 
+//xjson_string_to_float :: (s : string) -> float {}
+
+xjson_string_to_int :: (s : string) -> int {
+  sum := 0;
+  for c,index : s {
+    sum += xx ((c - #char "0") * pow(10.0, xx(s.count-index-1)));
+  }
+  return sum;
+}
+
 /*
 SAMPLE_JSON :: #string END
 {
