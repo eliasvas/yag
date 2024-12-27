@@ -124,9 +124,25 @@ xgltf_accessor_calc_data_type_size :: (using accessor : *xGLTF_Accessor) -> u32 
   return bytes*mult;
 }
 
+xgltf_scene_load_from_file :: (gltf_path: string) ->xGLTF_Scene, bool {
+  scene : xGLTF_Scene;
+  success := true;
+  if contains(gltf_path, ".gltf") {
+    file_content, succ := read_entire_file(gltf_path);
+    if succ then scene = xgltf_scene_load(file_content);
+    else print("file % not found!\n", gltf_path);
+  } else if contains(gltf_path, ".glb") {
+    assert(0, ".glb not supported yet!");
+  } else {
+    print("file % is not a valid .gltf file!", gltf_path);
+  }
+
+  return scene, success;
+}
 xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
   scene : xGLTF_Scene;
 
+  //file_content, success := read_entire_file(filename);
   root_json := xjson_parse_wholefile_string(json_wholefile);
 
   // parse meshes
@@ -191,6 +207,25 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
 
     array_add(*scene.accessors, accessor);
   }
+
+  /*
+  // parse textures
+  for buffer_node : xjson_node_get(root_json, "buffers").values {
+    uri_node, ufound := xjson_node_get(buffer_node, "uri");
+    assert(ufound);
+    byte_len_node, bfound := xjson_node_get(buffer_node, "byteLength");
+    if bfound { // if we got a byteLength, the buffer is embedded
+      found,l,r := split_from_left(uri_node.value, "base64,");
+      binary_text := base64_decode(r);
+      bin_f :[]float = .{xjson_string_to_int(byte_len_node.value) / size_of(float), cast(*float)binary_text.data};
+      array_add(*scene.buffers, .{bin_f});
+    } else { // else we should read from 'file.bin' (stored in URI)
+      assert(0 && "glTF external buffer reads not supported yet!");
+    }
+  }
+  */
+
+
 
   print("glTF scene: %\n", scene);
   return scene;

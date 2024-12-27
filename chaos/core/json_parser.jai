@@ -48,11 +48,18 @@ xJsonToken :: struct {
 };
 
 xjson_tokenize :: (wholefile : string) -> [] xJsonToken {
+
+  trim(wholefile, " "); // This isn't the best..
   tokens : [..] xJsonToken;
   pos := 0;
   while pos != wholefile.count {
     c : u8 = wholefile[pos];
     if c == {
+      case #char "\t";#through;
+      case #char "\r";#through;
+      case #char "\n";#through;
+      case #char " ";
+        pos+=1;
       case #char "{";
         array_add(*tokens, .{kind=.LBRACE});
         pos +=1;
@@ -75,7 +82,7 @@ xjson_tokenize :: (wholefile : string) -> [] xJsonToken {
         pos+=1;
         s : string = .{data=*wholefile[pos],count=0};
         c = wholefile[pos];
-        while c != #char "\"" {
+        while c != #char "\"" && c != 92 {
           s.count+=1;
           c = wholefile[pos+s.count];
         }
@@ -246,28 +253,6 @@ xjson_string_to_int :: (s : string) -> int {
   }
   return sum;
 }
-
-/*
-SAMPLE_JSON :: #string END
-{
-  "scene": 0,
-  "lit": false,
-  "prop": true,
-  "prop2": null,
-  "array2": [1,2,3,4],
-  "mesh":{
-    "tri_count" : 120,
-    "mesh_arr" : [
-      { "count":28, "Title":"mesh1" },
-      { "count":56, "Title":"mesh2" },
-      { "count":89, "Title":"mesh3" }
-    ]
-  }
-}
-END
-*/
-
-
 
 SAMPLE_JSON :: #string END
 {

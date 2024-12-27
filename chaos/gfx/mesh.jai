@@ -192,7 +192,7 @@ xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8,
   return sphere;
 }
 
-xmesh_render :: (using mesh : *xMesh, sp : *oglSP, m : *xMaterial = null, model : m4) {
+xmesh_render :: (using mesh : *xMesh, sp : *oglSP, m : *xPBR_Material = null, model : m4) {
   assert(mesh.vbos.count > 0);
   bindings := oglBindingDesc.{
     index_buf = *mesh.ibo,
@@ -201,7 +201,7 @@ xmesh_render :: (using mesh : *xMesh, sp : *oglSP, m : *xMaterial = null, model 
 
   ogl_sp_apply_bindings(sp, bindings);
   if m {
-    xmaterial_set_to_shader(m, sp);
+    xpbr_material_set_to_shader(m, sp);
   }
 
   if ibo.count {

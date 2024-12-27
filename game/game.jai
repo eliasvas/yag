@@ -1,6 +1,8 @@
 #import "Basic";
 #import "String";
 #import "chaos";
+#import "File";
+
 // TODO: get a good bitmap font, like in microui, and BAKE it in font rendering code path
 // TODO: instead of xeng(), do just xeng
 // TODO: FIRE RENDERING!!!!! (lights will also be emmitted?!??!?!)
@@ -45,13 +47,14 @@ main :: () {
 
   xr3d_init(*rend);
 
+  // gltf loading tests
+  //sample_gltf_mesh := xgltf_parse_mesh(SAMPLE_JSON);
+  gltf_path := "../assets/glTF-Sample-Models/2.0/Box/glTF-Embedded/Box.gltf";
+  file_content, succ := read_entire_file(gltf_path);
+  assert(succ);
+  normalize_line_endings(*file_content);
+  sample_gltf_mesh := xgltf_parse_mesh(file_content); 
 
-  // json tests
-  root_json := xjson_parse_wholefile_string(SAMPLE_JSON);
-  node, found := xjson_node_get(root_json, "asset.version");
-  assert(found);
-
-  triangle_mesh := xgltf_parse_mesh(SAMPLE_JSON); 
 
   sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
   t := xtimer_make(100, 5, sample_timer_cb, null);
@@ -78,28 +81,26 @@ main :: () {
     ImGui.TextUnformatted(frame_str.data);
     ImGui.End();
 
-    big_cube_mat := xMaterial.{sm=xsimple_material_make(*green_img,*white_img, 8), kind=.SIMPLE};
+    big_cube_mat := xPBR_Material.{*green_img,*white_img, null, null, null, null};
     big_model := m4_mult(m4_trans(.{0,-2,0}),m4_scale(.{100,1,100}));
     xr3d_push_bundle(*rend, cube_mesh, big_cube_mat, big_model);
 
     spin_model := m4_mult(m4_trans(.{0,2,0}),m4_rotate(90.0 * cast(float)seconds_since_init()/40.0, .{0,1,0}));
-    spin_cube_mat := xMaterial.{sm=xsimple_material_make(*diff_img, *spec_img, 8), kind=.SIMPLE};
+    spin_cube_mat := xPBR_Material.{*diff_img, *spec_img, null, null, null, null};
     xr3d_push_bundle(*rend, cube_mesh, spin_cube_mat, spin_model);
 
 
     light_pos := v3.{3,2,3};
     light_source_model := m4_mult(m4_trans(light_pos), m4_scale(.{0.5,0.5,0.5}));
-    light_mat := xMaterial.{sm=xsimple_material_make(*white_img,*white_img, 8), kind=.SIMPLE};
-    light_mat.sm.diffuse_mod = .{1000.0,1000.0,1000.0,1000.0};
+    light_mat := xPBR_Material.{*white_img,*white_img, null, null, null, null};
     xr3d_push_bundle(*rend, cube_mesh, light_mat, light_source_model);
 
-    sphere_mat := xMaterial.{sm=xsimple_material_make(*blue_img,*white_img, 8), kind=.SIMPLE};
-    sphere_mat.sm.specular_mod = .{0.7,0.7,0.7,1};
+    sphere_mat := xPBR_Material.{*blue_img,*white_img, null, null, null, null};
     xr3d_push_bundle(*rend, sphere_mesh, sphere_mat, m4_trans(.{3,3,0}));
 
 
     // render the json triangle mesh!!
-    xr3d_push_bundle(*rend, *triangle_mesh, sphere_mat, m4_trans(.{2,5,0}));
+    xr3d_push_bundle(*rend, *sample_gltf_mesh, sphere_mat, m4_trans(.{2,5,0}));
 
 
     if xeng().csm_data.enabled {

@@ -5,7 +5,7 @@
 
 xRenderableBundle :: struct {
   mesh : xMesh;
-  mat : xMaterial;
+  mat : xPBR_Material;
   model : m4;
 };
 
@@ -47,7 +47,7 @@ xr3d_init :: (using rend : *xRend3D) {
   assert(ogl_rt_init(*g_buffer, .{xeng().win.dim.x,xeng().win.dim.y}, .RGBA32F));
 }
 
-xr3d_push_bundle :: (using rend : *xRend3D, mesh : xMesh, mat : xMaterial, model : m4) {
+xr3d_push_bundle :: (using rend : *xRend3D, mesh : xMesh, mat : xPBR_Material, model : m4) {
   array_add(*bundles, .{mesh, mat, model});
 }
 
