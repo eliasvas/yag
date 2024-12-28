@@ -48,18 +48,11 @@ xJsonToken :: struct {
 };
 
 xjson_tokenize :: (wholefile : string) -> [] xJsonToken {
-
-  trim(wholefile, " "); // This isn't the best..
   tokens : [..] xJsonToken;
   pos := 0;
   while pos != wholefile.count {
     c : u8 = wholefile[pos];
     if c == {
-      case #char "\t";#through;
-      case #char "\r";#through;
-      case #char "\n";#through;
-      case #char " ";
-        pos+=1;
       case #char "{";
         array_add(*tokens, .{kind=.LBRACE});
         pos +=1;
@@ -82,7 +75,7 @@ xjson_tokenize :: (wholefile : string) -> [] xJsonToken {
         pos+=1;
         s : string = .{data=*wholefile[pos],count=0};
         c = wholefile[pos];
-        while c != #char "\"" && c != 92 {
+        while c != #char "\"" {
           s.count+=1;
           c = wholefile[pos+s.count];
         }

@@ -1,34 +1,6 @@
 // TODO: Think about allocations, what we want to be temporary, want we want to group etc.
 #import "Base64"; // in modules/Base64.jai
-
-/*
-Quick rundown of different glTF nodes:
-  scene - entry point for description of the scene.
-  node - a node in the scene graph hierarchy.
-  camera - view configuration for rendering the scene.
-  mesh - a geometric object that appears in the scene, it also has _accessors_ for vertex data and _materials_ to define its appearance.
-  skin - defines parameters used for vertex skinning which allows deformation of a mesh, its values are provided through _accessors_.
-  animation - describes how transformations (translations/rotations) change over time.
-  accessor - a source of arbitrary data. Used by meshes skins and animations. Refers to a _bufferView_ which is part of a buffer.
-  material - contains parameters that define the appearance of an object. Usually refers to _texture_ objects that are applied to geometry.
-  texture - is defined by a _sampler_ and an _image_. The _sampler_ defines how the texture _image_ should be placed on an object.
-*/
-
-/*
-  Generally, we first parse file.json, and then go on to parse all files reference in "buffers" and "images" in Json's top-level, like:
-  "buffers" : [
-    {
-      "uri" : "buffer1.bin",
-      "bufferLength" : 66
-    }
-  ]
-  "images" : [
-    {
-      "uri" : "image01.png"
-    }
-  ]
-  we will read all buffers and images, bufferViews and samplers will refer to these binary files.
-*/
+#import "stb_image";
 
 XGLTF_INVALID_ID :: -1;
 
@@ -47,8 +19,9 @@ xGLTF_Indices :: struct {
 };
 
 xGLTF_Primitive :: struct {
-    attributes : [..]xGLTF_Attribute;
-    indices : xGLTF_Indices;
+  attributes : [..]xGLTF_Attribute;
+  indices : xGLTF_Indices;
+  material_id : s64 = XGLTF_INVALID_ID;
 };
 
 xGLTF_Mesh :: struct {
@@ -61,12 +34,19 @@ xGLTF_Scene :: struct {
   buffers : [..]xGLTF_Buffer;
   buffer_views : [..]xGLTF_BufferView;
   accessors : [..]xGLTF_Accessor;
+
+  images : [..]xGLTF_Image;
+  samplers : [..]xGLTF_Sampler;
+  textures : [..]xGLTF_Texture;
+
+  materials : [..]xGLTF_Material;
 };
 
 
 ///////////////////////////////
 // glTF buffers
 ///////////////////////////////
+
 // FIXME: why only floats? we need some kind of xGLTF_BufferKind!
 xGLTF_Buffer :: struct {
   buf : []float;
@@ -88,6 +68,44 @@ xGLTF_Accessor :: struct {
   //min
   //max
 };
+
+///////////////////////////////
+// glTF textures
+///////////////////////////////
+
+xGLTF_Image :: struct {
+  buf : []u8;
+};
+
+xGLTF_Sampler :: struct {
+  mag_filter : s64;
+  min_filter : s64;
+  wrap_s     : s64;
+  wrap_t     : s64;
+};
+
+xGLTF_Texture :: struct {
+  sampler_id : s64 = XGLTF_INVALID_ID;
+  image_id : s64 = XGLTF_INVALID_ID;
+};
+
+
+///////////////////////////////
+// glTF materials 
+///////////////////////////////
+
+// Currently just a roughtness-metallic material description
+xGLTF_Material :: struct {
+  base_color_tex_id : s64 = XGLTF_INVALID_ID;
+  base_color_factor : v3;
+
+  metallic_tex_id : s64 = XGLTF_INVALID_ID;
+  metallic_factor : float;
+
+  roughness_tex_id : s64 = XGLTF_INVALID_ID;
+  roughness_factor : float;
+};
+
 
 // TODO: can we simplify this with an ifx
 xgltf_accessor_calc_data_type_size :: (using accessor : *xGLTF_Accessor) -> u32 {
@@ -154,12 +172,18 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
       prim : xGLTF_Primitive;
       attribs_node, afound := xjson_node_get(prim_node, "attributes");
       if afound {
+
         for val, key: attribs_node.table {
           attrib : xGLTF_Attribute = .{key, xjson_string_to_int(val.value)};
           array_add(*prim.attributes, attrib);
         }
+
         indices_node,ifound := xjson_node_get(prim_node, "indices");
         if ifound then prim.indices = .{xjson_string_to_int(indices_node.value)};
+
+        material_node,mfound := xjson_node_get(prim_node, "material");
+        if mfound then prim.material_id = xjson_string_to_int(material_node.value);
+
         array_add(*mesh.primitives, prim);
       }
     }
@@ -174,7 +198,8 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
     if bfound { // if we got a byteLength, the buffer is embedded
       found,l,r := split_from_left(uri_node.value, "base64,");
       binary_text := base64_decode(r);
-      bin_f :[]float = .{xjson_string_to_int(byte_len_node.value) / size_of(float), cast(*float)binary_text.data};
+      //bin_f :[]float = .{xjson_string_to_int(byte_len_node.value) / size_of(float), cast(*float)binary_text.data};
+      bin_f :[]float = .{binary_text.count / size_of(float), cast(*float)binary_text.data};
       array_add(*scene.buffers, .{bin_f});
     } else { // else we should read from 'file.bin' (stored in URI)
       assert(0 && "glTF external buffer reads not supported yet!");
@@ -208,22 +233,48 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
     array_add(*scene.accessors, accessor);
   }
 
-  /*
-  // parse textures
-  for buffer_node : xjson_node_get(root_json, "buffers").values {
-    uri_node, ufound := xjson_node_get(buffer_node, "uri");
+
+  // parse images (raw texture data) 
+  for image_node : xjson_node_get(root_json, "images").values {
+    uri_node, ufound := xjson_node_get(image_node, "uri");
     assert(ufound);
-    byte_len_node, bfound := xjson_node_get(buffer_node, "byteLength");
-    if bfound { // if we got a byteLength, the buffer is embedded
-      found,l,r := split_from_left(uri_node.value, "base64,");
-      binary_text := base64_decode(r);
-      bin_f :[]float = .{xjson_string_to_int(byte_len_node.value) / size_of(float), cast(*float)binary_text.data};
-      array_add(*scene.buffers, .{bin_f});
-    } else { // else we should read from 'file.bin' (stored in URI)
-      assert(0 && "glTF external buffer reads not supported yet!");
-    }
+    // FIXME: only handling embedded-textures
+    found,l,r := split_from_left(uri_node.value, "base64,");
+    binary_text := base64_decode(r);
+    bin_f :[]u8 = .{binary_text.count, binary_text.data};
+    array_add(*scene.images, .{bin_f});
   }
-  */
+  // parse samplers
+  // FIXME: currently sampler values aren't used in final texture creation, we need to enhance ogl a bit
+  for sampler_node : xjson_node_get(root_json, "samplers").values {
+    // FIXME: are we absolutely certain ALL these properties are gonna be there? maybe an ifx would help here
+    mag_filter := xjson_string_to_int(xjson_node_get(sampler_node, "magFilter").value);
+    min_filter := xjson_string_to_int(xjson_node_get(sampler_node, "minFilter").value);
+    wrap_s := xjson_string_to_int(xjson_node_get(sampler_node, "wrapS").value);
+    wrap_t := xjson_string_to_int(xjson_node_get(sampler_node, "wrapT").value);
+
+    sampler : xGLTF_Sampler = .{mag_filter, min_filter, wrap_s, wrap_t};
+    array_add(*scene.samplers, sampler);
+  }
+  // parse textures
+  for texture_node : xjson_node_get(root_json, "textures").values {
+    // FIXME: are we absolutely certain ALL these properties are gonna be there? maybe an ifx would help here
+    sampler_id := xjson_string_to_int(xjson_node_get(texture_node, "sampler").value);
+    source_id := xjson_string_to_int(xjson_node_get(texture_node, "source").value);
+
+    texture : xGLTF_Texture = .{sampler_id, source_id};
+    array_add(*scene.textures, texture);
+  }
+
+  // parse material (BETA) 
+  for material_node : xjson_node_get(root_json, "materials").values {
+    mr_node := xjson_node_get(material_node, "pbrMetallicRoughness");
+    // TODO: incomplete!
+    base_color_tex_id := xjson_string_to_int(xjson_node_get(mr_node, "baseColorTexture.index").value);
+    material : xGLTF_Material;
+    material.base_color_tex_id = base_color_tex_id;
+    array_add(*scene.materials, material);
+  }
 
 
 
@@ -231,12 +282,36 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
   return scene;
 }
 
-xgltf_parse_mesh :: (json_wholefile : string) -> xMesh {
+// TODO: find a cleaner way to do this
+xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
+  if attrib_name == {
+    case "POSITION";
+      return 0;
+    case "NORMAL";
+      return 1;
+    case "TEXCOORD_0";
+      return 2;
+    case;
+      return 0;
+  }
+}
+
+xgltf_parse_mesh :: (json_wholefile : string) -> xMesh, xPBR_Material {
   m: xMesh;
+  material : xPBR_Material;
   scene := xgltf_scene_load(json_wholefile);
 
   for mesh : scene.meshes {
     for primitive : mesh.primitives {
+      // Shitty material handling to load a shitty image
+      tex : *oglTex = alloc(size_of(oglTex));
+      // FIXME: it can also be other image formats.. we should encode this somewhere in GLTF structure
+      png_data := scene.images[scene.textures[scene.materials[primitive.material_id].base_color_tex_id].image_id].buf;
+      tex_w, tex_h, channels : s32;
+      raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
+      ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+      material.base_col_tex = tex;
+      //////////////////////////////////////////////////
       index_buf_accessor_id := primitive.indices.accessor_id;
       if index_buf_accessor_id != XGLTF_INVALID_ID {
         accessor := scene.accessors[index_buf_accessor_id];
@@ -250,7 +325,7 @@ xgltf_parse_mesh :: (json_wholefile : string) -> xMesh {
 
       for attr : primitive.attributes {
         vertex_buf_accessor_id := attr.accessor_id;
-        attrib_loc :u32 = ifx attr.name == "POSITION" then cast(u32)0 else cast(u32)1; // we should make a switch statment for this
+        attrib_loc := xgltf_calc_attrib_loc_from_name(attr.name);
         if vertex_buf_accessor_id != XGLTF_INVALID_ID {
           accessor := scene.accessors[vertex_buf_accessor_id];
           buffer_view := scene.buffer_views[accessor.buffer_view];
@@ -272,5 +347,5 @@ xgltf_parse_mesh :: (json_wholefile : string) -> xMesh {
     }
   }
 
-  return m;
+  return m, material;
 }

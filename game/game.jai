@@ -49,11 +49,11 @@ main :: () {
 
   // gltf loading tests
   //sample_gltf_mesh := xgltf_parse_mesh(SAMPLE_JSON);
-  gltf_path := "../assets/glTF-Sample-Models/2.0/Box/glTF-Embedded/Box.gltf";
+  gltf_path := "../assets/glTF-Sample-Models/2.0/BoxTextured/glTF-Embedded/BoxTextured.gltf";
   file_content, succ := read_entire_file(gltf_path);
   assert(succ);
   normalize_line_endings(*file_content);
-  sample_gltf_mesh := xgltf_parse_mesh(file_content); 
+  sample_gltf_mesh, sample_gltf_mat := xgltf_parse_mesh(file_content);
 
 
   sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
@@ -99,8 +99,14 @@ main :: () {
     xr3d_push_bundle(*rend, sphere_mesh, sphere_mat, m4_trans(.{3,3,0}));
 
 
+    //rotation: Quaternion;
+    //set_from_axis_and_angle(*rotation, .{0, 0, 1}, xx seconds_since_init() * 0.1);
+    //rotationm := rotation_matrix(Matrix4, rotation);
+
     // render the json triangle mesh!!
-    xr3d_push_bundle(*rend, *sample_gltf_mesh, sphere_mat, m4_trans(.{2,5,0}));
+    test_mat := sphere_mat;
+    test_mat.base_col_tex = sample_gltf_mat.base_col_tex;
+    xr3d_push_bundle(*rend, *sample_gltf_mesh, test_mat, m4_trans(.{2,5,0}));
 
 
     if xeng().csm_data.enabled {
