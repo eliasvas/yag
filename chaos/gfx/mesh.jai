@@ -206,7 +206,6 @@ xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8,
 
 // FIXME: each PRIMITIVE should have a material INSIDE! not this monstrocity!!!
 xmesh_render :: (using mesh : *xMesh, sp : *oglSP, model : m4) {
-
   for mp : primitives {
     assert(mp.vbos.count > 0);
     bindings := oglBindingDesc.{

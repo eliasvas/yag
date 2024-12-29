@@ -68,6 +68,7 @@ xGLTF_BufferView :: struct {
   buffer : s64;
   byte_offset : s64;
   byte_length : s64;
+  byte_stride : s64;
   target : s64;
 };
 
@@ -109,7 +110,7 @@ xGLTF_Texture :: struct {
 // Currently just a roughtness-metallic material description
 xGLTF_Material :: struct {
   base_color_tex_id : s64 = XGLTF_INVALID_ID;
-  base_color_factor : v3;
+  base_color_factor : v4;
 
   metallic_tex_id : s64 = XGLTF_INVALID_ID;
   metallic_factor : float;
@@ -194,6 +195,7 @@ xgltf_scene_load_from_file :: (gltf_path: string) ->xGLTF_Scene, bool {
 
   return scene, success;
 }
+
 xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
   scene : xGLTF_Scene;
 
@@ -245,24 +247,24 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
 
   // parse bufferViews
   for bufferv_node : xjson_node_get(root_json, "bufferViews").values {
-    // FIXME: are we absolutely certain ALL these properties are gonna be there? maybe an ifx would help here
-    buffer_id  := xjson_string_to_int(xjson_node_get(bufferv_node, "buffer").value);
-    byte_offset := xjson_string_to_int(xjson_node_get(bufferv_node, "byteOffset").value);
-    byte_length := xjson_string_to_int(xjson_node_get(bufferv_node, "byteLength").value);
-    target     := xjson_string_to_int(xjson_node_get(bufferv_node, "target").value);
-    bufferv : xGLTF_BufferView = .{buffer_id, byte_offset, byte_length, target};
+    buffer_id := xjson_get_int(bufferv_node, "buffer", XGLTF_INVALID_ID);
+    byte_offset := xjson_get_int(bufferv_node, "byteOffset", XGLTF_INVALID_ID);
+    byte_length := xjson_get_int(bufferv_node, "byteLength", XGLTF_INVALID_ID);
+    byte_stride := xjson_get_int(bufferv_node, "byteStride", XGLTF_INVALID_ID);
+    target := xjson_get_int(bufferv_node, "target", XGLTF_INVALID_ID);
+    bufferv : xGLTF_BufferView = .{buffer_id, byte_offset, byte_length, byte_stride, target};
 
     array_add(*scene.buffer_views, bufferv);
   }
 
   // parse accessors
-  for accessor_node : xjson_node_get(root_json, "accessors").values {
-    // FIXME: are we absolutely certain ALL these properties are gonna be there? maybe an ifx would help here
-    buffer_view    := xjson_string_to_int(xjson_node_get(accessor_node, "bufferView").value);
-    byte_offset    := xjson_string_to_int(xjson_node_get(accessor_node, "byteOffset").value);
-    component_type := xjson_string_to_int(xjson_node_get(accessor_node, "componentType").value);
-    count          := xjson_string_to_int(xjson_node_get(accessor_node, "count").value);
-    type           := xjson_node_get(accessor_node, "type").value;
+  for accessor_node : xjson_get_array(root_json, "accessors") {
+    buffer_view := xjson_get_int(accessor_node, "bufferView", XGLTF_INVALID_ID);
+    buffer_offset := xjson_get_int(accessor_node, "bufferOffset", XGLTF_INVALID_ID);
+    byte_offset := xjson_get_int(accessor_node, "byteOffset", XGLTF_INVALID_ID);
+    component_type := xjson_get_int(accessor_node, "componentType", XGLTF_INVALID_ID);
+    count := xjson_get_int(accessor_node, "count", XGLTF_INVALID_ID);
+    type := xjson_get_string(accessor_node, "type");
     // TODO: also parse min (we have to infer actual type from count/type/component_type combo)
     // TODO: also parse max
     accessor : xGLTF_Accessor = .{buffer_view, byte_offset, component_type, count, type};
@@ -272,7 +274,7 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
 
 
   // parse images (raw texture data) 
-  for image_node : xjson_node_get(root_json, "images").values {
+  for image_node : xjson_get_array(root_json, "images") {
     uri_node, ufound := xjson_node_get(image_node, "uri");
     assert(ufound);
     // FIXME: only handling embedded-textures
@@ -281,39 +283,49 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
     bin_f :[]u8 = .{binary_text.count, binary_text.data};
     array_add(*scene.images, .{bin_f});
   }
+
   // parse samplers
   // FIXME: currently sampler values aren't used in final texture creation, we need to enhance ogl a bit
-  for sampler_node : xjson_node_get(root_json, "samplers").values {
-    // FIXME: are we absolutely certain ALL these properties are gonna be there? maybe an ifx would help here
-    mag_filter := xjson_string_to_int(xjson_node_get(sampler_node, "magFilter").value);
-    min_filter := xjson_string_to_int(xjson_node_get(sampler_node, "minFilter").value);
-    wrap_s := xjson_string_to_int(xjson_node_get(sampler_node, "wrapS").value);
-    wrap_t := xjson_string_to_int(xjson_node_get(sampler_node, "wrapT").value);
+  for sampler_node : xjson_get_array(root_json, "samplers") {
+    // TODO:default value here should be 0 or something?
+    mag_filter := xjson_get_int(sampler_node, "magFilter", XGLTF_INVALID_ID);
+    min_filter := xjson_get_int(sampler_node, "minFilter", XGLTF_INVALID_ID);
+    wrap_s := xjson_get_int(sampler_node, "wrapS", XGLTF_INVALID_ID);
+    wrap_t := xjson_get_int(sampler_node, "wrapT", XGLTF_INVALID_ID);
 
     sampler : xGLTF_Sampler = .{mag_filter, min_filter, wrap_s, wrap_t};
     array_add(*scene.samplers, sampler);
   }
+
   // parse textures
-  for texture_node : xjson_node_get(root_json, "textures").values {
-    // FIXME: are we absolutely certain ALL these properties are gonna be there? maybe an ifx would help here
-    sampler_id := xjson_string_to_int(xjson_node_get(texture_node, "sampler").value);
-    source_id := xjson_string_to_int(xjson_node_get(texture_node, "source").value);
+  for texture_node : xjson_get_array(root_json, "textures") {
+    sampler_id := xjson_get_int(texture_node, "sampler", XGLTF_INVALID_ID);
+    source_id := xjson_get_int(texture_node, "source", XGLTF_INVALID_ID);
 
     texture : xGLTF_Texture = .{sampler_id, source_id};
     array_add(*scene.textures, texture);
   }
 
   // parse material (BETA) 
-  for material_node : xjson_node_get(root_json, "materials").values {
+  for material_node : xjson_get_array(root_json, "materials") {
     mr_node := xjson_node_get(material_node, "pbrMetallicRoughness");
     // TODO: incomplete!
-    base_color_tex_id := xjson_string_to_int(xjson_node_get(mr_node, "baseColorTexture.index").value);
+    base_color_tex_id :s64 = XGLTF_INVALID_ID;
+    base_color_factor : v4;
+    bct, bctfound := xjson_node_get(mr_node, "baseColorTexture.index");
+    if bctfound {
+      base_color_tex_id = xjson_string_to_int(bct.value);
+    }else {
+      bcf := xjson_node_get(mr_node, "baseColorFactor");
+      // FIXME: hacky AF
+      base_color_factor = v4.{xjson_string_to_float(bcf.values[0].value),xjson_string_to_float(bcf.values[1].value),xjson_string_to_float(bcf.values[2].value),xjson_string_to_float(bcf.values[3].value)};
+    }
+    //white_img:oglTex; white := u8.[ 0xFF,0xFF,0xFF,0xFF ]; ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
     material : xGLTF_Material;
     material.base_color_tex_id = base_color_tex_id;
+    material.base_color_factor = base_color_factor;
     array_add(*scene.materials, material);
   }
-
-
 
   print("glTF scene: %\n", scene);
   return scene;
@@ -347,11 +359,25 @@ xgltf_parse_mesh :: (json_wholefile : string) -> xMesh{
       // Shitty material handling to load a shitty image
       tex : *oglTex = alloc(size_of(oglTex));
       // FIXME: it can also be other image formats.. we should encode this somewhere in GLTF structure
-      png_data := scene.images[scene.textures[scene.materials[primitive.material_id].base_color_tex_id].image_id].buf;
-      tex_w, tex_h, channels : s32;
-      raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
-      ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
-      m.material.base_col_tex = tex;
+      if primitive.material_id != XGLTF_INVALID_ID {
+        gltf_mat := scene.materials[primitive.material_id];
+        if gltf_mat.base_color_tex_id != XGLTF_INVALID_ID {
+          png_data := scene.images[scene.textures[scene.materials[primitive.material_id].base_color_tex_id].image_id].buf;
+          tex_w, tex_h, channels : s32;
+          stbi_set_flip_vertically_on_load(1);
+          raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
+          ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+          m.material.base_col_tex = tex;
+        } else {
+          color := gltf_mat.base_color_factor;
+          c :[]u8= .[cast(u8)(color.x * 255.0),cast(u8)(color.y * 255.0),cast(u8)(color.z * 255.0),cast(u8)(color.w * 255.0)];
+          // TODO make c the actual color, we gotta go float -> byte
+          img:oglTex; ogl_tex_init(*img, .{1,1}, c.data, oglTexFormat.RGBA8U);
+          ogl_tex_init(tex, .{1,1}, xx c.data, oglTexFormat.RGBA8U);
+          m.material.base_col_tex = tex;
+        }
+      }
+      
       //////////////////////////////////////////////////
       index_buf_accessor_id := primitive.indices.accessor_id;
       if index_buf_accessor_id != XGLTF_INVALID_ID {

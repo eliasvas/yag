@@ -248,6 +248,43 @@ xjson_string_to_int :: (s : string) -> int {
   return sum;
 }
 
+xjson_get_string :: (node : *xJsonNode, path : string, default:string="") -> string, bool {
+    local_node, found := xjson_node_get(node, path);
+    if found {
+      return local_node.value, true;
+    }else {
+      return default,false;
+    }
+}
+
+
+xjson_get_float :: (node : *xJsonNode, path : string, default:float=0.0) -> float, bool {
+    local_node, found := xjson_node_get(node, path);
+    if found {
+      return xjson_string_to_float(local_node.value), true;
+    }else {
+      return default,false;
+    }
+}
+
+xjson_get_int :: (node : *xJsonNode, path : string, default:int=-1) -> int, bool {
+    local_node, found := xjson_node_get(node, path);
+    if found {
+      return xjson_string_to_int(local_node.value), true;
+    }else {
+      return default,false;
+    }
+}
+
+xjson_get_array :: (node : *xJsonNode, path : string) -> []*xJsonNode {
+    local_node, found := xjson_node_get(node, path);
+    if found {
+      return local_node.values;
+    }else {
+      return .[];
+    }
+}
+
 SAMPLE_JSON :: #string END
 {
   "scene": 0,
