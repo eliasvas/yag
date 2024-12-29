@@ -5,7 +5,13 @@ xBlinnPhongVertex :: struct {
   tc : v2;
 };
 
+// yes
 xMesh :: struct {
+  primitives : [..]xMeshPrimitive;
+};
+
+xMeshPrimitive :: struct {
+  material : xPBR_Material;
   vbos : [..]oglVertexDef;
   ibo : oglBuf;
 };
@@ -56,8 +62,7 @@ cube_verts : [36 * 8] float32 = .[
 ];
 
 xmesh_gen_cube :: () -> xMesh {
-  cube : xMesh;
-
+  cube : xMeshPrimitive;
   vertex_def : oglVertexDef;
   vertex_def.vbuf = alloc(size_of(oglBuf));
   ogl_buf_init(vertex_def.vbuf, .VERTEX, cube_verts.data, 36, size_of(float32)*8);
@@ -66,19 +71,18 @@ xmesh_gen_cube :: () -> xMesh {
   array_add(*attribs, .{loc=1,offset=cast(u32)offset_of(xBlinnPhongVertex,#code norm)});
   array_add(*attribs,.{loc=2,offset=cast(u32)offset_of(xBlinnPhongVertex,#code tc)});
   vertex_def.attribs = attribs;
-
   array_add(*cube.vbos,vertex_def);
 
+  mesh : xMesh;
+  array_add(*mesh.primitives, cube);
 
-
-  return cube;
+  return mesh;
 }
 
 
 // Mainly for multi-vertex-buffer rendering tests
 xmesh_gen_cube_multi_vbos :: () -> xMesh {
-  cube : xMesh;
-
+  cube : xMeshPrimitive;
   vertex_def_pos : oglVertexDef;
   vertex_def_pos.vbuf = alloc(size_of(oglBuf));
   ogl_buf_init(vertex_def_pos.vbuf, .VERTEX, cube_verts.data, 36, size_of(float32)*8);
@@ -86,7 +90,6 @@ xmesh_gen_cube_multi_vbos :: () -> xMesh {
   array_add(*attribs_pos, .{loc=0,offset=cast(u32)offset_of(xBlinnPhongVertex,#code pos)});
   vertex_def_pos.attribs = attribs_pos;
   array_add(*cube.vbos,vertex_def_pos);
-
   vertex_def_norm : oglVertexDef;
   vertex_def_norm.vbuf = alloc(size_of(oglBuf));
   ogl_buf_init(vertex_def_norm.vbuf, .VERTEX, cube_verts.data, 36, size_of(float32)*8);
@@ -94,7 +97,6 @@ xmesh_gen_cube_multi_vbos :: () -> xMesh {
   array_add(*attribs_norm, .{loc=1,offset=cast(u32)offset_of(xBlinnPhongVertex,#code norm)});
   vertex_def_norm.attribs = attribs_norm;
   array_add(*cube.vbos,vertex_def_norm);
-
   vertex_def_tc : oglVertexDef;
   vertex_def_tc.vbuf = alloc(size_of(oglBuf));
   ogl_buf_init(vertex_def_tc.vbuf, .VERTEX, cube_verts.data, 36, size_of(float32)*8);
@@ -103,7 +105,9 @@ xmesh_gen_cube_multi_vbos :: () -> xMesh {
   vertex_def_tc.attribs = attribs_tc;
   array_add(*cube.vbos,vertex_def_tc);
 
-  return cube;
+  mesh : xMesh;
+  array_add(*mesh.primitives, cube);
+  return mesh;
 }
 
 /*
@@ -117,8 +121,8 @@ xmesh_gen_cube_multi_vbos :: () -> xMesh {
   positions and tex_coords ranging from [0-1] depending on theta and phi.
   Then we will connect and index the mesh accoringly.
 */
-xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8, negate_normals : bool = false) -> xMesh {
-  sphere : xMesh;
+xmesh_gen_sphere_primitive :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8, negate_normals : bool = false) -> xMeshPrimitive {
+  sphere : xMeshPrimitive;
 
   assert(stack_count > 0);
   assert(sector_count > 0);
@@ -192,22 +196,37 @@ xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8,
   return sphere;
 }
 
-xmesh_render :: (using mesh : *xMesh, sp : *oglSP, m : *xPBR_Material = null, model : m4) {
-  assert(mesh.vbos.count > 0);
-  bindings := oglBindingDesc.{
-    index_buf = *mesh.ibo,
-    vertex_bufs = mesh.vbos,
-  };
+xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8, negate_normals : bool = false) -> xMesh {
+  prim := xmesh_gen_sphere_primitive(r, stack_count, sector_count, negate_normals);
 
-  ogl_sp_apply_bindings(sp, bindings);
-  if m {
-    xpbr_material_set_to_shader(m, sp);
-  }
+  mesh : xMesh;
+  array_add(*mesh.primitives, prim);
+  return mesh;
+}
 
-  if ibo.count {
-    ogl_bind_index_buffer(*mesh.ibo);
-    ogl_draw_indexed(oglPrimitive.TRIANGLES, xx ibo.count, ibo.size / ibo.count);
-  } else {
-    ogl_draw(oglPrimitive.TRIANGLES, 0, xx vbos[0].vbuf.count);
+// FIXME: each PRIMITIVE should have a material INSIDE! not this monstrocity!!!
+xmesh_render :: (using mesh : *xMesh, sp : *oglSP, model : m4) {
+
+  for mp : primitives {
+    assert(mp.vbos.count > 0);
+    bindings := oglBindingDesc.{
+      index_buf = *mp.ibo,
+      vertex_bufs = mp.vbos,
+    };
+
+    ogl_sp_apply_bindings(sp, bindings);
+
+    // set boring material stuff to shader
+    m := mp.material;
+    if m.base_col_tex {
+      xpbr_material_set_to_shader(*m, sp);
+    }
+
+    if mp.ibo.count {
+      ogl_bind_index_buffer(*mp.ibo);
+      ogl_draw_indexed(oglPrimitive.TRIANGLES, xx mp.ibo.count, mp.ibo.size / mp.ibo.count);
+    } else {
+      ogl_draw(oglPrimitive.TRIANGLES, 0, xx mp.vbos[0].vbuf.count);
+    }
   }
 }

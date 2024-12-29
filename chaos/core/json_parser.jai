@@ -236,9 +236,10 @@ xjson_node_get :: (root_node : *xJsonNode, path : string) -> *xJsonNode, bool {
   return ret, found;
 }
 
-// TBA 
-//xjson_string_to_float :: (s : string) -> float {}
-
+// TODO: we can do better than string_to_float!
+xjson_string_to_float :: (s : string) -> float {
+  return string_to_float(s);
+}
 xjson_string_to_int :: (s : string) -> int {
   sum := 0;
   for c,index : s {

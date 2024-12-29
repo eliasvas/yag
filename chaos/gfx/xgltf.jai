@@ -1,4 +1,5 @@
 // TODO: Think about allocations, what we want to be temporary, want we want to group etc.
+// FIXME: This module leaks a LOT, we should put everything for a glTF scene in a single allocator, to be able to hassle-free deallocate
 #import "Base64"; // in modules/Base64.jai
 #import "stb_image";
 
@@ -29,6 +30,8 @@ xGLTF_Mesh :: struct {
 };
 
 xGLTF_Scene :: struct {
+  nodes : [..] xGLTF_Node;
+
   meshes : [..] xGLTF_Mesh;
 
   buffers : [..]xGLTF_Buffer;
@@ -42,12 +45,21 @@ xGLTF_Scene :: struct {
   materials : [..]xGLTF_Material;
 };
 
+xGLTF_Node :: struct {
+  camera_id : s64 = XGLTF_INVALID_ID;
+  skin_id   : s64 = XGLTF_INVALID_ID;
+  mesh_id   : s64 = XGLTF_INVALID_ID;
+  transform : xGLTF_Transform;
+  children  : [..] s64;
+};
+
 
 ///////////////////////////////
 // glTF buffers
 ///////////////////////////////
 
 // FIXME: why only floats? we need some kind of xGLTF_BufferKind!
+// vertex ids for example are ints!
 xGLTF_Buffer :: struct {
   buf : []float;
 };
@@ -105,6 +117,31 @@ xGLTF_Material :: struct {
   roughness_tex_id : s64 = XGLTF_INVALID_ID;
   roughness_factor : float;
 };
+
+///////////////////////////////
+// glTF animations
+///////////////////////////////
+xGLTF_Transform :: struct {
+  trans : v3 = v3.{0,0,0};
+  scale : v3 = v3.{1,1,1};
+  rot   : Quat = quat_I;
+};
+
+xgltf_transform_calc_matrix :: (t : *xGLTF_Transform) -> m4 {
+  translation := m4_trans(t.trans);
+  // FIXME: here we should put the Quaternion Magic
+  rotation := m4_rotate(t.rot.w, .{t.rot.x,t.rot.y,r.rot.z});
+  /////////////////////////////////////////////////
+  scale := m4_scale(t.scale);
+  m := m4_mult(translation,m4_mult(rotation, scale));
+  return m;
+}
+
+xgltf_convert_matrix_to_transfor :: (m : m4) -> xGLTF_Transform {
+  t : xGLTF_Transform;
+  // TBA
+  return t;
+}
 
 
 // TODO: can we simplify this with an ifx
@@ -292,17 +329,21 @@ xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
     case "TEXCOORD_0";
       return 2;
     case;
-      return 0;
+      return 3;
   }
 }
 
-xgltf_parse_mesh :: (json_wholefile : string) -> xMesh, xPBR_Material {
-  m: xMesh;
-  material : xPBR_Material;
-  scene := xgltf_scene_load(json_wholefile);
+///////////////////////////////
+// non-glTF code! (this is not part of the parser)
+///////////////////////////////
 
-  for mesh : scene.meshes {
-    for primitive : mesh.primitives {
+xgltf_parse_mesh :: (json_wholefile : string) -> xMesh{
+  scene := xgltf_scene_load(json_wholefile);
+  mesh : xMesh;
+
+  for gltf_mesh : scene.meshes {
+    for primitive : gltf_mesh.primitives {
+      m: xMeshPrimitive;
       // Shitty material handling to load a shitty image
       tex : *oglTex = alloc(size_of(oglTex));
       // FIXME: it can also be other image formats.. we should encode this somewhere in GLTF structure
@@ -310,7 +351,7 @@ xgltf_parse_mesh :: (json_wholefile : string) -> xMesh, xPBR_Material {
       tex_w, tex_h, channels : s32;
       raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
       ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
-      material.base_col_tex = tex;
+      m.material.base_col_tex = tex;
       //////////////////////////////////////////////////
       index_buf_accessor_id := primitive.indices.accessor_id;
       if index_buf_accessor_id != XGLTF_INVALID_ID {
@@ -344,8 +385,9 @@ xgltf_parse_mesh :: (json_wholefile : string) -> xMesh, xPBR_Material {
           array_add(*m.vbos,vertex_def);
         }
       }
+      array_add(*mesh.primitives, m);
     }
   }
 
-  return m, material;
+  return mesh;
 }

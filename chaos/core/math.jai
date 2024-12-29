@@ -381,3 +381,7 @@ m4_rotate :: (angle : float, axis : v3) -> m4 {
 ////////////////////////
 
 
+Quat :: struct {
+  x,y,z,w : float;
+};
+quat_I :: Quat.{1.0,0.0,0.0,0.0};

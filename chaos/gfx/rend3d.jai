@@ -5,7 +5,6 @@
 
 xRenderableBundle :: struct {
   mesh : xMesh;
-  mat : xPBR_Material;
   model : m4;
 };
 
@@ -47,8 +46,8 @@ xr3d_init :: (using rend : *xRend3D) {
   assert(ogl_rt_init(*g_buffer, .{xeng().win.dim.x,xeng().win.dim.y}, .RGBA32F));
 }
 
-xr3d_push_bundle :: (using rend : *xRend3D, mesh : xMesh, mat : xPBR_Material, model : m4) {
-  array_add(*bundles, .{mesh, mat, model});
+xr3d_push_bundle :: (using rend : *xRend3D, mesh : xMesh, model : m4) {
+  array_add(*bundles, .{mesh, model});
 }
 
 xr3d_clear_bundles :: (using rend :*xRend3D) {
@@ -85,7 +84,7 @@ xr3d_do_shadow_pass :: (using rend : *xRend3D) {
     m := m4_transpose(bundle.model);
     ogl_ublock_set(*shadow_ub1, "model", xx m.raw.data);
     ogl_ublock_bind_to_slot(*shadow_ub1);
-    xmesh_render(*bundle.mesh, *shadow_sp, *bundle.mat, bundle.model);
+    xmesh_render(*bundle.mesh, *shadow_sp, bundle.model);
   }
 }
 
@@ -105,7 +104,7 @@ xr3d_do_g_pass :: (using rend : *xRend3D) {
     m := m4_transpose(bundle.model);
     ogl_ublock_set(*g_ub1, "model", xx m.raw.data);
     ogl_ublock_bind_to_slot(*g_ub1);
-    xmesh_render(*bundle.mesh, *g_sp, *bundle.mat, bundle.model);
+    xmesh_render(*bundle.mesh, *g_sp, bundle.model);
   }
 }
 
