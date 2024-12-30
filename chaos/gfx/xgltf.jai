@@ -43,6 +43,8 @@ xGLTF_Scene :: struct {
   textures : [..]xGLTF_Texture;
 
   materials : [..]xGLTF_Material;
+
+  animations : [..]xGLTF_Animation;
 };
 
 xGLTF_Node :: struct {
@@ -122,6 +124,24 @@ xGLTF_Material :: struct {
 ///////////////////////////////
 // glTF animations
 ///////////////////////////////
+
+xGLTF_AnimationSampler :: struct {
+  input_id : s64;
+  output_id : s64;
+  interpolation : string;
+};
+
+xGLTF_AnimationChannel :: struct {
+  sampler_id : s64;
+  target_node_id : s64;
+  target_path : string;
+};
+
+xGLTF_Animation :: struct {
+  channels : [..]xGLTF_AnimationChannel;
+  samplers : [..]xGLTF_AnimationSampler;
+};
+
 xGLTF_Transform :: struct {
   trans : v3 = v3.{0,0,0};
   scale : v3 = v3.{1,1,1};
@@ -131,7 +151,7 @@ xGLTF_Transform :: struct {
 xgltf_transform_calc_matrix :: (t : *xGLTF_Transform) -> m4 {
   translation := m4_trans(t.trans);
   // FIXME: here we should put the Quaternion Magic
-  rotation := m4_rotate(t.rot.w, .{t.rot.x,t.rot.y,r.rot.z});
+  rotation := m4_I;//m4_rotate(t.rot.w, .{t.rot.x,t.rot.y,r.rot.z});
   /////////////////////////////////////////////////
   scale := m4_scale(t.scale);
   m := m4_mult(translation,m4_mult(rotation, scale));
@@ -327,10 +347,39 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
     array_add(*scene.materials, material);
   }
 
+  // parse animations
+  for animation_node : xjson_get_array(root_json, "animations") {
+    samplers : [..]xGLTF_AnimationSampler;
+    for channel_node : xjson_get_array(animation_node, "samplers") {
+      input_id := xjson_get_int(channel_node, "input", XGLTF_INVALID_ID);
+      output_id := xjson_get_int(channel_node, "output", XGLTF_INVALID_ID);
+      interpolation := xjson_get_string(channel_node, "interpolation");
+
+
+      array_add(*samplers, xGLTF_AnimationSampler.{input_id, output_id, interpolation});
+    }
+
+    channels : [..]xGLTF_AnimationChannel;
+    for channel_node : xjson_get_array(animation_node, "channels") {
+      sampler_id := xjson_get_int(channel_node, "sampler", XGLTF_INVALID_ID);
+      target_node_id := xjson_get_int(channel_node, "target.node", XGLTF_INVALID_ID);
+
+      target_path: string;
+      target_path_node,tfound := xjson_node_get(channel_node, "target.path");
+      if tfound then target_path = target_path_node.value;
+      
+      array_add(*channels, xGLTF_AnimationChannel.{sampler_id, target_node_id, target_path});
+    }
+
+    animation : xGLTF_Animation = .{channels, samplers};
+    array_add(*scene.animations, animation);
+  }
+
+
+
   print("glTF scene: %\n", scene);
   return scene;
 }
-
 // TODO: find a cleaner way to do this
 xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
   if attrib_name == {
@@ -349,11 +398,62 @@ xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
 // non-glTF code! (this is not part of the parser)
 ///////////////////////////////
 
-xgltf_parse_mesh :: (json_wholefile : string) -> xMesh{
+
+xgltf_parse_animations :: (json_wholefile : string) ->[..]xMeshAnimation {
   scene := xgltf_scene_load(json_wholefile);
-  mesh : xMesh;
+  mesh_animations : [..]xMeshAnimation;
+
+  for gltf_anim : scene.animations {
+    mesh_anim : xMeshAnimation;
+    for channel : gltf_anim.channels {
+      sampler := gltf_anim.samplers[channel.sampler_id];
+
+      // calculate the timestamp array fot this PropertyAnimation
+      taccessor := scene.accessors[sampler.input_id];
+      tbuffer_view := scene.buffer_views[taccessor.buffer_view];
+      tbuffer := scene.buffers[tbuffer_view.buffer];
+      tptr := cast(*u8)tbuffer.buf.data + taccessor.byte_offset + tbuffer_view.byte_offset;
+      ttype_size := xgltf_accessor_calc_data_type_size(*taccessor);
+      timestamps := []float.{taccessor.count*ttype_size, cast(*float)tptr};
+
+      // calculate the anim_data array fot this PropertyAnimation
+      aaccessor := scene.accessors[sampler.input_id];
+      abuffer_view := scene.buffer_views[aaccessor.buffer_view];
+      abuffer := scene.buffers[abuffer_view.buffer];
+      aptr := cast(*u8)abuffer.buf.data + aaccessor.byte_offset + abuffer_view.byte_offset;
+      atype_size := xgltf_accessor_calc_data_type_size(*aaccessor);
+      anim_data := []float.{aaccessor.count*atype_size, cast(*float)aptr};
+
+      property : xMeshAnimationProperty;
+      if channel.target_path == {
+        case "translation";
+          property = .TRANSLATION;
+        case "rotation";
+          property = .ROTATION;
+        case "scale";
+          property = .SCALE;
+        case;
+          property = .TRANSLATION;
+      }
+      interp_type := xMeshAnimationInterpolationType.STEP;
+
+      panim := xMeshPropertyAnimation.{interp_type, property, timestamps, anim_data};
+      array_add(*mesh_anim.panim, panim);
+    }
+    mesh_anim.ref = null;
+    array_add(*mesh_animations, mesh_anim);
+  }
+
+  return mesh_animations;
+}
+
+xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
+  scene := xgltf_scene_load(json_wholefile);
+
+  meshes : [..]xMesh;
 
   for gltf_mesh : scene.meshes {
+    mesh : xMesh;
     for primitive : gltf_mesh.primitives {
       m: xMeshPrimitive;
       // Shitty material handling to load a shitty image
@@ -413,7 +513,8 @@ xgltf_parse_mesh :: (json_wholefile : string) -> xMesh{
       }
       array_add(*mesh.primitives, m);
     }
+    array_add(*meshes, mesh);
   }
 
-  return mesh;
+  return meshes;
 }

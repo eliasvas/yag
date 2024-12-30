@@ -55,7 +55,10 @@ main :: () {
   file_content, succ := read_entire_file(gltf_path);
   assert(succ);
   normalize_line_endings(*file_content);
-  sample_gltf_mesh := xgltf_parse_mesh(file_content);
+
+  sample_gltf_meshes := xgltf_parse_meshes(file_content);
+
+  sample_gltf_animations := xgltf_parse_animations(file_content);
 
 
   sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
@@ -98,7 +101,11 @@ main :: () {
     //rotationm := rotation_matrix(Matrix4, rotation);
 
     // render the json triangle mesh!!
-    xr3d_push_bundle(*rend, *sample_gltf_mesh, m4_trans(.{0,2,0}));
+
+    for sample_gltf_mesh : sample_gltf_meshes {
+      model := xgltf_transform_calc_matrix(*sample_gltf_mesh.transform);
+      xr3d_push_bundle(*rend, *sample_gltf_mesh, m4_mult(m4_trans(.{0,2,0}), model));
+    }
 
 
     if xeng().csm_data.enabled {

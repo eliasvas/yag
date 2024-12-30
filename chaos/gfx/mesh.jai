@@ -8,6 +8,7 @@ xBlinnPhongVertex :: struct {
 // yes
 xMesh :: struct {
   primitives : [..]xMeshPrimitive;
+  transform : xGLTF_Transform;
 };
 
 xMeshPrimitive :: struct {
@@ -229,3 +230,28 @@ xmesh_render :: (using mesh : *xMesh, sp : *oglSP, model : m4) {
     }
   }
 }
+
+xMeshAnimationInterpolationType :: enum {
+  STEP;
+  LINEAR;
+  QLERP;
+};
+
+xMeshAnimationProperty :: enum {
+  TRANSLATION;
+  ROTATION;
+  SCALE;
+};
+
+// An animation for given property, e.g position, translation or scale
+xMeshPropertyAnimation :: struct {
+  interp_type : xMeshAnimationInterpolationType;
+  property : xMeshAnimationProperty;
+  timestamps : []float;
+  anim_data : []float; // cast this to vec3/vec4 depending on animation property
+};
+
+xMeshAnimation :: struct {
+  panim : [..] xMeshPropertyAnimation;
+  ref : *xMesh; // the mesh to be animated
+};
