@@ -58,11 +58,12 @@ main :: () {
 
   sample_gltf_meshes := xgltf_parse_meshes(file_content);
 
-  sample_gltf_animations := xgltf_parse_animations(file_content);
+  sample_gltf_animations := xgltf_parse_animations(file_content, sample_gltf_meshes.data);
 
 
-  sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
-  t := xtimer_make(100, 5, sample_timer_cb, null);
+  // FIXME: Context has been DEPRECATED! we should find a new way to do this, the new Jai way I guess
+  //sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
+  //t := xtimer_make(100, 5, sample_timer_cb, null);
 
   skydome = xskydome_make();
   cube_mesh = xmesh_gen_cube();
@@ -71,6 +72,10 @@ main :: () {
   while true {
     xeng_frame_init();
     if (xim_kkey_pressed(.SC_ESCAPE)) exit(1);
+
+    for *anim : sample_gltf_animations {
+      xmesh_animation_simulate(anim);
+    }
 
     // Do the CSM ImGui menu
     ImGui.Begin("CSM");
@@ -93,7 +98,7 @@ main :: () {
 
     sphere_mat := xPBR_Material.{*blue_img,*white_img, null, null, null, null};
     sphere_mesh.primitives[0].material = sphere_mat;
-    xr3d_push_bundle(*rend, sphere_mesh, m4_trans(.{3,3,0}));
+    //xr3d_push_bundle(*rend, sphere_mesh, m4_trans(.{3,3,0}));
 
 
     //rotation: Quaternion;

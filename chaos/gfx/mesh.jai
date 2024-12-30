@@ -255,3 +255,61 @@ xMeshAnimation :: struct {
   panim : [..] xMeshPropertyAnimation;
   ref : *xMesh; // the mesh to be animated
 };
+
+// Bruh.
+xmesh_animation_simulate :: (anim : *xMeshAnimation  ) {
+  modifier := 4.0;
+  time := seconds_since_init() * modifier;
+  for panim : anim.panim {
+    time = fmod_cycling(time, panim.timestamps[panim.timestamps.count-1]);
+    // find correct keyframe
+    anim_index := 0;
+    next_index := 0;
+    dt : float64;
+    //print("timestamps: %", panim.timestamps);
+    for i : 0..panim.timestamps.count-1 {
+      cur_timestamp := panim.timestamps[i];
+      next_timestamp := panim.timestamps[min(i+1, panim.timestamps.count-1)];
+      if time > cur_timestamp && time < next_timestamp {
+        print("we are in animation index: %\n", i);
+        anim_index = i;
+        next_index = min(i+1, panim.timestamps.count-1);
+
+        dt = 1.0 - (next_timestamp - time) / (next_timestamp - cur_timestamp);
+
+        break;
+      }
+    }
+    data_size := 0;
+    if panim.property == {
+      case .TRANSLATION;
+        data_size = 3;
+      case .ROTATION;
+        data_size = 4;
+      case .SCALE;
+        data_size = 3;
+      case;
+    }
+    val := (cast(*v3)*panim.anim_data[anim_index * data_size]).*;
+    next_val := (cast(*v3)*panim.anim_data[next_index * data_size]).*;
+    if panim.property == {
+      case .TRANSLATION;
+        //anim.ref.transform.trans = (cast(*v3)val).*;
+        lerp_val := v3_lerp(val, next_val, xx dt);
+        anim.ref.transform.trans = lerp_val;
+        //print("trans %\n", (cast(*v3)val).*);
+        //print("anim data : %", panim.anim_data);
+      case .ROTATION;
+        //anim.ref.transform.rot = (cast(*Quat)val).*;
+      case .SCALE;
+        //anim.ref.transform.scale = (cast(*v3)val).*;
+      case;
+    }
+
+  }
+}
+
+
+
+
+

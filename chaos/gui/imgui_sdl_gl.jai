@@ -1,5 +1,7 @@
+
 #import "Basic";
 ImGui :: #import "ImGui";
+#import "Math";
 
 // Data
 g_Time: u64 = 0;
@@ -75,8 +77,7 @@ ImGui_ImplSdl_RenderDrawLists :: (draw_data: *ImGui.ImDrawData) #c_call {
     // Setup viewport, orthographic projection matrix
     glViewport(0, 0, xx fb_width, xx fb_height);
 
-    new_context: Context;
-    push_context new_context {
+    push_context {
         ortho_projection := orthographic_projection_matrix(0, io.DisplaySize.x, io.DisplaySize.y, 0, 0, 1);
         ortho_projection = transpose(ortho_projection);
 
@@ -388,4 +389,3 @@ ImGui_ImplSdl_NewFrame :: (window: *SDL_Window) {
     // Hide OS mouse cursor if ImGui is drawing it
     SDL_ShowCursor(xx (io.MouseDrawCursor == false));
 }
-

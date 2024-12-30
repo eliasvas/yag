@@ -37,7 +37,7 @@ xTimerCallback :: #type (retries : u32, usr_data : *void);
 xTimerCtx :: struct {
   usr_data : *void;
   usr_cb : xTimerCallback;
-  usr_ctx : Context;
+  usr_ctx : *void;//Context;
   interval : u32;
   retries : u32;
 };

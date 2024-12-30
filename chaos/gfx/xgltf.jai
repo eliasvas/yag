@@ -399,12 +399,13 @@ xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
 ///////////////////////////////
 
 
-xgltf_parse_animations :: (json_wholefile : string) ->[..]xMeshAnimation {
+xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMeshAnimation {
   scene := xgltf_scene_load(json_wholefile);
   mesh_animations : [..]xMeshAnimation;
 
   for gltf_anim : scene.animations {
     mesh_anim : xMeshAnimation;
+    mesh_index := 0;
     for channel : gltf_anim.channels {
       sampler := gltf_anim.samplers[channel.sampler_id];
 
@@ -414,10 +415,10 @@ xgltf_parse_animations :: (json_wholefile : string) ->[..]xMeshAnimation {
       tbuffer := scene.buffers[tbuffer_view.buffer];
       tptr := cast(*u8)tbuffer.buf.data + taccessor.byte_offset + tbuffer_view.byte_offset;
       ttype_size := xgltf_accessor_calc_data_type_size(*taccessor);
-      timestamps := []float.{taccessor.count*ttype_size, cast(*float)tptr};
+      timestamps := []float.{taccessor.count, cast(*float)tptr};
 
       // calculate the anim_data array fot this PropertyAnimation
-      aaccessor := scene.accessors[sampler.input_id];
+      aaccessor := scene.accessors[sampler.output_id];
       abuffer_view := scene.buffer_views[aaccessor.buffer_view];
       abuffer := scene.buffers[abuffer_view.buffer];
       aptr := cast(*u8)abuffer.buf.data + aaccessor.byte_offset + abuffer_view.byte_offset;
@@ -439,8 +440,14 @@ xgltf_parse_animations :: (json_wholefile : string) ->[..]xMeshAnimation {
 
       panim := xMeshPropertyAnimation.{interp_type, property, timestamps, anim_data};
       array_add(*mesh_anim.panim, panim);
+
+      // FIXME: This is WRONG WRONG WRONG, we have to do a good scene graph for this to be gud!
+      mesh_index = channel.target_node_id;
     }
-    mesh_anim.ref = null;
+
+    // FIXME: this is retarded!
+    mesh_anim.ref = *meshes[mesh_index];
+
     array_add(*mesh_animations, mesh_anim);
   }
 
