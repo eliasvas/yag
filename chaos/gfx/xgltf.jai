@@ -150,9 +150,7 @@ xGLTF_Transform :: struct {
 
 xgltf_transform_calc_matrix :: (t : *xGLTF_Transform) -> m4 {
   translation := m4_trans(t.trans);
-  // FIXME: here we should put the Quaternion Magic
-  rotation := m4_I;//m4_rotate(t.rot.w, .{t.rot.x,t.rot.y,r.rot.z});
-  /////////////////////////////////////////////////
+  rotation := quat_to_m4(t.rot);
   scale := m4_scale(t.scale);
   m := m4_mult(translation,m4_mult(rotation, scale));
   return m;
@@ -166,7 +164,7 @@ xgltf_convert_matrix_to_transfor :: (m : m4) -> xGLTF_Transform {
 
 
 // TODO: can we simplify this with an ifx
-xgltf_accessor_calc_data_type_size :: (using accessor : *xGLTF_Accessor) -> u32 {
+xgltf_accessor_calc_data_type_size_in_bytes :: (using accessor : *xGLTF_Accessor) -> u32 {
   bytes :u32;
   if component_type == {
     case 5120; //s8
@@ -414,7 +412,6 @@ xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMesh
       tbuffer_view := scene.buffer_views[taccessor.buffer_view];
       tbuffer := scene.buffers[tbuffer_view.buffer];
       tptr := cast(*u8)tbuffer.buf.data + taccessor.byte_offset + tbuffer_view.byte_offset;
-      ttype_size := xgltf_accessor_calc_data_type_size(*taccessor);
       timestamps := []float.{taccessor.count, cast(*float)tptr};
 
       // calculate the anim_data array fot this PropertyAnimation
@@ -422,7 +419,7 @@ xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMesh
       abuffer_view := scene.buffer_views[aaccessor.buffer_view];
       abuffer := scene.buffers[abuffer_view.buffer];
       aptr := cast(*u8)abuffer.buf.data + aaccessor.byte_offset + abuffer_view.byte_offset;
-      atype_size := xgltf_accessor_calc_data_type_size(*aaccessor);
+      atype_size := xgltf_accessor_calc_data_type_size_in_bytes(*aaccessor)/size_of(float);
       anim_data := []float.{aaccessor.count*atype_size, cast(*float)aptr};
 
       property : xMeshAnimationProperty;
@@ -493,7 +490,7 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
         buffer := scene.buffers[buffer_view.buffer];
         ptr := cast(*u8)buffer.buf.data + accessor.byte_offset + buffer_view.byte_offset;
 
-        data_type_size: = xgltf_accessor_calc_data_type_size(*accessor);
+        data_type_size: = xgltf_accessor_calc_data_type_size_in_bytes(*accessor);
         ogl_buf_init(*m.ibo, .INDEX, xx ptr, xx accessor.count, data_type_size); // how do we get the actual type?? some type_id stuff?
       }
 
@@ -507,7 +504,7 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
           ptr := cast(*u8)buffer.buf.data + accessor.byte_offset + buffer_view.byte_offset;
           vertex_buf := alloc(size_of(oglBuf));
 
-          data_type_size: = xgltf_accessor_calc_data_type_size(*accessor);
+          data_type_size: = xgltf_accessor_calc_data_type_size_in_bytes(*accessor);
           ogl_buf_init(vertex_buf, .VERTEX, xx ptr, xx accessor.count, data_type_size);
 
           vertex_def : oglVertexDef;

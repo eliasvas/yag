@@ -57,10 +57,10 @@ operator - :: (a: v3, b : v3) -> v3 {return .{a.x-b.x,a.y-b.y,a.z-b.z};}
 operator * :: (a: v3, b : v3) -> v3 {return .{a.x*b.x,a.y*b.y,a.z*b.z};}
 operator / :: (a: v3, b : v3) -> v3 {return .{a.x/b.x,a.y/b.y,a.z/b.z};}
 v3_dot :: (a : v3, b : v3) -> float {return a.x*b.x+a.y*b.y+a.z*b.z;}
-v3_lerp :: (a : v3, b : v3, t : float) -> v3 {return a*t + b*(1.0-t);}
 v3_len :: (v : v3) -> float { return sqrt(v3_dot(v,v));}
 v3_norm :: (v : v3) -> v3 {return v*(1.0/v3_len(v));}
 v3_cross :: (lhs : v3, rhs : v3) -> v3 {return v3.{lhs.y*rhs.z - lhs.z*rhs.y, lhs.z*rhs.x - lhs.x*rhs.z, lhs.x*rhs.y - lhs.y*rhs.x};}
+v3_lerp :: (a : v3, b : v3, t : float) -> v3 {return b*t + a*(1.0-t);}
 
 // NOTE: cross product is right-handed, meaning for vectors A and B the vector produced will be
 // your thumb if your index is A, and your middle is B, for example:
@@ -92,6 +92,7 @@ operator / :: (a: v4, b : v4) -> v4 {return .{a.x/b.x,a.y/b.y,a.z/b.z,a.w/b.w};}
 v4_dot :: (a : v4, b : v4) -> float {return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w;}
 v4_len :: (v : v4) -> float { return sqrt(v4_dot(v,v));}
 v4_norm :: (v : v4) -> v4 {return v*(1.0/v4_len(v));}
+v4_lerp :: (a : v4, b : v4, t : float) -> v4 {return b*t + a*(1.0-t);}
 
 iv4:: struct {
   x,y,z,w : u32;
@@ -385,4 +386,40 @@ m4_rotate :: (angle : float, axis : v3) -> m4 {
 Quat :: struct {
   x,y,z,w : float;
 };
-quat_I :: Quat.{1.0,0.0,0.0,0.0};
+quat_I :: Quat.{0.0,0.0,0.0,1.0};
+
+quat_to_m4 :: (q: Quat) ->m4 {
+  using m : m4 = m4_I;
+
+  s :: 2.0;
+
+  xs := q.x * s;
+  ys := q.y * s;
+  zs := q.z * s;
+
+  wx := q.w * xs;
+  wy := q.w * ys;
+  wz := q.w * zs;
+
+  _xx := q.x * xs;
+  xy := q.x * ys;
+  xz := q.x * zs;
+
+  yy := q.y * ys;
+  yz := q.y * zs;
+  zz := q.z * zs;
+
+  _11 = 1.0 - (yy + zz);
+  _12 = xy - wz;
+  _13 = xz + wy;
+
+  _21 = xy + wz;
+  _22 = 1.0 - (_xx + zz);
+  _23 = yz - wx;
+
+  _31 = xz - wy;
+  _32 = yz + wx;
+  _33 = 1.0 - (_xx + yy);
+
+  return m;
+}

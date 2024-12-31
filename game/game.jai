@@ -101,15 +101,11 @@ main :: () {
     //xr3d_push_bundle(*rend, sphere_mesh, m4_trans(.{3,3,0}));
 
 
-    //rotation: Quaternion;
-    //set_from_axis_and_angle(*rotation, .{0, 0, 1}, xx seconds_since_init() * 0.1);
-    //rotationm := rotation_matrix(Matrix4, rotation);
-
-    // render the json triangle mesh!!
-
+    // render the json mesh!!
     for sample_gltf_mesh : sample_gltf_meshes {
       model := xgltf_transform_calc_matrix(*sample_gltf_mesh.transform);
       xr3d_push_bundle(*rend, *sample_gltf_mesh, m4_mult(m4_trans(.{0,2,0}), model));
+      //xr3d_push_bundle(*rend, *sample_gltf_mesh, model);
     }
 
 
@@ -118,10 +114,8 @@ main :: () {
     }else {
       ogl_rt_clear(*rend.shadow_rt);
     }
-    //xr3d_do_main_pass(*rend);
     xr3d_do_g_pass(*rend);
     xr3d_do_def_pass(*rend); 
-    //ogl_copy_depth_buffer_to_default_depth(*rend.g_buffer);
     xr3d_do_copy_depth_from_g_buf_to_d0(*rend);
     xr3d_clear_bundles(*rend);
     // do 'transparent' pass

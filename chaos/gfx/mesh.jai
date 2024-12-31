@@ -256,28 +256,27 @@ xMeshAnimation :: struct {
   ref : *xMesh; // the mesh to be animated
 };
 
-// Bruh.
+// Bruh. This is a nice spaghetti
 xmesh_animation_simulate :: (anim : *xMeshAnimation  ) {
-  modifier := 4.0;
-  time := seconds_since_init() * modifier;
+  time := seconds_since_init()*4;
+  max_time :float= 0.01;
   for panim : anim.panim {
-    time = fmod_cycling(time, panim.timestamps[panim.timestamps.count-1]);
-    // find correct keyframe
+    max_time = max(max_time, panim.timestamps[panim.timestamps.count-1]);
+  }
+  time = fmod_cycling(time, max_time);
+
+  for panim,idx : anim.panim {
     anim_index := 0;
     next_index := 0;
     dt : float64;
-    //print("timestamps: %", panim.timestamps);
     for i : 0..panim.timestamps.count-1 {
       cur_timestamp := panim.timestamps[i];
       next_timestamp := panim.timestamps[min(i+1, panim.timestamps.count-1)];
       if time > cur_timestamp && time < next_timestamp {
-        print("we are in animation index: %\n", i);
         anim_index = i;
         next_index = min(i+1, panim.timestamps.count-1);
 
         dt = 1.0 - (next_timestamp - time) / (next_timestamp - cur_timestamp);
-
-        break;
       }
     }
     data_size := 0;
@@ -290,19 +289,23 @@ xmesh_animation_simulate :: (anim : *xMeshAnimation  ) {
         data_size = 3;
       case;
     }
-    val := (cast(*v3)*panim.anim_data[anim_index * data_size]).*;
-    next_val := (cast(*v3)*panim.anim_data[next_index * data_size]).*;
     if panim.property == {
       case .TRANSLATION;
-        //anim.ref.transform.trans = (cast(*v3)val).*;
+        val := (cast(*v3)*panim.anim_data[anim_index * data_size]).*;
+        next_val := (cast(*v3)*panim.anim_data[next_index * data_size]).*;
         lerp_val := v3_lerp(val, next_val, xx dt);
         anim.ref.transform.trans = lerp_val;
-        //print("trans %\n", (cast(*v3)val).*);
-        //print("anim data : %", panim.anim_data);
       case .ROTATION;
-        //anim.ref.transform.rot = (cast(*Quat)val).*;
+        val := (cast(*v4)*panim.anim_data[anim_index * data_size]).*;
+        next_val := (cast(*v4)*panim.anim_data[next_index * data_size]).*;
+        lerp_val := v4_lerp(val, next_val, xx dt);
+        lerp_val = v4_norm(lerp_val);
+        anim.ref.transform.rot = .{lerp_val.x, lerp_val.y, lerp_val.z, lerp_val.w};
       case .SCALE;
-        //anim.ref.transform.scale = (cast(*v3)val).*;
+        val := (cast(*v3)*panim.anim_data[anim_index * data_size]).*;
+        next_val := (cast(*v3)*panim.anim_data[next_index * data_size]).*;
+        lerp_val := v3_lerp(val, next_val, xx dt);
+        anim.ref.transform.scale = lerp_val;
       case;
     }
 
