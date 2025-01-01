@@ -398,7 +398,15 @@ xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
 
 
 xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMeshAnimation {
-  scene := xgltf_scene_load(json_wholefile);
+
+  // We parse the GLTF file with temporary allocations, because xMesh is the Real (TM) allocation
+  scene : xGLTF_Scene;
+  new_context := context;
+  new_context.allocator = temp;
+  push_context new_context {
+    scene = xgltf_scene_load(json_wholefile);
+  }
+
   mesh_animations : [..]xMeshAnimation;
 
   for gltf_anim : scene.animations {
@@ -407,20 +415,24 @@ xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMesh
     for channel : gltf_anim.channels {
       sampler := gltf_anim.samplers[channel.sampler_id];
 
-      // calculate the timestamp array fot this PropertyAnimation
+      // calculate (and allocate) the timestamp array for this PropertyAnimation
       taccessor := scene.accessors[sampler.input_id];
       tbuffer_view := scene.buffer_views[taccessor.buffer_view];
       tbuffer := scene.buffers[tbuffer_view.buffer];
       tptr := cast(*u8)tbuffer.buf.data + taccessor.byte_offset + tbuffer_view.byte_offset;
-      timestamps := []float.{taccessor.count, cast(*float)tptr};
+      tdata := cast(*float)alloc(size_of(float) * taccessor.count);
+      memcpy(dest = tdata, source = tptr, size_of(float)*taccessor.count);
+      timestamps := []float.{taccessor.count, tdata};
 
-      // calculate the anim_data array fot this PropertyAnimation
+      // calculate (and allocate) the anim_data array for this PropertyAnimation
       aaccessor := scene.accessors[sampler.output_id];
       abuffer_view := scene.buffer_views[aaccessor.buffer_view];
       abuffer := scene.buffers[abuffer_view.buffer];
       aptr := cast(*u8)abuffer.buf.data + aaccessor.byte_offset + abuffer_view.byte_offset;
-      atype_size := xgltf_accessor_calc_data_type_size_in_bytes(*aaccessor)/size_of(float);
-      anim_data := []float.{aaccessor.count*atype_size, cast(*float)aptr};
+      component_count:= xgltf_accessor_calc_data_type_size_in_bytes(*aaccessor)/size_of(float);
+      adata := cast(*float)alloc(size_of(float) * taccessor.count * component_count);
+      memcpy(dest = adata, source = aptr, size_of(float)*taccessor.count*component_count);
+      anim_data := []float.{aaccessor.count*component_count, cast(*float)adata};
 
       property : xMeshAnimationProperty;
       if channel.target_path == {
@@ -433,7 +445,16 @@ xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMesh
         case;
           property = .TRANSLATION;
       }
-      interp_type := xMeshAnimationInterpolationType.STEP;
+
+      interp_type : xMeshAnimationInterpolationType;
+      if sampler.interpolation == {
+        case "STEP";
+          interp_type = .STEP;
+        case "LINEAR";
+          interp_type = .LINEAR;
+        case;
+          interp_type = .LINEAR;
+      }
 
       panim := xMeshPropertyAnimation.{interp_type, property, timestamps, anim_data};
       array_add(*mesh_anim.panim, panim);
@@ -452,7 +473,14 @@ xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMesh
 }
 
 xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
-  scene := xgltf_scene_load(json_wholefile);
+
+  // We parse the GLTF file with temporary allocations, because xMesh is the Real (TM) allocation
+  scene : xGLTF_Scene;
+  new_context := context;
+  new_context.allocator = temp;
+  push_context new_context {
+    scene = xgltf_scene_load(json_wholefile);
+  }
 
   meshes : [..]xMesh;
 
@@ -502,15 +530,17 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
           buffer_view := scene.buffer_views[accessor.buffer_view];
           buffer := scene.buffers[buffer_view.buffer];
           ptr := cast(*u8)buffer.buf.data + accessor.byte_offset + buffer_view.byte_offset;
+          attrib_stride := cast(u32)buffer_view.byte_stride;
           vertex_buf := alloc(size_of(oglBuf));
 
           data_type_size: = xgltf_accessor_calc_data_type_size_in_bytes(*accessor);
+          // FIXME: right now even if pos/norm/tc are in same buffer, 3 ogl buffers will be made!
           ogl_buf_init(vertex_buf, .VERTEX, xx ptr, xx accessor.count, data_type_size);
 
           vertex_def : oglVertexDef;
           vertex_def.vbuf = vertex_buf;
           attribs : [..]oglShaderAttrib;
-          array_add(*attribs, .{loc=attrib_loc});
+          array_add(*attribs, .{loc=attrib_loc, stride=attrib_stride});
           vertex_def.attribs = attribs;
           array_add(*m.vbos,vertex_def);
         }

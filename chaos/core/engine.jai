@@ -107,4 +107,5 @@ xeng_frame_end :: () {
   xwin_swap(*win);
   frame_end_time := seconds_since_init();
   dt = frame_end_time - frame_start_time;
+  reset_temporary_storage();
 }
