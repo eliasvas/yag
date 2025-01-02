@@ -5,9 +5,9 @@ xBlinnPhongVertex :: struct {
   tc : v2;
 };
 
-// yes
 xMesh :: struct {
   primitives : [..]xMeshPrimitive;
+  skin : xMeshSkin;
   transform : xGLTF_Transform;
 };
 
@@ -16,6 +16,21 @@ xMeshPrimitive :: struct {
   vbos : [..]oglVertexDef;
   ibo : oglBuf;
 };
+
+
+XMESH_INVALID_JOINT_ID :: -1;
+xMeshJoint :: struct {
+  parent_id : s64 = -1;
+  children_ids : []s64;
+};
+
+xMeshSkin :: struct {
+  ibm : []m4; // the inverse bind matrices
+  joint_hierarchy : []xMeshJoint; // the whole joint hierarchy
+  joint_count : s64;
+};
+
+xmesh_has_skin :: (using mesh : *xMesh) -> bool { return skin.joint_count > 0; }
 
 // pos norm tc
 cube_verts : [36 * 8] float32 = .[

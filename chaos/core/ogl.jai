@@ -125,6 +125,9 @@ ogl_bind_uniform_buffer :: (using buf : *oglBuf) {
 oglShaderDataType :: enum {
   FLOAT;
   INT;
+  IVEC2;
+  IVEC3;
+  IVEC4;
   VEC2;
   VEC3;
   VEC4;
@@ -138,6 +141,12 @@ gl_data_type_to_ogl_data_type :: (gl_data_type : s64) -> oglShaderDataType {
       type = .FLOAT;
     case GL_INT;
       type = .INT;
+    case GL_INT_VEC2;
+      type = .IVEC2;
+    case GL_INT_VEC3;
+      type = .IVEC3;
+    case GL_INT_VEC4;
+      type = .IVEC4;
     case GL_FLOAT_VEC2;
       type = .VEC2;
     case GL_FLOAT_VEC3;
@@ -224,9 +233,12 @@ ogl_get_component_num_for_data_type :: (type : oglShaderDataType) -> u32 {
   if #complete type == {
     case .FLOAT; comp_count = 1;
     case .INT;   comp_count = 1;
+    case .IVEC2; comp_count = 2;
     case .VEC2;  comp_count = 2;
     case .VEC3;  comp_count = 3;
+    case .IVEC3; comp_count = 3;
     case .VEC4;  comp_count = 4;
+    case .IVEC4; comp_count = 4;
     case .MAT4;  comp_count = 16;
     case; print("invalid shader type=[%]", type);
   }
@@ -236,6 +248,10 @@ ogl_get_component_num_for_data_type :: (type : oglShaderDataType) -> u32 {
 // TODO: first offset then stride in function def
 ogl_attrib_make :: (loc : u32, type : oglShaderDataType, stride : u32, offset : u32, instanced : bool) -> oglShaderAttrib {
   return oglShaderAttrib.{ loc, offset,stride, type, instanced };
+}
+
+ogl_attrib_is_integral :: (using attrib : *oglShaderAttrib) -> bool {
+  return type == .INT || type == .IVEC2 || type == .IVEC3 || type == .IVEC4;
 }
 
 oglAttribDesc :: struct {
@@ -276,8 +292,8 @@ ogl_sp_deinit :: (using sp : *oglSP) -> bool {
 ogl_bind_attrib :: (attrib : *oglShaderAttrib) {
   using attrib;
   glEnableVertexAttribArray(loc);
-  if type == oglShaderDataType.INT {
-    glVertexAttribIPointer(loc, cast(GLint)ogl_get_component_num_for_data_type(type), GL_FLOAT, stride, cast(*void)offset);
+  if ogl_attrib_is_integral(attrib) {
+    glVertexAttribIPointer(loc, cast(GLint)ogl_get_component_num_for_data_type(type), GL_INT, stride, cast(*void)offset);
   } else {
     glVertexAttribPointer(loc, cast(GLint)ogl_get_component_num_for_data_type(type), GL_FLOAT, GL_FALSE, stride, cast(*void)offset);
   }
@@ -299,8 +315,11 @@ ogl_sp_set_uniform :: (using sp : *oglSP, uniform_name : string, type : oglShade
   if #complete type == {
     case .FLOAT; glUniform1fv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*float32)val);
     case .VEC2; glUniform2fv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*float32)val);
+    case .IVEC2; glUniform2iv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*s32)val);
     case .VEC3; glUniform3fv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*float32)val);
+    case .IVEC3; glUniform3iv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*s32)val);
     case .VEC4; glUniform4fv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*float32)val);
+    case .IVEC4; glUniform4iv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*s32)val);
     case .MAT4; glUniformMatrix4fv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, GL_TRUE, cast(*float32)val);
     case .INT;
     glUniform1iv(glGetUniformLocation(cast(GLuint)impl_state, uniform_name.data), 1, cast(*s32)val);

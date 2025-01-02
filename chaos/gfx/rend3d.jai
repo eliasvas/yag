@@ -15,6 +15,9 @@ xRend3D :: struct {
   g_sp  : oglSP;
   g_ub1 : oglUBlock;
 
+  gskin_sp  : oglSP;
+  gskin_ub1 : oglUBlock;
+
   def_sp : oglSP;
   def_ub1 : oglUBlock;
 
@@ -36,6 +39,9 @@ xr3d_init :: (using rend : *xRend3D) {
   // create G-Buffer Shader
   ogl_sp_init(*g_sp, G_BUF_VERT_SHADER, G_BUF_FRAG_SHADER);
   ogl_ublock_load(*g_ub1, *g_sp, 1);
+  // create skeletal G-Buffer Shader
+  ogl_sp_init(*gskin_sp, G_BUF_SKIN_VERT_SHADER, G_BUF_FRAG_SHADER);
+  ogl_ublock_load(*gskin_ub1, *gskin_sp, 1);
   // create Fullscreen Deferred Shader
   ogl_sp_init(*def_sp, DEF_VERT_SHADER, DEF_FRAG_SHADER);
   ogl_ublock_load(*def_ub1, *def_sp, 1);
@@ -100,11 +106,26 @@ xr3d_do_g_pass :: (using rend : *xRend3D) {
   ogl_sp_apply_dyn_state(*g_sp, dyn_state);
 
   for bundle : bundles {
+
+    sp := ifx xmesh_has_skin(*bundle.mesh) then gskin_sp else g_sp;
+    ublock := ifx xmesh_has_skin(*bundle.mesh) then gskin_ub1 else g_ub1;
+    ogl_bind_sp(*sp); // FIXME: this bind is hacky
+    ogl_sp_apply_dyn_state(*sp, dyn_state);
+
     // set the g_pass uniform block
     m := m4_transpose(bundle.model);
-    ogl_ublock_set(*g_ub1, "model", xx m.raw.data);
-    ogl_ublock_bind_to_slot(*g_ub1);
-    xmesh_render(*bundle.mesh, *g_sp, bundle.model);
+    ogl_ublock_set(*ublock, "model", xx m.raw.data);
+    ogl_ublock_bind_to_slot(*ublock);
+    if xmesh_has_skin(*bundle.mesh) {
+      for idx : 0..128 {
+        name := tprint("joint_mat[%]", idx);
+        m := m4_I;
+        ogl_sp_set_uniform(*sp, name, oglShaderDataType.MAT4 , *m);
+      }
+      xmesh_render(*bundle.mesh, *sp, bundle.model);
+    } else {
+      xmesh_render(*bundle.mesh, *sp, bundle.model);
+    }
   }
 }
 
@@ -170,6 +191,51 @@ xr3d_do_def_pass :: (using rend : *xRend3D) {
   ogl_sp_apply_dyn_state(*def_sp, dyn_state);
   ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
 }
+
+G_BUF_SKIN_VERT_SHADER :: #string DONE
+#version 430 core
+layout (location = 0) in vec3 in_pos;
+layout (location = 1) in vec3 in_norm;
+layout (location = 2) in vec2 in_tc;
+layout (location = 3) in ivec4 in_joint_ids;
+layout (location = 4) in vec4 in_weights;
+
+
+layout(std140, binding = 0) uniform GlobalData {
+   mat4 proj;
+   mat4 view;
+};
+
+layout(std140, binding = 1) uniform GData {
+  mat4 model;
+};
+
+out VS_OUT
+{
+   vec2 tc;
+   vec3 world_pos;
+   vec3 normal;
+} vs_out;
+
+
+// FIXME: make this a UBO!
+uniform mat4 joint_mat[128];
+
+void main()
+{
+
+  vec4 pos;
+  for (int i = 0; i < 4; i++) {
+    pos += joint_mat[in_joint_ids[i]] * vec4(in_pos,0) * in_weights[i];
+    //pos += vec4(in_pos,0) * in_weights[i];
+  }
+  gl_Position = proj*view*model*vec4(pos.xyz, 1.0);
+  vs_out.world_pos = vec3(model*vec4(in_pos.xyz, 1.0));
+  vs_out.normal = mat3(transpose(inverse(model))) * in_norm;
+  vs_out.tc = in_tc;
+}
+DONE
+
 
 G_BUF_VERT_SHADER :: #string DONE
 #version 430 core

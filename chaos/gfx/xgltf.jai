@@ -1,5 +1,5 @@
-// TODO: Think about allocations, what we want to be temporary, want we want to group etc.
-// FIXME: This module leaks a LOT, we should put everything for a glTF scene in a single allocator, to be able to hassle-free deallocate
+// TODO: should all xGLTF_XXX struct's 'arrays' be slices instead and allocated/set via the parser? It would easily make the structs smaller
+// TODO: make naming more uniform, thankfully the parse is small and good! like whether we should say camera_id or camera_node_id and stuff
 #import "Base64"; // in modules/Base64.jai
 #import "stb_image";
 
@@ -8,7 +8,6 @@ XGLTF_INVALID_ID :: -1;
 ///////////////////////////////
 // glTF Meshes
 ///////////////////////////////
-
 
 xGLTF_Attribute :: struct {
   name : string;
@@ -29,6 +28,11 @@ xGLTF_Mesh :: struct {
   primitives : [..]xGLTF_Primitive;
 };
 
+xGLTF_Skin :: struct {
+  inverse_bind_matrices_accessor_id : s64 = XGLTF_INVALID_ID;
+  joint_node_ids : [..] s64;
+};
+
 xGLTF_Scene :: struct {
   nodes : [..] xGLTF_Node;
 
@@ -45,9 +49,11 @@ xGLTF_Scene :: struct {
   materials : [..]xGLTF_Material;
 
   animations : [..]xGLTF_Animation;
+  skins : [..]xGLTF_Skin;
 };
 
 xGLTF_Node :: struct {
+  parent_id : s64 = XGLTF_INVALID_ID;
   camera_id : s64 = XGLTF_INVALID_ID;
   skin_id   : s64 = XGLTF_INVALID_ID;
   mesh_id   : s64 = XGLTF_INVALID_ID;
@@ -247,6 +253,44 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
     array_add(*scene.meshes, mesh);
   }
 
+  // parse nodes  ( node_node :| )
+  for node_node : xjson_node_get(root_json, "nodes").values {
+    mesh_id := xjson_get_int(node_node, "mesh", XGLTF_INVALID_ID);
+    skin_id := xjson_get_int(node_node, "skin", XGLTF_INVALID_ID);
+    camera_id := xjson_get_int(node_node, "camera", XGLTF_INVALID_ID);
+    children_node_ids : [..] s64;
+    children_node, cfound := xjson_node_get(node_node, "children");
+    if cfound {
+      for child_node : children_node.values {
+        node_id := xjson_string_to_int(child_node.value);
+        array_add(*children_node_ids, node_id);
+      }
+    }
+    transform : xGLTF_Transform;
+    // FIXME: hacky AF - we need getters for vector types! HUGE cleanup needed for this shit
+    trans,tfound := xjson_node_get(node_node, "translation");
+    if tfound {
+      transform.trans = v3.{xjson_string_to_float(trans.values[0].value),xjson_string_to_float(trans.values[1].value),xjson_string_to_float(trans.values[2].value)};
+    }
+    scale,sfound := xjson_node_get(node_node, "scale");
+    if sfound {
+      transform.scale = v3.{xjson_string_to_float(scale.values[0].value),xjson_string_to_float(scale.values[1].value),xjson_string_to_float(scale.values[2].value)};
+    }
+    rotation,rfound := xjson_node_get(node_node, "rotation");
+    if rfound {
+      transform.rot = Quat.{xjson_string_to_float(rotation.values[0].value),xjson_string_to_float(rotation.values[1].value),xjson_string_to_float(rotation.values[2].value),xjson_string_to_float(rotation.values[3].value)};
+    }
+
+    node := xGLTF_Node.{XGLTF_INVALID_ID, camera_id,skin_id, mesh_id, transform, children_node_ids};
+    array_add(*scene.nodes, node);
+  }
+  // calc node parents
+  for node_node, node_id : scene.nodes {
+    for child_id : node_node.children {
+      scene.nodes[child_id].parent_id = node_id;
+    }
+  }
+
   // parse buffers
   for buffer_node : xjson_node_get(root_json, "buffers").values {
     uri_node, ufound := xjson_node_get(buffer_node, "uri");
@@ -324,7 +368,7 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
     array_add(*scene.textures, texture);
   }
 
-  // parse material (BETA) 
+  // parse materials (BETA) (This need A LOT of work for thwen we wanna implement PBR stuff) 
   for material_node : xjson_get_array(root_json, "materials") {
     mr_node := xjson_node_get(material_node, "pbrMetallicRoughness");
     // TODO: incomplete!
@@ -373,6 +417,18 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
     array_add(*scene.animations, animation);
   }
 
+  // parse skins
+
+  for skin_node : xjson_get_array(root_json, "skins") {
+    ibm_accessor_id := xjson_get_int(skin_node, "inverseBindMatrices", XGLTF_INVALID_ID);
+    joint_node_ids : [..] s64;
+    for joint_node : xjson_get_array(skin_node, "joints") {
+      joint_node_id := xjson_string_to_int(joint_node.value);
+      array_add(*joint_node_ids, joint_node_id);
+    }
+    skin := xGLTF_Skin.{ibm_accessor_id, joint_node_ids};
+    array_add(*scene.skins, skin);
+  }
 
 
   print("glTF scene: %\n", scene);
@@ -387,8 +443,12 @@ xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
       return 1;
     case "TEXCOORD_0";
       return 2;
-    case;
+    case "JOINTS_0";
       return 3;
+    case "WEIGHTS_0";
+      return 4;
+    case;
+      return 5;
   }
 }
 
@@ -484,7 +544,7 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
 
   meshes : [..]xMesh;
 
-  for gltf_mesh : scene.meshes {
+  for gltf_mesh, mesh_node_id : scene.meshes {
     mesh : xMesh;
     for primitive : gltf_mesh.primitives {
       m: xMeshPrimitive;
@@ -496,7 +556,7 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
         if gltf_mat.base_color_tex_id != XGLTF_INVALID_ID {
           png_data := scene.images[scene.textures[scene.materials[primitive.material_id].base_color_tex_id].image_id].buf;
           tex_w, tex_h, channels : s32;
-          stbi_set_flip_vertically_on_load(1);
+          //stbi_set_flip_vertically_on_load(1);
           raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
           ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
           m.material.base_col_tex = tex;
@@ -509,8 +569,8 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
           m.material.base_col_tex = tex;
         }
       }
-      
       //////////////////////////////////////////////////
+
       index_buf_accessor_id := primitive.indices.accessor_id;
       if index_buf_accessor_id != XGLTF_INVALID_ID {
         accessor := scene.accessors[index_buf_accessor_id];
@@ -546,6 +606,40 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
         }
       }
       array_add(*mesh.primitives, m);
+    }
+    // FIXME: this is hacky, we should parse the node hierarchy and create meshes from there generally
+    // we find the skin node associated with the mesh and attach it inside the mesh
+    for node : scene.nodes {
+      if node.mesh_id == mesh_node_id {
+        if node.skin_id != XGLTF_INVALID_ID {
+          ibm_accessor_id := scene.skins[node.skin_id].inverse_bind_matrices_accessor_id;
+          accessor := scene.accessors[ibm_accessor_id];
+          buffer_view := scene.buffer_views[accessor.buffer_view];
+          buffer := scene.buffers[buffer_view.buffer];
+          ptr := cast(*u8)buffer.buf.data + accessor.byte_offset + buffer_view.byte_offset;
+          skin : xMeshSkin;
+          skin.ibm = .{buffer_view.byte_length, alloc(buffer_view.byte_length)};
+          for *ibm, idx : skin.ibm {
+            m := (cast(*m4)ptr)[idx];
+            ibm.* = m4_transpose(m);
+          }
+          skin.joint_count = scene.skins[node.skin_id].joint_node_ids.count;
+          joint_hierarchy : [..]xMeshJoint;
+          for joint_node_id : scene.skins[node.skin_id].joint_node_ids {
+            node := scene.nodes[joint_node_id];
+            parent_id := node.parent_id;
+            mesh_id := node.mesh_id;
+            children_ids :[]s64 = .{node.children.count, alloc(size_of(s64)*node.children.count)};
+            for child,idx : node.children {
+              children_ids[idx] = child;
+            }
+            joint := xMeshJoint.{parent_id, children_ids};
+            array_add(*joint_hierarchy, joint);
+          }
+          skin.joint_hierarchy = joint_hierarchy;
+          mesh.skin = skin;
+        }
+      }
     }
     array_add(*meshes, mesh);
   }
