@@ -75,6 +75,10 @@ main :: () {
     xeng_frame_init();
     if (xim_kkey_pressed(.SC_ESCAPE)) exit(1);
 
+
+    for sample_gltf_mesh : sample_gltf_meshes {
+      xmesh_skin_reset_matrices(*sample_gltf_mesh.skin);
+    }
     for *anim : sample_gltf_animations {
       xmesh_animation_simulate(anim);
     }

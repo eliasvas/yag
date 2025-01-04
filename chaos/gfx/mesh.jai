@@ -25,7 +25,9 @@ xMeshJoint :: struct {
 };
 
 xMeshSkin :: struct {
-  ibm : []m4; // the inverse bind matrices
+  ibm : []m4; // transforms joint to origin
+  local: []xGLTF_Transform; // local joint transform - this is the animated property
+  global: []m4; // global joint transform - transforms joint from origin to its actual transform
   joint_hierarchy : []xMeshJoint; // the whole joint hierarchy
   joint_count : s64;
 };
@@ -269,16 +271,82 @@ xMeshPropertyAnimation :: struct {
 xMeshAnimation :: struct {
   panim : [..] xMeshPropertyAnimation;
   ref : *xMesh; // the mesh to be animated
+  joint_idx : s64 = -1; // the joint to be animated (if its a joint animation)
 };
 
-// Bruh. This is a nice spaghetti
-xmesh_animation_simulate :: (anim : *xMeshAnimation  ) {
-  time := seconds_since_init()*4;
-  max_time :float= 0.01;
-  for panim : anim.panim {
-    max_time = max(max_time, panim.timestamps[panim.timestamps.count-1]);
+xmesh_animation_calculate_joint_matrices :: (mesh : *xMesh) ->*m4 {
+  joint_mats := cast(*m4)talloc(size_of(m4) * 128);
+
+  for i : 0..127 {
+    joint_mats[i] = m4_I;
   }
-  time = fmod_cycling(time, max_time);
+
+  for joint,idx : mesh.skin.joint_hierarchy {
+    //joint_mats[idx] = m4_transpose(mesh.skin.ibm[idx]);
+    joint_mats[idx] = mesh.skin.global[idx];
+  }
+
+  return joint_mats;
+}
+
+//xmesh_has_skin :: (using mesh : *xMesh) -> bool { return skin.joint_count > 0; }
+// Bruh. This is a nice spaghetti
+xmesh_skin_reset_matrices :: (using skin: *xMeshSkin) {
+  // reset local transforms
+  for *lt : local {
+    lt.* = .{};
+  }
+  // reset global transforms
+  for *gt : global {
+    gt.* = m4_I;
+  }
+}
+
+// TODO: makybe make a typedef for xMeshJointIndex or something
+xmesh_skin_find_root_joint_id :: (using skin : *xMeshSkin) ->s64 {
+  for joint,idx : joint_hierarchy {
+    if joint.parent_id == XMESH_INVALID_JOINT_ID {
+      return idx;
+    }
+  }
+  return -1;
+}
+
+// TODO: make this procedural, recursion is generally bad here
+xmesh_skin_calc_global_transform :: (using skin : *xMeshSkin, joint_id : s64) {
+  current_joint :xMeshJoint= *joint_hierarchy[joint_id];
+  parent_joint_transform := m4_I;
+  if current_joint.parent_id != XMESH_INVALID_JOINT_ID {
+    parent_joint_transform = skin.global[current_joint.parent_id];
+  }
+  local_joint_transform := xgltf_transform_calc_matrix(*skin.local[joint_id]);
+  inverse_bind_transform := skin.ibm[joint_id];
+  skin.global[joint_id] = m4_mult(local_joint_transform, m4_mult(parent_joint_transform, inverse_bind_transform));
+
+  for child_id : joint_hierarchy[joint_id].children_ids {
+    xmesh_skin_calc_global_transform(skin, child_id);
+  }
+}
+
+// TODO: maybe instead of seconds_since_init() we should have an animation begin timestamp??? right???
+xmesh_animation_calc_animation_time :: (anim : *xMeshAnimation, looping : bool = true) -> float64 {
+  time := seconds_since_init();
+
+  if looping {
+    max_time :float= 0.01;
+    for panim : anim.panim {
+      max_time = max(max_time, panim.timestamps[panim.timestamps.count-1]);
+    }
+    time = fmod_cycling(time, max_time);
+  }
+
+  return time;
+}
+
+xmesh_animation_simulate :: (anim : *xMeshAnimation) {
+  //if anim.joint_idx == XMESH_INVALID_JOINT_ID exit(1);
+  //if anim.joint_idx == XMESH_INVALID_JOINT_ID return;
+  time := xmesh_animation_calc_animation_time(anim);
 
   for panim,idx : anim.panim {
     anim_index := 0;
@@ -309,21 +377,23 @@ xmesh_animation_simulate :: (anim : *xMeshAnimation  ) {
         val := (cast(*v3)*panim.anim_data[anim_index * data_size]).*;
         next_val := (cast(*v3)*panim.anim_data[next_index * data_size]).*;
         lerp_val := v3_lerp(val, next_val, xx dt);
-        anim.ref.transform.trans = lerp_val;
+        //anim.ref.transform.trans = lerp_val;
+        anim.ref.skin.local[anim.joint_idx].trans = lerp_val;
       case .ROTATION;
         val := (cast(*v4)*panim.anim_data[anim_index * data_size]).*;
         next_val := (cast(*v4)*panim.anim_data[next_index * data_size]).*;
         lerp_val := v4_lerp(val, next_val, xx dt);
         lerp_val = v4_norm(lerp_val);
-        anim.ref.transform.rot = .{lerp_val.x, lerp_val.y, lerp_val.z, lerp_val.w};
+        //anim.ref.transform.rot = .{lerp_val.x, lerp_val.y, lerp_val.z, lerp_val.w};
+        anim.ref.skin.local[anim.joint_idx].rot = .{lerp_val.x, lerp_val.y, lerp_val.z, lerp_val.w};
       case .SCALE;
         val := (cast(*v3)*panim.anim_data[anim_index * data_size]).*;
         next_val := (cast(*v3)*panim.anim_data[next_index * data_size]).*;
         lerp_val := v3_lerp(val, next_val, xx dt);
-        anim.ref.transform.scale = lerp_val;
+        //anim.ref.transform.scale = lerp_val;
+        anim.ref.skin.local[anim.joint_idx].scale = lerp_val;
       case;
     }
-
   }
 }
 

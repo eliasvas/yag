@@ -293,7 +293,9 @@ ogl_bind_attrib :: (attrib : *oglShaderAttrib) {
   using attrib;
   glEnableVertexAttribArray(loc);
   if ogl_attrib_is_integral(attrib) {
-    glVertexAttribIPointer(loc, cast(GLint)ogl_get_component_num_for_data_type(type), GL_INT, stride, cast(*void)offset);
+    // FIXME: here, prim_kind should be calculated, whether its GL_SHORT or GL_INT
+    prim_kind :u32= GL_SHORT;
+    glVertexAttribIPointer(loc, cast(GLint)ogl_get_component_num_for_data_type(type), prim_kind, stride, cast(*void)offset);
   } else {
     glVertexAttribPointer(loc, cast(GLint)ogl_get_component_num_for_data_type(type), GL_FLOAT, GL_FALSE, stride, cast(*void)offset);
   }
