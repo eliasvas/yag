@@ -50,8 +50,10 @@ main :: () {
   // gltf loading tests
   //sample_gltf_mesh := xgltf_parse_mesh(SAMPLE_JSON);
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxAnimated/glTF-Embedded/BoxAnimated.gltf";
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
-  gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedSimple/glTF-Embedded/RiggedSimple.gltf";
+  gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
+  //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedFigure/glTF-Embedded/RiggedFigure.gltf";
+  //gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF-Embedded/BrainStem.gltf";
+  //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedSimple/glTF-Embedded/RiggedSimple.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxTextured/glTF-Embedded/BoxTextured.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/Box/glTF-Embedded/Box.gltf";
   file_content, succ := read_entire_file(gltf_path);
@@ -76,11 +78,16 @@ main :: () {
     if (xim_kkey_pressed(.SC_ESCAPE)) exit(1);
 
 
-    for sample_gltf_mesh : sample_gltf_meshes {
+    for *sample_gltf_mesh : sample_gltf_meshes {
       xmesh_skin_reset_matrices(*sample_gltf_mesh.skin);
     }
     for *anim : sample_gltf_animations {
       xmesh_animation_simulate(anim);
+    }
+    for *mesh : sample_gltf_meshes {
+      xmesh_skin_calc_global_transform(*mesh.skin, xmesh_skin_find_root_joint_id(*mesh.skin));
+      //mesh.skin.global[7] = m4_I;
+      //mesh.skin.global[9] = m4_I;
     }
 
     // Do the CSM ImGui menu

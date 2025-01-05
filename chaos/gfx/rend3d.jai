@@ -117,14 +117,12 @@ xr3d_do_g_pass :: (using rend : *xRend3D) {
     ogl_ublock_set(*ublock, "model", xx m.raw.data);
     ogl_ublock_bind_to_slot(*ublock);
     if xmesh_has_skin(*bundle.mesh) {
-      // FIXME: these shouldn't be here!
-      //xmesh_skin_reset_matrices(*bundle.mesh.skin);
-      xmesh_skin_calc_global_transform(*bundle.mesh.skin, xmesh_skin_find_root_joint_id(*bundle.mesh.skin));
+      // FIXME: this shouldn't be here!
       jm := xmesh_animation_calculate_joint_matrices(*bundle.mesh);
       for idx : 0..127 {
         name := tprint("joint_mat[%]", idx);
-        m := m4_I;
         ogl_sp_set_uniform(*sp, name, oglShaderDataType.MAT4 , *jm[idx]);
+        m := m4_I;
         //ogl_sp_set_uniform(*sp, name, oglShaderDataType.MAT4 , *m);
       }
       xmesh_render(*bundle.mesh, *sp, bundle.model);
@@ -220,6 +218,7 @@ out VS_OUT
    vec2 tc;
    vec3 world_pos;
    vec3 normal;
+   float mod;
 } vs_out;
 
 
@@ -228,16 +227,23 @@ uniform mat4 joint_mat[128];
 
 void main()
 {
-
   vec4 pos;
   for (int i = 0; i < 4; i++) {
     pos += joint_mat[in_joint_ids[i]] * vec4(in_pos,1) * in_weights[i];
-    //pos += vec4(in_pos,0) * in_weights[i];
   }
+  // in case weights don't add up to 1
+  pos /= dot(in_weights, vec4(1.0));
+
   gl_Position = proj*view*model*vec4(pos.xyz, 1.0);
-  vs_out.world_pos = vec3(model*vec4(in_pos.xyz, 1.0));
+  vs_out.world_pos = vec3(model*vec4(pos.xyz, 1.0));
   vs_out.normal = mat3(transpose(inverse(model))) * in_norm;
   vs_out.tc = in_tc;
+
+  if (in_joint_ids[0] == 12) {
+    vs_out.mod = 1;
+  }
+
+
 }
 DONE
 
@@ -263,6 +269,7 @@ out VS_OUT
    vec2 tc;
    vec3 world_pos;
    vec3 normal;
+   float mod;
 } vs_out;
 
 void main()
@@ -285,6 +292,7 @@ in VS_OUT
    vec2 tc;
    vec3 world_pos;
    vec3 normal;
+   float mod;
 } fs_in;
 
 uniform sampler2D diffuse;
@@ -295,6 +303,9 @@ void main()
     g_pos = fs_in.world_pos;
     g_norm = normalize(fs_in.normal);
     g_albedo_spec.rgb = texture(diffuse, fs_in.tc).rgb;
+    if (fs_in.mod > 0.1) {
+      g_albedo_spec.rgb = vec3(1000,1000,1000);
+    }
     g_albedo_spec.a = texture(specular, fs_in.tc).r;
 }
 DONE

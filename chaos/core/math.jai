@@ -387,6 +387,7 @@ Quat :: struct {
   x,y,z,w : float;
 };
 quat_I :: Quat.{0.0,0.0,0.0,1.0};
+//quat_I :: Quat.{0.0,0.0,0.0,-1.0};
 
 quat_to_m4 :: (q: Quat) ->m4 {
   using m : m4 = m4_I;

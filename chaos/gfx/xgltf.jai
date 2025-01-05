@@ -407,11 +407,7 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
     for channel_node : xjson_get_array(animation_node, "channels") {
       sampler_id := xjson_get_int(channel_node, "sampler", XGLTF_INVALID_ID);
       target_node_id := xjson_get_int(channel_node, "target.node", XGLTF_INVALID_ID);
-
-      target_path: string;
-      target_path_node,tfound := xjson_node_get(channel_node, "target.path");
-      if tfound then target_path = target_path_node.value;
-      
+      target_path := xjson_get_string(channel_node, "target.path");
       array_add(*channels, xGLTF_AnimationChannel.{sampler_id, target_node_id, target_path});
     }
 
@@ -420,7 +416,6 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
   }
 
   // parse skins
-
   for skin_node : xjson_get_array(root_json, "skins") {
     ibm_accessor_id := xjson_get_int(skin_node, "inverseBindMatrices", XGLTF_INVALID_ID);
     skeleton_id := xjson_get_int(skin_node, "skeleton", XGLTF_INVALID_ID);
@@ -505,6 +500,7 @@ xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMesh
         case "scale";
           property = .SCALE;
         case;
+          assert(false);
           property = .TRANSLATION;
       }
 
@@ -518,15 +514,14 @@ xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMesh
           interp_type = .LINEAR;
       }
 
-      panim := xMeshPropertyAnimation.{interp_type, property, timestamps, anim_data};
-      array_add(*mesh_anim.panim, panim);
 
       // fill animations' mesh ref and joint index for this animation
-      mesh_index, skin_index := xgltf_find_mesh_and_skin_indices(*scene, channel.target_node_id);
+      mesh_index, skin_index := xgltf_find_mesh_and_skin_array_indices(*scene, channel.target_node_id);
       mesh_anim.ref = *meshes[mesh_index];
-      mesh_anim.joint_idx = xgltf_find_joint_index_inside_skin(*scene, channel.target_node_id, skin_index);
+      joint_idx := xgltf_find_joint_array_index_inside_skin(*scene, channel.target_node_id, skin_index);
 
-
+      panim := xMeshPropertyAnimation.{interp_type, property, timestamps, anim_data, joint_idx};
+      array_add(*mesh_anim.panim, panim);
     }
     array_add(*mesh_animations, mesh_anim);
   }
@@ -534,7 +529,7 @@ xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMesh
   return mesh_animations;
 }
 
-xgltf_find_skin_index :: (scene : *xGLTF_Scene, mesh_node_id : s64) -> s64 {
+xgltf_find_skin_array_index :: (scene : *xGLTF_Scene, mesh_node_id : s64) -> s64 {
   for node : scene.nodes {
     if node.mesh_id == mesh_node_id {
       if node.skin_id != XGLTF_INVALID_ID {
@@ -545,12 +540,11 @@ xgltf_find_skin_index :: (scene : *xGLTF_Scene, mesh_node_id : s64) -> s64 {
   return XGLTF_INVALID_ID;
 }
 
-xgltf_find_joint_index_inside_skin :: (scene : *xGLTF_Scene, joint_node_id : s64, skin_index : s64) -> s64 {
-  if joint_node_id == XGLTF_INVALID_ID || skin_index == XGLTF_INVALID_ID then return XGLTF_INVALID_ID;
-  assert(skin_index != XGLTF_INVALID_ID);
+xgltf_find_joint_array_index_inside_skin :: (scene : *xGLTF_Scene, joint_node_id : s64, skin_array_index : s64) -> s64 {
+  if skin_array_index == XGLTF_INVALID_ID then return XGLTF_INVALID_ID;
   joint_index := XGLTF_INVALID_ID;
 
-  joint_array := scene.skins[skin_index].joint_node_ids;
+  joint_array := scene.skins[skin_array_index].joint_node_ids;
   for joint_id,array_idx : joint_array {
     if joint_id == joint_node_id {
       joint_index = array_idx;
@@ -559,20 +553,22 @@ xgltf_find_joint_index_inside_skin :: (scene : *xGLTF_Scene, joint_node_id : s64
 
   return joint_index;
 }
-xgltf_find_mesh_and_skin_indices :: (scene : *xGLTF_Scene, joint_node_id : s64) -> s64,s64 {
+xgltf_find_mesh_and_skin_array_indices :: (scene : *xGLTF_Scene, joint_node_id : s64) -> s64,s64 {
   //find the skin for this joint -> find mesh associated with said skin
   mesh_id := XGLTF_INVALID_ID;
   skin_id := XGLTF_INVALID_ID;
-  for skin,sid : scene.skins {
+  for skin,array_index : scene.skins {
     for joint_id : skin.joint_node_ids {
       if joint_id == joint_node_id {
-        skin_id = sid;
+        skin_id = array_index;
+        break;
       }
     }
   }
   for node : scene.nodes {
     if node.skin_id == skin_id {
       mesh_id = node.mesh_id;
+      break;
     }
   }
 
@@ -591,7 +587,7 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
 
   meshes : [..]xMesh;
 
-  for gltf_mesh, mesh_node_id : scene.meshes {
+  for gltf_mesh, mesh_array_index : scene.meshes {
     mesh : xMesh;
     for primitive : gltf_mesh.primitives {
       m: xMeshPrimitive;
@@ -657,7 +653,7 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
     // FIXME: this is hacky, we should parse the node hierarchy and create meshes from there generally
     // we find the skin node associated with the mesh and attach it inside the mesh
 
-    skin_index := xgltf_find_skin_index(*scene, mesh_node_id);
+    skin_index := xgltf_find_skin_array_index(*scene, mesh_array_index);
 
     ibm_accessor_id := scene.skins[skin_index].inverse_bind_matrices_accessor_id;
     accessor := scene.accessors[ibm_accessor_id];
@@ -665,27 +661,31 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
     buffer := scene.buffers[buffer_view.buffer];
     ptr := cast(*u8)buffer.buf.data + accessor.byte_offset + buffer_view.byte_offset;
     skin : xMeshSkin;
-    joint_count := buffer_view.byte_length/size_of(m4);
-    skin.ibm = .{joint_count, alloc(buffer_view.byte_length)};
-    skin.local = .{joint_count, alloc(joint_count * size_of(xGLTF_Transform))};
-    skin.global = .{joint_count, alloc(buffer_view.byte_length)};
+    skin.joint_count = scene.skins[skin_index].joint_node_ids.count;
+    skin.ibm = .{skin.joint_count, alloc(buffer_view.byte_length)};
+    skin.local = .{skin.joint_count, alloc(skin.joint_count * size_of(xGLTF_Transform))};
+    skin.def_trans = .{skin.joint_count, alloc(skin.joint_count * size_of(xGLTF_Transform))};
+    skin.global = .{skin.joint_count, alloc(buffer_view.byte_length)};
     for *ibm, idx : skin.ibm {
       m := (cast(*m4)ptr)[idx];
       ibm.* = m4_transpose(m);
+
+      // i think def_trans isn't needed at all?
+      skin.def_trans[idx] = scene.nodes[scene.skins[skin_index].joint_node_ids[idx]].transform;
+      //ibm.* = m;
     }
-    skin.joint_count = scene.skins[skin_index].joint_node_ids.count;
-    joint_hierarchy : [..]xMeshJoint;
-    for joint_node_id : scene.skins[skin_index].joint_node_ids {
+    joint_hierarchy :[]xMeshJoint= .{skin.joint_count, alloc(skin.joint_count * size_of(xMeshJoint))};
+    for joint_node_id,arr_idx : scene.skins[skin_index].joint_node_ids {
       node := scene.nodes[joint_node_id];
 
-      parent_id := xgltf_find_joint_index_inside_skin(*scene, node.parent_id, skin_index);
+      parent_id := xgltf_find_joint_array_index_inside_skin(*scene, node.parent_id, skin_index);
       children_ids :[]s64 = .{node.children.count, alloc(size_of(s64)*node.children.count)};
       for child,idx : node.children {
-        child_id := xgltf_find_joint_index_inside_skin(*scene, child, skin_index);
+        child_id := xgltf_find_joint_array_index_inside_skin(*scene, child, skin_index);
         children_ids[idx] = child_id;
       }
       joint := xMeshJoint.{parent_id, children_ids};
-      array_add(*joint_hierarchy, joint);
+      joint_hierarchy[arr_idx] = joint;
     }
     skin.joint_hierarchy = joint_hierarchy;
     mesh.skin = skin;

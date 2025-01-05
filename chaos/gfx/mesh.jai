@@ -27,6 +27,7 @@ xMeshJoint :: struct {
 xMeshSkin :: struct {
   ibm : []m4; // transforms joint to origin
   local: []xGLTF_Transform; // local joint transform - this is the animated property
+  def_trans: []xGLTF_Transform; // joint's default transform
   global: []m4; // global joint transform - transforms joint from origin to its actual transform
   joint_hierarchy : []xMeshJoint; // the whole joint hierarchy
   joint_count : s64;
@@ -266,13 +267,20 @@ xMeshPropertyAnimation :: struct {
   property : xMeshAnimationProperty;
   timestamps : []float;
   anim_data : []float; // cast this to vec3/vec4 depending on animation property
+
+  joint_idx : s64 = -1; // the joint to be animated (if its a joint animation)
 };
 
 xMeshAnimation :: struct {
   panim : [..] xMeshPropertyAnimation;
   ref : *xMesh; // the mesh to be animated
-  joint_idx : s64 = -1; // the joint to be animated (if its a joint animation)
 };
+
+xmesh_skin_print :: (using skin : *xMeshSkin) {
+  for joint,idx : joint_hierarchy {
+    print("joint % with parent %\n", idx, joint.parent_id);
+  }
+}
 
 xmesh_animation_calculate_joint_matrices :: (mesh : *xMesh) ->*m4 {
   joint_mats := cast(*m4)talloc(size_of(m4) * 128);
@@ -282,19 +290,22 @@ xmesh_animation_calculate_joint_matrices :: (mesh : *xMesh) ->*m4 {
   }
 
   for joint,idx : mesh.skin.joint_hierarchy {
-    //joint_mats[idx] = m4_transpose(mesh.skin.ibm[idx]);
-    joint_mats[idx] = mesh.skin.global[idx];
+    joint_mats[idx] = m4_mult(mesh.skin.global[idx], mesh.skin.ibm[idx]);
+    //joint_mats[idx] = mesh.skin.ibm[idx];
+    //joint_mats[idx] = m4_mult(mesh.skin.ibm[idx],mesh.skin.global[idx]);
+    //wut_ibm := m4_inverse(xgltf_transform_calc_matrix(*mesh.skin.def_trans[idx]));
+    //joint_mats[idx] = wut_ibm;
   }
 
   return joint_mats;
 }
 
-//xmesh_has_skin :: (using mesh : *xMesh) -> bool { return skin.joint_count > 0; }
-// Bruh. This is a nice spaghetti
 xmesh_skin_reset_matrices :: (using skin: *xMeshSkin) {
   // reset local transforms
-  for *lt : local {
-    lt.* = .{};
+  def_t : xGLTF_Transform;
+  for *lt,idx : local {
+    //lt.* = def_trans[idx];
+    lt.* = def_t;
   }
   // reset global transforms
   for *gt : global {
@@ -309,6 +320,7 @@ xmesh_skin_find_root_joint_id :: (using skin : *xMeshSkin) ->s64 {
       return idx;
     }
   }
+  assert(false);
   return -1;
 }
 
@@ -320,8 +332,9 @@ xmesh_skin_calc_global_transform :: (using skin : *xMeshSkin, joint_id : s64) {
     parent_joint_transform = skin.global[current_joint.parent_id];
   }
   local_joint_transform := xgltf_transform_calc_matrix(*skin.local[joint_id]);
-  inverse_bind_transform := skin.ibm[joint_id];
-  skin.global[joint_id] = m4_mult(local_joint_transform, m4_mult(parent_joint_transform, inverse_bind_transform));
+  //inverse_bind_transform := skin.ibm[joint_id];
+  //skin.global[joint_id] = m4_mult(local_joint_transform, parent_joint_transform);
+  skin.global[joint_id] = m4_mult(parent_joint_transform,local_joint_transform);
 
   for child_id : joint_hierarchy[joint_id].children_ids {
     xmesh_skin_calc_global_transform(skin, child_id);
@@ -343,55 +356,51 @@ xmesh_animation_calc_animation_time :: (anim : *xMeshAnimation, looping : bool =
   return time;
 }
 
+xmesh_panim_calc_frame_indices :: (panim : *xMeshPropertyAnimation, atime : float64) -> s64,s64 {
+  prev_index := 0;
+  next_index := 0;
+  for i : 0..panim.timestamps.count-1 {
+    prev_timestamp := panim.timestamps[i];
+    next_timestamp := panim.timestamps[(i+1) % (panim.timestamps.count-1)];
+    if atime > prev_timestamp && atime < next_timestamp {
+      prev_index = i;
+      next_index = (i+1) % (panim.timestamps.count-1);
+    }
+  }
+
+  return prev_index,next_index;
+}
+
 xmesh_animation_simulate :: (anim : *xMeshAnimation) {
-  //if anim.joint_idx == XMESH_INVALID_JOINT_ID exit(1);
-  //if anim.joint_idx == XMESH_INVALID_JOINT_ID return;
+
   time := xmesh_animation_calc_animation_time(anim);
 
   for panim,idx : anim.panim {
-    anim_index := 0;
-    next_index := 0;
-    dt : float64;
-    for i : 0..panim.timestamps.count-1 {
-      cur_timestamp := panim.timestamps[i];
-      next_timestamp := panim.timestamps[min(i+1, panim.timestamps.count-1)];
-      if time > cur_timestamp && time < next_timestamp {
-        anim_index = i;
-        next_index = min(i+1, panim.timestamps.count-1);
+    //print("timestamp data: %\n", panim.timestamps); print("anim type: %\n", panim.property); print("anim data: %\n", panim.anim_data);
+    prev_index,next_index := xmesh_panim_calc_frame_indices(*panim,time);
+    dt := 0;//1.0 - (panim.timestamps[next_index]- time) / (panim.timestamps[next_index] - panim.timestamps[prev_index]);
 
-        dt = 1.0 - (next_timestamp - time) / (next_timestamp - cur_timestamp);
-      }
-    }
-    data_size := 0;
+
     if panim.property == {
       case .TRANSLATION;
-        data_size = 3;
-      case .ROTATION;
-        data_size = 4;
-      case .SCALE;
-        data_size = 3;
-      case;
-    }
-    if panim.property == {
-      case .TRANSLATION;
-        val := (cast(*v3)*panim.anim_data[anim_index * data_size]).*;
-        next_val := (cast(*v3)*panim.anim_data[next_index * data_size]).*;
+        anim_prop := cast(*v3)panim.anim_data.data;
+        val := anim_prop[prev_index];
+        next_val := anim_prop[next_index];
         lerp_val := v3_lerp(val, next_val, xx dt);
-        //anim.ref.transform.trans = lerp_val;
-        anim.ref.skin.local[anim.joint_idx].trans = lerp_val;
+        anim.ref.skin.local[panim.joint_idx].trans = lerp_val;
       case .ROTATION;
-        val := (cast(*v4)*panim.anim_data[anim_index * data_size]).*;
-        next_val := (cast(*v4)*panim.anim_data[next_index * data_size]).*;
-        lerp_val := v4_lerp(val, next_val, xx dt);
+        anim_prop := cast(*v4)panim.anim_data.data;
+        val := anim_prop[prev_index];
+        next_val := anim_prop[next_index];
+        lerp_val := v4_lerp(v4_norm(val), v4_norm(next_val), xx dt);
         lerp_val = v4_norm(lerp_val);
-        //anim.ref.transform.rot = .{lerp_val.x, lerp_val.y, lerp_val.z, lerp_val.w};
-        anim.ref.skin.local[anim.joint_idx].rot = .{lerp_val.x, lerp_val.y, lerp_val.z, lerp_val.w};
+        anim.ref.skin.local[panim.joint_idx].rot=.{lerp_val.x, lerp_val.y, lerp_val.z, lerp_val.w};
       case .SCALE;
-        val := (cast(*v3)*panim.anim_data[anim_index * data_size]).*;
-        next_val := (cast(*v3)*panim.anim_data[next_index * data_size]).*;
+        anim_prop := cast(*v3)panim.anim_data.data;
+        val := anim_prop[prev_index];
+        next_val := anim_prop[next_index];
         lerp_val := v3_lerp(val, next_val, xx dt);
-        //anim.ref.transform.scale = lerp_val;
-        anim.ref.skin.local[anim.joint_idx].scale = lerp_val;
+        anim.ref.skin.local[panim.joint_idx].scale = lerp_val;
       case;
     }
   }
