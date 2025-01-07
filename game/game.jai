@@ -50,9 +50,9 @@ main :: () {
   // gltf loading tests
   //sample_gltf_mesh := xgltf_parse_mesh(SAMPLE_JSON);
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxAnimated/glTF-Embedded/BoxAnimated.gltf";
-  gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
+  //gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedFigure/glTF-Embedded/RiggedFigure.gltf";
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF-Embedded/BrainStem.gltf";
+  gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF-Embedded/BrainStem.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedSimple/glTF-Embedded/RiggedSimple.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxTextured/glTF-Embedded/BoxTextured.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/Box/glTF-Embedded/Box.gltf";
@@ -86,8 +86,6 @@ main :: () {
     }
     for *mesh : sample_gltf_meshes {
       xmesh_skin_calc_global_transform(*mesh.skin, xmesh_skin_find_root_joint_id(*mesh.skin));
-      //mesh.skin.global[7] = m4_I;
-      //mesh.skin.global[9] = m4_I;
     }
 
     // Do the CSM ImGui menu
@@ -100,7 +98,7 @@ main :: () {
     ImGui.Checkbox("CSM debug draw", *xeng().csm_data.debug_draw);
     ImGui.Checkbox("CSM debug frustum", *xeng().csm_data.debug_frustum);
     fps := 1.0/(xeng().dt);
-    frame_str := tprint("fps: %", fps);
+    frame_str := tprint("fps: %\0", fps);
     ImGui.TextUnformatted(frame_str.data);
     ImGui.End();
 
@@ -117,7 +115,7 @@ main :: () {
     // render the json mesh!!
     for sample_gltf_mesh : sample_gltf_meshes {
       model := xgltf_transform_calc_matrix(*sample_gltf_mesh.transform);
-      xr3d_push_bundle(*rend, *sample_gltf_mesh, m4_mult(m4_trans(.{0,2,0}), model));
+      xr3d_push_bundle(*rend, *sample_gltf_mesh, m4_mult(m4_trans(.{0,0,-10}), model));
       //xr3d_push_bundle(*rend, *sample_gltf_mesh, model);
     }
 

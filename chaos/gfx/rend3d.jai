@@ -218,7 +218,6 @@ out VS_OUT
    vec2 tc;
    vec3 world_pos;
    vec3 normal;
-   float mod;
 } vs_out;
 
 
@@ -238,12 +237,6 @@ void main()
   vs_out.world_pos = vec3(model*vec4(pos.xyz, 1.0));
   vs_out.normal = mat3(transpose(inverse(model))) * in_norm;
   vs_out.tc = in_tc;
-
-  if (in_joint_ids[0] == 12) {
-    vs_out.mod = 1;
-  }
-
-
 }
 DONE
 
@@ -269,7 +262,6 @@ out VS_OUT
    vec2 tc;
    vec3 world_pos;
    vec3 normal;
-   float mod;
 } vs_out;
 
 void main()
@@ -292,7 +284,6 @@ in VS_OUT
    vec2 tc;
    vec3 world_pos;
    vec3 normal;
-   float mod;
 } fs_in;
 
 uniform sampler2D diffuse;
@@ -303,9 +294,6 @@ void main()
     g_pos = fs_in.world_pos;
     g_norm = normalize(fs_in.normal);
     g_albedo_spec.rgb = texture(diffuse, fs_in.tc).rgb;
-    if (fs_in.mod > 0.1) {
-      g_albedo_spec.rgb = vec3(1000,1000,1000);
-    }
     g_albedo_spec.a = texture(specular, fs_in.tc).r;
 }
 DONE

@@ -459,9 +459,7 @@ xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMesh
 
   // We parse the GLTF file with temporary allocations, because xMesh is the Real (TM) allocation
   scene : xGLTF_Scene;
-  new_context := context;
-  new_context.allocator = temp;
-  push_context new_context {
+  push_context .{allocator=temp} {
     scene = xgltf_scene_load(json_wholefile);
   }
 
@@ -579,9 +577,7 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
 
   // We parse the GLTF file with temporary allocations, because xMesh is the Real (TM) allocation
   scene : xGLTF_Scene;
-  new_context := context;
-  new_context.allocator = temp;
-  push_context new_context {
+  push_context .{allocator=temp} {
     scene = xgltf_scene_load(json_wholefile);
   }
 
@@ -601,6 +597,7 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
           tex_w, tex_h, channels : s32;
           //stbi_set_flip_vertically_on_load(1);
           raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
+          defer free(raw_image_data);
           ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
           m.material.base_col_tex = tex;
         } else {
@@ -669,10 +666,8 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
     for *ibm, idx : skin.ibm {
       m := (cast(*m4)ptr)[idx];
       ibm.* = m4_transpose(m);
-
       // i think def_trans isn't needed at all?
       skin.def_trans[idx] = scene.nodes[scene.skins[skin_index].joint_node_ids[idx]].transform;
-      //ibm.* = m;
     }
     joint_hierarchy :[]xMeshJoint= .{skin.joint_count, alloc(skin.joint_count * size_of(xMeshJoint))};
     for joint_node_id,arr_idx : scene.skins[skin_index].joint_node_ids {

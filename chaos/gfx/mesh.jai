@@ -291,10 +291,9 @@ xmesh_animation_calculate_joint_matrices :: (mesh : *xMesh) ->*m4 {
 
   for joint,idx : mesh.skin.joint_hierarchy {
     joint_mats[idx] = m4_mult(mesh.skin.global[idx], mesh.skin.ibm[idx]);
+
     //joint_mats[idx] = mesh.skin.ibm[idx];
     //joint_mats[idx] = m4_mult(mesh.skin.ibm[idx],mesh.skin.global[idx]);
-    //wut_ibm := m4_inverse(xgltf_transform_calc_matrix(*mesh.skin.def_trans[idx]));
-    //joint_mats[idx] = wut_ibm;
   }
 
   return joint_mats;
@@ -305,7 +304,7 @@ xmesh_skin_reset_matrices :: (using skin: *xMeshSkin) {
   def_t : xGLTF_Transform;
   for *lt,idx : local {
     //lt.* = def_trans[idx];
-    lt.* = def_t;
+    //lt.* = def_t;
   }
   // reset global transforms
   for *gt : global {
@@ -320,8 +319,7 @@ xmesh_skin_find_root_joint_id :: (using skin : *xMeshSkin) ->s64 {
       return idx;
     }
   }
-  assert(false);
-  return -1;
+  return 0;
 }
 
 // TODO: make this procedural, recursion is generally bad here
@@ -361,10 +359,10 @@ xmesh_panim_calc_frame_indices :: (panim : *xMeshPropertyAnimation, atime : floa
   next_index := 0;
   for i : 0..panim.timestamps.count-1 {
     prev_timestamp := panim.timestamps[i];
-    next_timestamp := panim.timestamps[(i+1) % (panim.timestamps.count-1)];
+    next_timestamp := panim.timestamps[(i+1) % (max(1,panim.timestamps.count-1))];
     if atime > prev_timestamp && atime < next_timestamp {
       prev_index = i;
-      next_index = (i+1) % (panim.timestamps.count-1);
+      next_index = (i+1) % (max(1,panim.timestamps.count-1));
     }
   }
 
@@ -375,10 +373,14 @@ xmesh_animation_simulate :: (anim : *xMeshAnimation) {
 
   time := xmesh_animation_calc_animation_time(anim);
 
-  for panim,idx : anim.panim {
-    //print("timestamp data: %\n", panim.timestamps); print("anim type: %\n", panim.property); print("anim data: %\n", panim.anim_data);
-    prev_index,next_index := xmesh_panim_calc_frame_indices(*panim,time);
-    dt := 0;//1.0 - (panim.timestamps[next_index]- time) / (panim.timestamps[next_index] - panim.timestamps[prev_index]);
+  for *panim,idx : anim.panim {
+    // FIXME: why dis guy here ha?
+    if panim.joint_idx == -1 {
+      print("panim: %, idx %\n", panim.*, idx);
+      continue;
+    }
+    prev_index,next_index := xmesh_panim_calc_frame_indices(panim,time);
+    dt := 1.0 - (panim.timestamps[next_index]- time) / (panim.timestamps[next_index] - panim.timestamps[prev_index]);
 
 
     if panim.property == {

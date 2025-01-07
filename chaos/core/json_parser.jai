@@ -127,8 +127,10 @@ xJsonNode :: struct {
   };
 };
 
+// FIXME: WHY?!?! do we allocate this on the fucking heap? am i stupid
 xjson_node_make :: (kind : xJsonNodeKind, value : string) ->*xJsonNode {
-  node : *xJsonNode = alloc(size_of(xJsonNode)); // TODO: we should find some way to pass in an allocator, or something!
+  node : *xJsonNode = alloc(size_of(xJsonNode));
+  memset(node, 0, size_of(xJsonNode));
   node.kind = kind;
   node.value = value;
   return node;

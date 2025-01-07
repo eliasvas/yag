@@ -80,17 +80,6 @@ xeng_frame_init :: () {
   pv : [2]m4 = .[m4_transpose(proj), m4_transpose(view)];
   ogl_ublock_set(*global_data_ub, xx pv.data);
   ogl_ublock_bind_to_slot(*xeng().global_data_ub);
-
-  // The other _set API
-  //ogl_ublock_load(*xeng().global_data_ub, *bp_sp, 0);
-  //pt := m4_transpose(xeng().proj);
-  //ogl_ublock_set(*xeng().global_data_ub, "proj", xx *pt);
-  //pvv := m4_transpose(xeng().view);
-  //ogl_ublock_set(*xeng().global_data_ub, "view", xx *pvv);
-  //ogl_ublock_bind(*xeng().global_data_ub);
-
-
-
 }
 
 xeng_frame_end :: () {
