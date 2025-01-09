@@ -2,6 +2,7 @@
 // TODO: make naming more uniform, thankfully the parse is small and good! like whether we should say camera_id or camera_node_id and stuff
 #import "Base64"; // in modules/Base64.jai
 #import "stb_image";
+#import "File";
 //FIXME: we need to implement the Node SceneGraph Thing for meshes. It will make MESH animations possible
 
 XGLTF_INVALID_ID :: -1;
@@ -206,23 +207,10 @@ xgltf_accessor_calc_data_type_size_in_bytes :: (using accessor : *xGLTF_Accessor
   return bytes*mult;
 }
 
-xgltf_scene_load_from_file :: (gltf_path: string) ->xGLTF_Scene, bool {
-  scene : xGLTF_Scene;
-  success := true;
-  if contains(gltf_path, ".gltf") {
-    file_content, succ := read_entire_file(gltf_path);
-    if succ then scene = xgltf_scene_load(file_content);
-    else print("file % not found!\n", gltf_path);
-  } else if contains(gltf_path, ".glb") {
-    assert(0, ".glb not supported yet!");
-  } else {
-    print("file % is not a valid .gltf file!", gltf_path);
-  }
+xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
+  json_wholefile, succ := read_entire_file(gltf_path);
+  assert(succ);
 
-  return scene, success;
-}
-
-xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
   scene : xGLTF_Scene;
 
   //file_content, success := read_entire_file(filename);
@@ -269,19 +257,14 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
       }
     }
     transform : xGLTF_Transform;
-    // FIXME: hacky AF - we need getters for vector types! HUGE cleanup needed for this shit
-    trans,tfound := xjson_node_get(node_node, "translation");
-    if tfound {
-      transform.trans = v3.{xjson_string_to_float(trans.values[0].value),xjson_string_to_float(trans.values[1].value),xjson_string_to_float(trans.values[2].value)};
-    }
-    scale,sfound := xjson_node_get(node_node, "scale");
-    if sfound {
-      transform.scale = v3.{xjson_string_to_float(scale.values[0].value),xjson_string_to_float(scale.values[1].value),xjson_string_to_float(scale.values[2].value)};
-    }
-    rotation,rfound := xjson_node_get(node_node, "rotation");
-    if rfound {
-      transform.rot = Quat.{xjson_string_to_float(rotation.values[0].value),xjson_string_to_float(rotation.values[1].value),xjson_string_to_float(rotation.values[2].value),xjson_string_to_float(rotation.values[3].value)};
-    }
+    t,tfound := xjson_get_float_array(node_node, "translation", 3);
+    if tfound then transform.trans = v3.{t[0],t[1],t[2]};
+
+    s,sfound := xjson_get_float_array(node_node, "scale", 3);
+    if sfound then transform.scale = v3.{s[0],s[1],s[2]};
+
+    r,rfound := xjson_get_float_array(node_node, "rotation", 4);
+    if rfound then transform.rot = Quat.{r[0],r[1],r[2],r[3]};
 
     node := xGLTF_Node.{XGLTF_INVALID_ID, camera_id,skin_id, mesh_id, transform, children_node_ids};
     array_add(*scene.nodes, node);
@@ -297,15 +280,18 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
   for buffer_node : xjson_node_get(root_json, "buffers").values {
     uri_node, ufound := xjson_node_get(buffer_node, "uri");
     assert(ufound);
-    byte_len_node, bfound := xjson_node_get(buffer_node, "byteLength");
-    if bfound { // if we got a byteLength, the buffer is embedded
+    if ends_with(uri_node.value, ".bin") { // regular gltf
+      bin_path := tprint("%/%",path_strip_filename(gltf_path), uri_node.value);
+      bin_data, succ := read_entire_file(bin_path);
+      assert(succ);
+      bin_f :[]float = .{bin_data.count / size_of(float), cast(*float)bin_data.data};
+      array_add(*scene.buffers, .{bin_f});
+    } else { // embedded .bin file
+      byte_len_node, bfound := xjson_node_get(buffer_node, "byteLength");
       found,l,r := split_from_left(uri_node.value, "base64,");
       binary_text := base64_decode(r);
-      //bin_f :[]float = .{xjson_string_to_int(byte_len_node.value) / size_of(float), cast(*float)binary_text.data};
       bin_f :[]float = .{binary_text.count / size_of(float), cast(*float)binary_text.data};
       array_add(*scene.buffers, .{bin_f});
-    } else { // else we should read from 'file.bin' (stored in URI)
-      assert(0 && "glTF external buffer reads not supported yet!");
     }
   }
 
@@ -341,11 +327,18 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
   for image_node : xjson_get_array(root_json, "images") {
     uri_node, ufound := xjson_node_get(image_node, "uri");
     assert(ufound);
-    // FIXME: only handling embedded-textures
-    found,l,r := split_from_left(uri_node.value, "base64,");
-    binary_text := base64_decode(r);
-    bin_f :[]u8 = .{binary_text.count, binary_text.data};
-    array_add(*scene.images, .{bin_f});
+    if ends_with(uri_node.value, ".png") || ends_with(uri_node.value, ".jpg")  { // regular gltf
+      img_path := tprint("%/%",path_strip_filename(gltf_path), uri_node.value);
+      binary_text, succ := read_entire_file(img_path);
+      assert(succ);
+      img_data :[]u8 = .{binary_text.count, binary_text.data};
+      array_add(*scene.images, .{img_data});
+    } else { // embedded image file
+      found,l,r := split_from_left(uri_node.value, "base64,");
+      binary_text := base64_decode(r);
+      img_data :[]u8 = .{binary_text.count, binary_text.data};
+      array_add(*scene.images, .{img_data});
+    }
   }
 
   // parse samplers
@@ -380,9 +373,8 @@ xgltf_scene_load :: (json_wholefile : string) ->xGLTF_Scene {
     if bctfound {
       base_color_tex_id = xjson_string_to_int(bct.value);
     }else {
-      bcf := xjson_node_get(mr_node, "baseColorFactor");
-      // FIXME: hacky AF
-      base_color_factor = v4.{xjson_string_to_float(bcf.values[0].value),xjson_string_to_float(bcf.values[1].value),xjson_string_to_float(bcf.values[2].value),xjson_string_to_float(bcf.values[3].value)};
+      bcf, bcf_found := xjson_get_float_array(mr_node, "baseColorFactor",4);
+      if bcf_found then base_color_factor = v4.{bcf[0],bcf[1],bcf[2],bcf[3]};
     }
     //white_img:oglTex; white := u8.[ 0xFF,0xFF,0xFF,0xFF ]; ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
     material : xGLTF_Material;
@@ -455,12 +447,12 @@ xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
 ///////////////////////////////
 
 
-xgltf_parse_animations :: (json_wholefile : string, meshes : *xMesh) ->[..]xMeshAnimation {
+xgltf_parse_animations :: (gltf_path : string, meshes : *xMesh) ->[..]xMeshAnimation {
 
   // We parse the GLTF file with temporary allocations, because xMesh is the Real (TM) allocation
   scene : xGLTF_Scene;
   push_context .{allocator=temp} {
-    scene = xgltf_scene_load(json_wholefile);
+    scene = xgltf_scene_load(gltf_path);
   }
 
   mesh_animations : [..]xMeshAnimation;
@@ -573,12 +565,12 @@ xgltf_find_mesh_and_skin_array_indices :: (scene : *xGLTF_Scene, joint_node_id :
   return mesh_id, skin_id;
 }
 
-xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
+xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
 
   // We parse the GLTF file with temporary allocations, because xMesh is the Real (TM) allocation
   scene : xGLTF_Scene;
   push_context .{allocator=temp} {
-    scene = xgltf_scene_load(json_wholefile);
+    scene = xgltf_scene_load(gltf_path);
   }
 
   meshes : [..]xMesh;
@@ -597,7 +589,7 @@ xgltf_parse_meshes :: (json_wholefile : string) -> [..]xMesh {
           tex_w, tex_h, channels : s32;
           //stbi_set_flip_vertically_on_load(1);
           raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
-          defer free(raw_image_data);
+          //defer free(raw_image_data);
           ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
           m.material.base_col_tex = tex;
         } else {

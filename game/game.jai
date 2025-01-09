@@ -50,19 +50,16 @@ main :: () {
   // gltf loading tests
   //sample_gltf_mesh := xgltf_parse_mesh(SAMPLE_JSON);
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxAnimated/glTF-Embedded/BoxAnimated.gltf";
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
+  gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF/CesiumMan.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedFigure/glTF-Embedded/RiggedFigure.gltf";
-  gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF-Embedded/BrainStem.gltf";
+  //gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF/BrainStem.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedSimple/glTF-Embedded/RiggedSimple.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxTextured/glTF-Embedded/BoxTextured.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/Box/glTF-Embedded/Box.gltf";
-  file_content, succ := read_entire_file(gltf_path);
-  assert(succ);
-  normalize_line_endings(*file_content);
 
-  sample_gltf_meshes := xgltf_parse_meshes(file_content);
+  sample_gltf_meshes := xgltf_parse_meshes(gltf_path);
 
-  sample_gltf_animations := xgltf_parse_animations(file_content, sample_gltf_meshes.data);
+  sample_gltf_animations := xgltf_parse_animations(gltf_path, sample_gltf_meshes.data);
 
 
   // FIXME: Context has been DEPRECATED! we should find a new way to do this, the new Jai way I guess

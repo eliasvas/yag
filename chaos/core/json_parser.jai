@@ -259,6 +259,17 @@ xjson_get_string :: (node : *xJsonNode, path : string, default:string="") -> str
     }
 }
 
+xjson_get_float_array :: (node : *xJsonNode, path : string, $count : u32, default:float=0.0) -> [count]float, bool {
+  arr : [count]float;
+  array_node, found := xjson_node_get(node, path);
+
+  if found {
+    for idx : 0..count-1 {
+      arr[idx] = xjson_string_to_float(array_node.values[idx].value);
+    }
+  }
+  return arr, found;
+}
 
 xjson_get_float :: (node : *xJsonNode, path : string, default:float=0.0) -> float, bool {
     local_node, found := xjson_node_get(node, path);
