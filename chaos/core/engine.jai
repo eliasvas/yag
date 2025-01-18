@@ -32,7 +32,7 @@ xeng_init :: () {
   ogl_ublock_init(*global_data_ub, size_of(m4)*2);
   // 3. immediate drawing module init
   ximm_init();
-  // 4. camera init
+  // 4. base camera init
   c = .{};
   // 5. make some misc stuff
   white := u8.[ 0xFF,0xFF,0xFF,0xFF ];

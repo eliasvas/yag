@@ -51,7 +51,6 @@ main :: () {
   //sample_gltf_mesh := xgltf_parse_mesh(SAMPLE_JSON);
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxAnimated/glTF-Embedded/BoxAnimated.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedFigure/glTF-Embedded/RiggedFigure.gltf";
   gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF-Embedded/BrainStem.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedSimple/glTF-Embedded/RiggedSimple.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxTextured/glTF-Embedded/BoxTextured.gltf";
@@ -85,7 +84,9 @@ main :: () {
       xmesh_animation_simulate(anim);
     }
     for *mesh : sample_gltf_meshes {
-      xmesh_skin_calc_global_transform(*mesh.skin, xmesh_skin_find_root_joint_id(*mesh.skin));
+      if xmesh_has_skin(mesh) {
+        xmesh_skin_calc_global_transform(*mesh.skin, xmesh_skin_find_root_joint_id(*mesh.skin));
+      }
     }
 
     // Do the CSM ImGui menu

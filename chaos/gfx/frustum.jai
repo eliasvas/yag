@@ -202,6 +202,8 @@ CSM_VERT_SHADER :: #string DONE
 layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_norm;
 layout (location = 2) in vec2 in_tc;
+layout (location = 3) in ivec4 in_joint_ids;
+layout (location = 4) in vec4 in_weights;
 
 out VS_OUT
 {
@@ -216,9 +218,22 @@ layout(std140, binding = 1) uniform ShadowData {
   float cascade_plane_distances[4];
 };
 
+// FIXME: make this a UBO!
+uniform mat4 joint_mat[128];
 
-void main() {
-  gl_Position = model*vec4(in_pos.xyz, 1.0);
+void main()
+{
+  vec4 pos;
+  if (in_weights[0].x > 0.0) {
+    for (int i = 0; i < 4; i++) {
+      pos += joint_mat[in_joint_ids[i]] * vec4(in_pos,1.0) * in_weights[i];
+    }
+    pos /= dot(in_weights, vec4(1.0));
+  } else {
+    pos = vec4(in_pos, 1.0);
+  }
+
+  gl_Position = model*pos;
   // we need these so that shader introspection finds norm/tc :(
   vs_out.world_pos = gl_Position.xyz;
   vs_out.normal = in_norm;
