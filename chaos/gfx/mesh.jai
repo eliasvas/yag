@@ -376,7 +376,7 @@ xmesh_animation_simulate :: (anim : *xMeshAnimation) {
   for *panim,idx : anim.panim {
     // FIXME: why dis guy here ha?
     if panim.joint_idx == -1 {
-      print("panim: %, idx %\n", panim.*, idx);
+      //print("panim: %, idx %\n", panim.*, idx);
       continue;
     }
     prev_index,next_index := xmesh_panim_calc_frame_indices(panim,time);
