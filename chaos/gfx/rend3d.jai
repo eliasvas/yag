@@ -12,15 +12,20 @@ xRenderableBundle :: struct {
 xRend3D :: struct {
   bundles : [..]xRenderableBundle;
 
+  white_tex : oglTex;
+  default_normal_tex : oglTex;
 
   g_sp  : oglSP;
-  g_ub1 : oglUBlock;
+  g_ub1 : oglUBlock; // model
+  g_ub2 : oglUBlock; // joint_mats
+  g_ub3 : oglUBlock; // material data
 
   def_sp : oglSP;
   def_ub1 : oglUBlock;
 
   shadow_sp : oglSP;
   shadow_ub1 : oglUBlock;
+  shadow_ub2 : oglUBlock;
 
   copy_to_depth_sp : oglSP;
 
@@ -31,12 +36,19 @@ xRend3D :: struct {
 
 
 xr3d_init :: (using rend : *xRend3D) {
+  // create the white tex
+  white := u8.[ 0xFF,0xFF,0xFF,0xFF ]; ogl_tex_init(*white_tex, .{1,1}, white.data, oglTexFormat.RGBA8U);
+  // create the default normal tex
+  default_norm := u8.[ 0xFF/2,0xFF/2,0xFF,0xFF ]; ogl_tex_init(*default_normal_tex, .{1,1}, default_norm.data, oglTexFormat.RGBA8U);
   // create Shadow-Pass Shader
   ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_GEOM_SHADER, CSM_FRAG_SHADER);
   ogl_ublock_load(*shadow_ub1, *shadow_sp, 1);
+  ogl_ublock_load(*shadow_ub2, *shadow_sp, 2);  
   // create G-Buffer Shader
   ogl_sp_init(*g_sp, G_BUF_VERT_SHADER, G_BUF_FRAG_SHADER);
   ogl_ublock_load(*g_ub1, *g_sp, 1);
+  ogl_ublock_load(*g_ub2, *g_sp, 2);
+  ogl_ublock_load(*g_ub3, *g_sp, 3);
   // create Fullscreen Deferred Shader
   ogl_sp_init(*def_sp, DEF_VERT_SHADER, DEF_FRAG_SHADER);
   ogl_ublock_load(*def_ub1, *def_sp, 1);
@@ -90,12 +102,13 @@ xr3d_do_shadow_pass :: (using rend : *xRend3D) {
       jm := xmesh_animation_calculate_joint_matrices(*bundle.mesh);
       for idx : 0..127 {
         name := tprint("joint_mat[%]", idx);
-        ogl_sp_set_uniform(*shadow_sp, name, oglShaderDataType.MAT4 , *jm[idx]);
-        m := m4_I;
+        m := m4_transpose(jm[idx]);
+        ogl_ublock_set(*shadow_ub2, name, xx *m);
       }
-      xmesh_render(*bundle.mesh, *shadow_sp, bundle.model);
+      ogl_ublock_bind_to_slot(*shadow_ub2);
+      xmesh_render(*bundle.mesh, *shadow_sp, null, bundle.model);
     } else {
-      xmesh_render(*bundle.mesh, *shadow_sp, bundle.model);
+      xmesh_render(*bundle.mesh, *shadow_sp, null, bundle.model);
     }
   }
 }
@@ -112,29 +125,28 @@ xr3d_do_g_pass :: (using rend : *xRend3D) {
   ogl_sp_apply_dyn_state(*g_sp, dyn_state);
 
   for bundle : bundles {
+    for *prim : bundle.mesh.primitives {if prim.material.base_col_tex == null then prim.material.base_col_tex = *white_tex;}
 
     sp := g_sp;
-    ublock := g_ub1;
-
     ogl_bind_sp(*sp); // FIXME: this bind is hacky
     ogl_sp_apply_dyn_state(*sp, dyn_state);
 
     // set the g_pass uniform block
     m := m4_transpose(bundle.model);
-    ogl_ublock_set(*ublock, "model", xx m.raw.data);
-    ogl_ublock_bind_to_slot(*ublock);
+    ogl_ublock_set(*g_ub1, "model", xx m.raw.data);
+    ogl_ublock_bind_to_slot(*g_ub1);
     if xmesh_has_skin(*bundle.mesh) {
       // FIXME: this shouldn't be here!
       jm := xmesh_animation_calculate_joint_matrices(*bundle.mesh);
       for idx : 0..127 {
         name := tprint("joint_mat[%]", idx);
-        ogl_sp_set_uniform(*sp, name, oglShaderDataType.MAT4 , *jm[idx]);
-        m := m4_I;
-        //ogl_sp_set_uniform(*sp, name, oglShaderDataType.MAT4 , *m);
+        m := m4_transpose(jm[idx]);
+        ogl_ublock_set(*g_ub2, name, xx *m);
       }
-      xmesh_render(*bundle.mesh, *sp, bundle.model);
+      ogl_ublock_bind_to_slot(*g_ub2);
+      xmesh_render(*bundle.mesh, *sp, *g_ub3, bundle.model);
     } else {
-      xmesh_render(*bundle.mesh, *sp, bundle.model);
+      xmesh_render(*bundle.mesh, *sp, *g_ub3, bundle.model);
     }
   }
 }
@@ -220,16 +232,24 @@ layout(std140, binding = 1) uniform GData {
   mat4 model;
 };
 
+layout(std140, binding = 2) uniform JointData {
+  mat4 joint_mat[128];
+};
+
+layout(std140, binding = 3) uniform MaterialData {
+  vec4 base_factor;
+  float metallic_factor;
+  float roughness_factor;
+  vec3 emissive_factor;
+};
+
+
 out VS_OUT
 {
    vec2 tc;
    vec3 world_pos;
    vec3 normal;
 } vs_out;
-
-
-// FIXME: make this a UBO!
-uniform mat4 joint_mat[128];
 
 void main()
 {
@@ -256,6 +276,13 @@ layout (location = 0) out vec3 g_pos;
 layout (location = 1) out vec3 g_norm;
 layout (location = 2) out vec4 g_albedo_spec;
 
+layout(std140, binding = 3) uniform MaterialData {
+  vec4 base_factor;
+  float metallic_factor;
+  float roughness_factor;
+  vec3 emissive_factor;
+};
+
 in VS_OUT
 {
    vec2 tc;
@@ -270,7 +297,7 @@ void main()
 {    
     g_pos = fs_in.world_pos;
     g_norm = normalize(fs_in.normal);
-    g_albedo_spec.rgb = texture(diffuse, fs_in.tc).rgb;
+    g_albedo_spec.rgb = base_factor.xyz*texture(diffuse, fs_in.tc).rgb;
     g_albedo_spec.a = texture(specular, fs_in.tc).r;
 }
 DONE

@@ -223,8 +223,7 @@ xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8,
   return mesh;
 }
 
-// FIXME: each PRIMITIVE should have a material INSIDE! not this monstrocity!!!
-xmesh_render :: (using mesh : *xMesh, sp : *oglSP, model : m4) {
+xmesh_render :: (using mesh : *xMesh, sp : *oglSP, mat_ublock : *oglUBlock, model : m4) {
   for mp : primitives {
     assert(mp.vbos.count > 0);
     bindings := oglBindingDesc.{
@@ -235,9 +234,11 @@ xmesh_render :: (using mesh : *xMesh, sp : *oglSP, model : m4) {
     ogl_sp_apply_bindings(sp, bindings);
 
     // set boring material stuff to shader
-    m := mp.material;
-    if m.base_col_tex {
+    if mat_ublock {
+      m := mp.material;
+      xpbr_material_set_to_ublock(*m, mat_ublock);
       xpbr_material_set_to_shader(*m, sp);
+      ogl_ublock_bind_to_slot(mat_ublock);
     }
 
     if mp.ibo.count {

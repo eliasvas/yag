@@ -3,6 +3,8 @@
 #import "SDL";
 
 /*
+@FIXME: DOESN'T CURRENTLY WORK BECAUSE JON changed how #context works! read up on that
+
 Currently this is a thin wrapper around SDL's Timer module.
 you can xtimer_make to create a timer that runs for an amount of times,
 if you provide INFINITE, it will never stop!

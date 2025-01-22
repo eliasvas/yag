@@ -61,7 +61,7 @@ xskydome_render :: (using skydome : *xSkydome) {
     flags = .DEPTH
   };
   ogl_sp_apply_dyn_state(*sp, dyn_state);
-  xmesh_render(*sphere_mesh, *sp, m4_I);
+  xmesh_render(*sphere_mesh, *sp, null, m4_I);
 
   xgrid_render(*skydome.grid);
 }

@@ -123,11 +123,14 @@ xGLTF_Material :: struct {
   base_color_tex_id : s64 = XGLTF_INVALID_ID;
   base_color_factor : v4;
 
-  metallic_tex_id : s64 = XGLTF_INVALID_ID;
+  metallic_rough_tex_id : s64 = XGLTF_INVALID_ID;
   metallic_factor : float;
-
-  roughness_tex_id : s64 = XGLTF_INVALID_ID;
   roughness_factor : float;
+
+  normal_tex_id : s64 = XGLTF_INVALID_ID;
+  // extra normal properties
+
+  emissive_factor : v3;
 };
 
 ///////////////////////////////
@@ -365,21 +368,29 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
 
   // parse materials (BETA) (This need A LOT of work for thwen we wanna implement PBR stuff) 
   for material_node : xjson_get_array(root_json, "materials") {
-    mr_node := xjson_node_get(material_node, "pbrMetallicRoughness");
-    // TODO: incomplete!
-    base_color_tex_id :s64 = XGLTF_INVALID_ID;
-    base_color_factor : v4;
-    bct, bctfound := xjson_node_get(mr_node, "baseColorTexture.index");
-    if bctfound {
-      base_color_tex_id = xjson_string_to_int(bct.value);
-    }else {
-      bcf, bcf_found := xjson_get_float_array(mr_node, "baseColorFactor",4);
-      if bcf_found then base_color_factor = v4.{bcf[0],bcf[1],bcf[2],bcf[3]};
-    }
+    pbr_node := xjson_node_get(material_node, "pbrMetallicRoughness");
+
+    base_color_tex_id := xjson_get_int(pbr_node, "baseColorTexture.index", XGLTF_INVALID_ID);
+    base_col_factor, bcf_found := xjson_get_float_array(pbr_node, "baseColorFactor", 4);
+    metallic_rough_tex_id := xjson_get_int(pbr_node, "metallicRoughnessTexture.index", XGLTF_INVALID_ID);
+    metallic_factor, mf_found := xjson_get_float(pbr_node, "metallicFactor");
+    roughness_factor, rf_found := xjson_get_float(pbr_node, "roughnessFactor");
+
+
+    normal_node, nn_found := xjson_node_get(material_node, "normalTexture");
+    normal_tex_id := ifx nn_found then xjson_get_int(normal_node, "normalTexture.index", XGLTF_INVALID_ID) else XGLTF_INVALID_ID;
+
+    emissive_factor, ef_found := xjson_get_float_array(material_node, "emissiveFactor", 3);
+
+
     //white_img:oglTex; white := u8.[ 0xFF,0xFF,0xFF,0xFF ]; ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
     material : xGLTF_Material;
     material.base_color_tex_id = base_color_tex_id;
-    material.base_color_factor = base_color_factor;
+    if bcf_found then material.base_color_factor = v4.{base_col_factor[0],base_col_factor[1],base_col_factor[2],base_col_factor[3]};
+    material.metallic_rough_tex_id = metallic_rough_tex_id;
+    if mf_found then material.metallic_factor = metallic_factor;
+    if rf_found then material.roughness_factor = roughness_factor;
+
     array_add(*scene.materials, material);
   }
 
@@ -581,6 +592,7 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
       m: xMeshPrimitive;
       // Shitty material handling to load a shitty image
       tex : *oglTex = alloc(size_of(oglTex));
+      ntex : *oglTex = alloc(size_of(oglTex));
       // FIXME: it can also be other image formats.. we should encode this somewhere in GLTF structure
       if primitive.material_id != XGLTF_INVALID_ID {
         gltf_mat := scene.materials[primitive.material_id];
@@ -593,12 +605,16 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
           ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
           m.material.base_col_tex = tex;
         } else {
-          color := gltf_mat.base_color_factor;
-          c :[]u8= .[cast(u8)(color.x * 255.0),cast(u8)(color.y * 255.0),cast(u8)(color.z * 255.0),cast(u8)(color.w * 255.0)];
-          // TODO make c the actual color, we gotta go float -> byte
-          img:oglTex; ogl_tex_init(*img, .{1,1}, c.data, oglTexFormat.RGBA8U);
-          ogl_tex_init(tex, .{1,1}, xx c.data, oglTexFormat.RGBA8U);
-          m.material.base_col_tex = tex;
+          //color := gltf_mat.base_color_factor;
+          //c :[]u8= .[cast(u8)(color.x * 255.0),cast(u8)(color.y * 255.0),cast(u8)(color.z * 255.0),cast(u8)(color.w * 255.0)];
+          //ogl_tex_init(tex, .{1,1}, xx c.data, oglTexFormat.RGBA8U);
+          m.material.base_col_tex = null;
+          m.material.base_factor = gltf_mat.base_color_factor;
+
+          // hard coded normal for now
+          //norm :[]u8= .[0,0,255,0];
+          //nimg:oglTex; ogl_tex_init(ntex, .{1,1}, norm.data, oglTexFormat.RGBA8U);
+          //m.material.normal_tex = ntex;
         }
       }
       //////////////////////////////////////////////////

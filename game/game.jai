@@ -50,8 +50,8 @@ main :: () {
   // gltf loading tests
   //sample_gltf_mesh := xgltf_parse_mesh(SAMPLE_JSON);
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxAnimated/glTF-Embedded/BoxAnimated.gltf";
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
-  gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF-Embedded/BrainStem.gltf";
+  gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
+  //gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF-Embedded/BrainStem.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedSimple/glTF-Embedded/RiggedSimple.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxTextured/glTF-Embedded/BoxTextured.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/Box/glTF-Embedded/Box.gltf";
@@ -100,14 +100,13 @@ main :: () {
     ImGui.TextUnformatted(frame_str.data);
     ImGui.End();
 
-    big_cube_mat := xPBR_Material.{*green_img,*white_img, null, null, null, null};
+
     big_model := m4_mult(m4_trans(.{0,-2,0}),m4_scale(.{100,1,100}));
+    big_cube_mat := xPBR_Material.{base_col_tex = *green_img};
     cube_mesh.primitives[0].material = big_cube_mat;
     xr3d_push_bundle(*rend, cube_mesh, big_model);
 
-    sphere_mat := xPBR_Material.{*blue_img,*white_img, null, null, null, null};
-    sphere_mesh.primitives[0].material = sphere_mat;
-    //xr3d_push_bundle(*rend, sphere_mesh, m4_trans(.{3,3,0}));
+
 
 
     // render the json mesh!!

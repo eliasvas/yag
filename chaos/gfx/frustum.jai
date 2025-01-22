@@ -218,8 +218,10 @@ layout(std140, binding = 1) uniform ShadowData {
   float cascade_plane_distances[4];
 };
 
-// FIXME: make this a UBO!
-uniform mat4 joint_mat[128];
+layout(std140, binding = 2) uniform JointData {
+  mat4 joint_mat[128];
+};
+
 
 void main()
 {
