@@ -16,6 +16,7 @@ xPBR_Material :: struct {
 xpbr_material_set_to_shader :: (using mat : *xPBR_Material, sp : *oglSP) {
   if base_col_tex then ogl_sp_bind_sampler_to_slot(sp, "diffuse", base_col_tex, 0);
   if metal_tex then ogl_sp_bind_sampler_to_slot(sp, "specular", metal_tex, 1);
+  if normal_tex then ogl_sp_bind_sampler_to_slot(sp, "normal_map", normal_tex, 2);
 }
 
 xpbr_material_set_to_ublock:: (using mat : *xPBR_Material, mat_ublock : *oglUBlock) {

@@ -225,7 +225,6 @@ xmesh_gen_sphere :: (r : float32, stack_count : u32 = 8, sector_count : u32 = 8,
 
 xmesh_render :: (using mesh : *xMesh, sp : *oglSP, mat_ublock : *oglUBlock, model : m4) {
   for mp : primitives {
-    assert(mp.vbos.count > 0);
     bindings := oglBindingDesc.{
       index_buf = *mp.ibo,
       vertex_bufs = mp.vbos,

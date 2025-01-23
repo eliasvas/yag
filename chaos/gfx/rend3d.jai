@@ -1,4 +1,4 @@
-// TODO: probably instead of pointers we should have some asset system or something
+// TODO: probably instead of pointera  we should have some asset system or something
 
 // TODO: Support shader permutations, remove all the zero-checking JUNK!
 
@@ -221,6 +221,7 @@ layout (location = 1) in vec3 in_norm;
 layout (location = 2) in vec2 in_tc;
 layout (location = 3) in ivec4 in_joint_ids;
 layout (location = 4) in vec4 in_weights;
+layout (location = 5) in vec4 in_tangent;
 
 
 layout(std140, binding = 0) uniform GlobalData {
@@ -249,6 +250,7 @@ out VS_OUT
    vec2 tc;
    vec3 world_pos;
    vec3 normal;
+   mat3 TBN;
 } vs_out;
 
 void main()
@@ -265,8 +267,14 @@ void main()
 
   gl_Position = proj*view*model*vec4(pos.xyz, 1.0);
   vs_out.world_pos = vec3(model*vec4(pos.xyz, 1.0));
-  vs_out.normal = mat3(transpose(inverse(model))) * in_norm;
+  //vs_out.normal = mat3(transpose(inverse(model))) * in_norm;
   vs_out.tc = in_tc;
+
+  vec3 bitangent = cross(in_norm, in_tangent.xyz) * in_tangent.w;
+  vec3 T = normalize(vec3(model * vec4(in_tangent.xyz,0.0)));
+  vec3 B = normalize(vec3(model * vec4(bitangent,0.0)));
+  vec3 N = normalize(vec3(model * vec4(in_norm,0.0)));
+  vs_out.TBN = mat3(T,B,N);
 }
 DONE
 
@@ -288,15 +296,22 @@ in VS_OUT
    vec2 tc;
    vec3 world_pos;
    vec3 normal;
+   mat3 TBN;
 } fs_in;
 
 uniform sampler2D diffuse;
 uniform sampler2D specular;
+uniform sampler2D normal_map;
 
 void main()
 {    
+    vec3 normal = texture(normal_map, fs_in.tc).rgb;
+    normal = normal * 2.0 - 1.0;   
+    normal = normalize(fs_in.TBN * normal);
+
     g_pos = fs_in.world_pos;
-    g_norm = normalize(fs_in.normal);
+    //g_norm = normalize(fs_in.normal);
+    g_norm = normalize(normal);
     g_albedo_spec.rgb = base_factor.xyz*texture(diffuse, fs_in.tc).rgb;
     g_albedo_spec.a = texture(specular, fs_in.tc).r;
 }

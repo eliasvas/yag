@@ -4,6 +4,13 @@
 #import "stb_image";
 #import "File";
 //FIXME: we need to implement the Node SceneGraph Thing for meshes. It will make MESH animations possible
+//@TODO: support automatic tangent vector calculation if necessary
+/*
+the glTF 2.0 spec says: 
+  When tangents are not specified, client implementations SHOULD calculate tangents using default
+  MikkTSpace algorithms with the specified vertex positions, normals, and texture coordinates
+  associated with the normal texture.
+*/
 
 XGLTF_INVALID_ID :: -1;
 
@@ -301,9 +308,9 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
   // parse bufferViews
   for bufferv_node : xjson_node_get(root_json, "bufferViews").values {
     buffer_id := xjson_get_int(bufferv_node, "buffer", XGLTF_INVALID_ID);
-    byte_offset := xjson_get_int(bufferv_node, "byteOffset", XGLTF_INVALID_ID);
-    byte_length := xjson_get_int(bufferv_node, "byteLength", XGLTF_INVALID_ID);
-    byte_stride := xjson_get_int(bufferv_node, "byteStride", XGLTF_INVALID_ID);
+    byte_offset := xjson_get_int(bufferv_node, "byteOffset", 0);
+    byte_length := xjson_get_int(bufferv_node, "byteLength", 0);
+    byte_stride := xjson_get_int(bufferv_node, "byteStride", 0);
     target := xjson_get_int(bufferv_node, "target", XGLTF_INVALID_ID);
     bufferv : xGLTF_BufferView = .{buffer_id, byte_offset, byte_length, byte_stride, target};
 
@@ -312,11 +319,11 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
 
   // parse accessors
   for accessor_node : xjson_get_array(root_json, "accessors") {
-    buffer_view := xjson_get_int(accessor_node, "bufferView", XGLTF_INVALID_ID);
-    buffer_offset := xjson_get_int(accessor_node, "bufferOffset", XGLTF_INVALID_ID);
-    byte_offset := xjson_get_int(accessor_node, "byteOffset", XGLTF_INVALID_ID);
+    buffer_view := xjson_get_int(accessor_node, "bufferView", 0);
+    buffer_offset := xjson_get_int(accessor_node, "bufferOffset", 0);
+    byte_offset := xjson_get_int(accessor_node, "byteOffset", 0);
     component_type := xjson_get_int(accessor_node, "componentType", XGLTF_INVALID_ID);
-    count := xjson_get_int(accessor_node, "count", XGLTF_INVALID_ID);
+    count := xjson_get_int(accessor_node, "count", 0);
     type := xjson_get_string(accessor_node, "type");
     // TODO: also parse min (we have to infer actual type from count/type/component_type combo)
     // TODO: also parse max
@@ -377,8 +384,7 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
     roughness_factor, rf_found := xjson_get_float(pbr_node, "roughnessFactor");
 
 
-    normal_node, nn_found := xjson_node_get(material_node, "normalTexture");
-    normal_tex_id := ifx nn_found then xjson_get_int(normal_node, "normalTexture.index", XGLTF_INVALID_ID) else XGLTF_INVALID_ID;
+    normal_tex_id, nn_found := xjson_get_int(material_node, "normalTexture.index", XGLTF_INVALID_ID);
 
     emissive_factor, ef_found := xjson_get_float_array(material_node, "emissiveFactor", 3);
 
@@ -390,6 +396,7 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
     material.metallic_rough_tex_id = metallic_rough_tex_id;
     if mf_found then material.metallic_factor = metallic_factor;
     if rf_found then material.roughness_factor = roughness_factor;
+    if nn_found then material.normal_tex_id = normal_tex_id;
 
     array_add(*scene.materials, material);
   }
@@ -435,6 +442,7 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
   print("glTF scene: %\n", scene);
   return scene;
 }
+
 // TODO: find a cleaner way to do this
 xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
   if attrib_name == {
@@ -448,8 +456,11 @@ xgltf_calc_attrib_loc_from_name :: (attrib_name : string) -> u32 {
       return 3;
     case "WEIGHTS_0";
       return 4;
-    case;
+    case "TANGENT";
       return 5;
+    case;
+      assert(0 && "unsupported vertex attribute!");
+      return 6;
   }
 }
 
@@ -605,16 +616,20 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
           ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
           m.material.base_col_tex = tex;
         } else {
-          //color := gltf_mat.base_color_factor;
-          //c :[]u8= .[cast(u8)(color.x * 255.0),cast(u8)(color.y * 255.0),cast(u8)(color.z * 255.0),cast(u8)(color.w * 255.0)];
-          //ogl_tex_init(tex, .{1,1}, xx c.data, oglTexFormat.RGBA8U);
           m.material.base_col_tex = null;
           m.material.base_factor = gltf_mat.base_color_factor;
-
-          // hard coded normal for now
-          //norm :[]u8= .[0,0,255,0];
-          //nimg:oglTex; ogl_tex_init(ntex, .{1,1}, norm.data, oglTexFormat.RGBA8U);
-          //m.material.normal_tex = ntex;
+        }
+        // initialize normal map if there is one
+        if gltf_mat.normal_tex_id != XGLTF_INVALID_ID {
+          png_data := scene.images[scene.textures[scene.materials[primitive.material_id].normal_tex_id].image_id].buf;
+          tex_w, tex_h, channels : s32;
+          //stbi_set_flip_vertically_on_load(1);
+          raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
+          //defer free(raw_image_data);
+          ogl_tex_init(ntex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+          m.material.normal_tex = ntex;
+        } else {
+          m.material.normal_tex = null;
         }
       }
       //////////////////////////////////////////////////
@@ -642,6 +657,8 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
           vertex_buf := alloc(size_of(oglBuf));
 
           data_type_size: = xgltf_accessor_calc_data_type_size_in_bytes(*accessor);
+          assert(data_type_size > 0);
+
           // FIXME: right now even if pos/norm/tc are in same buffer, 3 ogl buffers will be made!
           ogl_buf_init(vertex_buf, .VERTEX, xx ptr, xx accessor.count, data_type_size);
 
@@ -651,6 +668,9 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
           array_add(*attribs, .{loc=attrib_loc, stride=attrib_stride});
           vertex_def.attribs = attribs;
           array_add(*m.vbos,vertex_def);
+        } else {
+          print("no accessor for attribute [%] - exiting", attr.name);
+          exit(1);
         }
       }
       array_add(*mesh.primitives, m);
