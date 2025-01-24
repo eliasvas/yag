@@ -379,7 +379,7 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
 
     base_color_tex_id := xjson_get_int(pbr_node, "baseColorTexture.index", XGLTF_INVALID_ID);
     base_col_factor, bcf_found := xjson_get_float_array(pbr_node, "baseColorFactor", 4);
-    metallic_rough_tex_id := xjson_get_int(pbr_node, "metallicRoughnessTexture.index", XGLTF_INVALID_ID);
+    metallic_rough_tex_id, mrt_found := xjson_get_int(pbr_node, "metallicRoughnessTexture.index", XGLTF_INVALID_ID);
     metallic_factor, mf_found := xjson_get_float(pbr_node, "metallicFactor");
     roughness_factor, rf_found := xjson_get_float(pbr_node, "roughnessFactor");
 
@@ -393,9 +393,11 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
     material : xGLTF_Material;
     material.base_color_tex_id = base_color_tex_id;
     if bcf_found then material.base_color_factor = v4.{base_col_factor[0],base_col_factor[1],base_col_factor[2],base_col_factor[3]};
+
     material.metallic_rough_tex_id = metallic_rough_tex_id;
     if mf_found then material.metallic_factor = metallic_factor;
     if rf_found then material.roughness_factor = roughness_factor;
+
     if nn_found then material.normal_tex_id = normal_tex_id;
 
     array_add(*scene.materials, material);
@@ -604,6 +606,7 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
       // Shitty material handling to load a shitty image
       tex : *oglTex = alloc(size_of(oglTex));
       ntex : *oglTex = alloc(size_of(oglTex));
+      mtex : *oglTex = alloc(size_of(oglTex));
       // FIXME: it can also be other image formats.. we should encode this somewhere in GLTF structure
       if primitive.material_id != XGLTF_INVALID_ID {
         gltf_mat := scene.materials[primitive.material_id];
@@ -618,6 +621,20 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
         } else {
           m.material.base_col_tex = null;
           m.material.base_factor = gltf_mat.base_color_factor;
+        }
+        // initialize metal)rought tex if there is one
+        if gltf_mat.metallic_rough_tex_id != XGLTF_INVALID_ID {
+          png_data := scene.images[scene.textures[scene.materials[primitive.material_id].metallic_rough_tex_id].image_id].buf;
+          tex_w, tex_h, channels : s32;
+          //stbi_set_flip_vertically_on_load(1);
+          raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
+          //defer free(raw_image_data);
+          ogl_tex_init(mtex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+          m.material.metal_rough_tex = mtex;
+        } else {
+          m.material.metal_rough_tex = null;
+          m.material.metal_factor = gltf_mat.metallic_factor;
+          m.material.rough_factor = gltf_mat.roughness_factor;
         }
         // initialize normal map if there is one
         if gltf_mat.normal_tex_id != XGLTF_INVALID_ID {

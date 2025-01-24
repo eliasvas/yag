@@ -40,7 +40,7 @@ xpoint_light_make_basic :: (pos : v3) -> xLight {
   pl.pos = pos;
 
   pl.ambient  = .{0.2,0.2,0.9};
-  pl.diffuse  = .{0.2,0.2,0.9};
+  pl.diffuse  = .{0.8,0.8,0.8};
   pl.specular = .{1.0,1.0,1.0};
 
   pl.constant = 1.0;
