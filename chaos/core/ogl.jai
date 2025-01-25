@@ -490,15 +490,22 @@ ogl_rt_init :: (using rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat) ->
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, attachments[1], 0);
-      // - color + specular color buffer
+      // - albedo + specular color buffer
       glGenTextures(1, *attachments[2]);
       glBindTexture(GL_TEXTURE_2D, attachments[2]);
       glTexImage2D(GL_TEXTURE_2D, 0, xx tex_format, xx dim.x, xx dim.y, 0, internal_format, GL_FLOAT, null);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, attachments[2], 0);
-      attachments_gl := u32.[ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 ];
-      glDrawBuffers(3, *attachments_gl[0]);
+      // - metal + rough color buffer
+      glGenTextures(1, *attachments[3]);
+      glBindTexture(GL_TEXTURE_2D, attachments[3]);
+      glTexImage2D(GL_TEXTURE_2D, 0, xx tex_format, xx dim.x, xx dim.y, 0, internal_format, GL_FLOAT, null);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, attachments[3], 0);
+      attachments_gl := u32.[ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 ];
+      glDrawBuffers(4, *attachments_gl[0]);
       ds_tex : GLuint;
       glGenTextures(1, *ds_tex);
       glBindTexture(GL_TEXTURE_2D, ds_tex);

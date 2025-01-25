@@ -40,7 +40,7 @@ xpoint_light_make_basic :: (pos : v3) -> xLight {
   pl.pos = pos;
 
   pl.ambient  = .{0.2,0.2,0.9};
-  pl.diffuse  = .{0.8,0.8,0.8};
+  pl.diffuse  = .{0.95,0.95,0.95};
   pl.specular = .{1.0,1.0,1.0};
 
   pl.constant = 1.0;
@@ -55,7 +55,7 @@ xdir_light_make_basic :: () -> xLight {
   kind = .DIRECTIONAL;
   dl.dir = v3_norm(v3.{1,1,0});
   dl.ambient  = .{0.2,0.2,0.2};
-  dl.diffuse  = .{0.9,0.2,0.2};
+  dl.diffuse  = .{1.0,1.0,1.0};
   dl.specular = .{1.0,1.0,1.0};
   return light;
 }

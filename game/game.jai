@@ -48,17 +48,13 @@ main :: () {
   xr3d_init(*rend);
 
   // gltf loading tests
-  //sample_gltf_mesh := xgltf_parse_mesh(SAMPLE_JSON);
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxAnimated/glTF-Embedded/BoxAnimated.gltf";
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/CesiumMan/glTF-Embedded/CesiumMan.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/NormalTangentTest/glTF/NormalTangentTest.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.gltf";
-  gltf_path := "../assets/glTF-Sample-Models/2.0/WaterBottle/glTF/WaterBottle.gltf";
+  //gltf_path := "../assets/glTF-Sample-Models/2.0/WaterBottle/glTF/WaterBottle.gltf";
+  //gltf_path := "../assets/glTF-Sample-Models/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf";
+  gltf_path := "../assets/glTF-Sample-Models/2.0/MetalRoughSpheres/glTF/MetalRoughSpheres.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF-Embedded/BrainStem.gltf";
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/RiggedSimple/glTF-Embedded/RiggedSimple.gltf";
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/BoxTextured/glTF-Embedded/BoxTextured.gltf";
-  //gltf_path := "../assets/glTF-Sample-Models/2.0/Box/glTF-Embedded/Box.gltf";
 
   sample_gltf_meshes := xgltf_parse_meshes(gltf_path);
 
@@ -108,7 +104,7 @@ main :: () {
     big_model := m4_mult(m4_trans(.{0,-2,0}),m4_scale(.{100,1,100}));
     big_cube_mat := xPBR_Material.{base_col_tex = *green_img};
     cube_mesh.primitives[0].material = big_cube_mat;
-    xr3d_push_bundle(*rend, cube_mesh, big_model);
+    //xr3d_push_bundle(*rend, cube_mesh, big_model);
 
 
 
@@ -116,7 +112,8 @@ main :: () {
     // render the json mesh!!
     for sample_gltf_mesh : sample_gltf_meshes {
       model := xgltf_transform_calc_matrix(*sample_gltf_mesh.transform);
-      xr3d_push_bundle(*rend, *sample_gltf_mesh, m4_mult(m4_trans(.{0,0,0}), model));
+      //xr3d_push_bundle(*rend, *sample_gltf_mesh, m4_mult(m4_trans(.{0,2,-10}), model));
+      xr3d_push_bundle(*rend, *sample_gltf_mesh, m4_mult(m4_rotate(3.14/2.0, .{1,0,0}), model));
       //xr3d_push_bundle(*rend, *sample_gltf_mesh, model);
     }
 

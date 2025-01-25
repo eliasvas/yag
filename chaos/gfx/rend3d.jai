@@ -288,6 +288,7 @@ G_BUF_FRAG_SHADER :: #string DONE
 layout (location = 0) out vec3 g_pos;
 layout (location = 1) out vec3 g_norm;
 layout (location = 2) out vec4 g_albedo_spec;
+layout (location = 3) out vec4 g_metal_rough;
 
 layout(std140, binding = 3) uniform MaterialData {
   vec4 base_factor;
@@ -316,10 +317,11 @@ void main()
     normal = normalize(fs_in.TBN * normal);
 
     g_pos = fs_in.world_pos;
-    //g_norm = normalize(fs_in.normal);
     g_norm = normalize(normal);
-    g_albedo_spec.rgb = metallic_factor * base_factor.xyz*texture(albedo_map, fs_in.tc).rgb;
-    g_albedo_spec.a = roughness_factor * texture(metal_rough_map, fs_in.tc).r;
+    g_albedo_spec.rgb = vec3(base_factor*texture(albedo_map, fs_in.tc));
+    g_albedo_spec.a = 1.0;
+    g_metal_rough.rgb = metallic_factor * texture(metal_rough_map, fs_in.tc).rgb;
+    g_metal_rough.a = roughness_factor * texture(metal_rough_map, fs_in.tc).a;
 }
 DONE
 
@@ -431,12 +433,12 @@ void main() {
   vec2 tex_coords = fs_in.tc;
 
 
-  //vec3 albedo     = pow(texture(g_albedo_spec, fs_in.tc).xyz, 2.2);
-  vec3 albedo     = texture(g_albedo_spec, fs_in.tc).xyz;
+  vec3 albedo     = pow(texture(g_albedo_spec, fs_in.tc).xyz, vec3(2.2));
+  //vec3 albedo     = texture(g_albedo_spec, fs_in.tc).xyz;
   vec3 metallic  = texture(g_metal_rough, fs_in.tc).xyz;
   float roughness = texture(g_metal_rough, fs_in.tc).a;
   //float ao        = texture(g_ao, TexCoords).r;
-  float ao        = 0.5;
+  float ao        = 1.0;
   vec3 N = texture(g_norm, fs_in.tc).xyz;
   vec3 V = normalize(view_pos - world_pos);
   g_shadow_bias = max(0.05 * (1.0 - dot(N, dir_light.dir)), 0.005);
