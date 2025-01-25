@@ -196,8 +196,8 @@ xr3d_do_def_pass :: (using rend : *xRend3D) {
   g_albedo_spec_tex := ogl_rt_get_attachment(*g_buffer, .A2);
   ogl_sp_bind_sampler_to_slot(*def_sp, "g_albedo_spec", *g_albedo_spec_tex, 2);
 
-  g_metal_rough_tex := ogl_rt_get_attachment(*g_buffer, .A3);
-  ogl_sp_bind_sampler_to_slot(*def_sp, "g_metal_rough", *g_albedo_spec_tex, 3);
+  g_occ_rough_met_tex := ogl_rt_get_attachment(*g_buffer, .A3);
+  ogl_sp_bind_sampler_to_slot(*def_sp, "g_occ_rough_met", *g_occ_rough_met_tex, 3);
 
   shadow_map := ogl_rt_get_attachment(*shadow_rt, .DS);
   ogl_sp_bind_sampler_to_slot(*def_sp, "shadow_map", *shadow_map, 4);
@@ -272,7 +272,9 @@ void main()
 
   gl_Position = proj*view*model*vec4(pos.xyz, 1.0);
   vs_out.world_pos = vec3(model*vec4(pos.xyz, 1.0));
-  //vs_out.normal = mat3(transpose(inverse(model))) * in_norm;
+
+  vs_out.normal = mat3(transpose(inverse(model))) * in_norm;
+
   vs_out.tc = in_tc;
 
   vec3 bitangent = cross(in_norm, in_tangent.xyz) * in_tangent.w;
@@ -288,7 +290,7 @@ G_BUF_FRAG_SHADER :: #string DONE
 layout (location = 0) out vec3 g_pos;
 layout (location = 1) out vec3 g_norm;
 layout (location = 2) out vec4 g_albedo_spec;
-layout (location = 3) out vec4 g_metal_rough;
+layout (location = 3) out vec4 g_occ_rough_met;
 
 layout(std140, binding = 3) uniform MaterialData {
   vec4 base_factor;
@@ -316,12 +318,18 @@ void main()
     normal = normal * 2.0 - 1.0;   
     normal = normalize(fs_in.TBN * normal);
 
+    //vec3 normal = fs_in.normal;
+
     g_pos = fs_in.world_pos;
     g_norm = normalize(normal);
     g_albedo_spec.rgb = vec3(base_factor*texture(albedo_map, fs_in.tc));
     g_albedo_spec.a = 1.0;
-    g_metal_rough.rgb = metallic_factor * texture(metal_rough_map, fs_in.tc).rgb;
-    g_metal_rough.a = roughness_factor * texture(metal_rough_map, fs_in.tc).a;
+
+    g_occ_rough_met = vec4(0,0,0,0);
+    vec4 metal_rough_px = texture(metal_rough_map, fs_in.tc);
+    g_occ_rough_met.r = texture(ao_map, fs_in.tc).r; // ao
+    g_occ_rough_met.g = roughness_factor * metal_rough_px.g; // roughness
+    g_occ_rough_met.b = metallic_factor * metal_rough_px.b; // metallic
 }
 DONE
 
@@ -347,14 +355,15 @@ void main()
 DONE
 
 DEF_FRAG_SHADER :: #string DONE
+// TODO: Add options for the gamma and HDR and also add saturation and contrast post-proc
+// TODO: Add bloom..
 #version 430 core
 out vec4 FragColor;
 
 uniform sampler2D g_pos;
 uniform sampler2D g_norm;
 uniform sampler2D g_albedo_spec;
-uniform sampler2D g_metal_rough;
-uniform sampler2D g_ao;
+uniform sampler2D g_occ_rough_met;
 uniform sampler2DArray shadow_map;
 
 struct DirLight {
@@ -435,10 +444,10 @@ void main() {
 
   vec3 albedo     = pow(texture(g_albedo_spec, fs_in.tc).xyz, vec3(2.2));
   //vec3 albedo     = texture(g_albedo_spec, fs_in.tc).xyz;
-  vec3 metallic  = texture(g_metal_rough, fs_in.tc).xyz;
-  float roughness = texture(g_metal_rough, fs_in.tc).a;
-  //float ao        = texture(g_ao, TexCoords).r;
-  float ao        = 1.0;
+  float ao        = texture(g_occ_rough_met, fs_in.tc).r;
+  float roughness = texture(g_occ_rough_met, fs_in.tc).g;
+  float metallic  = texture(g_occ_rough_met, fs_in.tc).b;
+  //float ao        = 1.0;
   vec3 N = texture(g_norm, fs_in.tc).xyz;
   vec3 V = normalize(view_pos - world_pos);
   g_shadow_bias = max(0.05 * (1.0 - dot(N, dir_light.dir)), 0.005);
@@ -446,6 +455,7 @@ void main() {
   vec3 F0 = vec3(0.04); 
   F0 = mix(F0, albedo, metallic);
 
+  // Calculate directional light
   vec3 Lo = vec3(0.0);
   {
     vec3 L = normalize(dir_light.dir);
@@ -465,11 +475,16 @@ void main() {
     Lo += (kD * albedo / PI + specular) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
   }
 
-  //int cascade_index = calc_cascade_map_layer_index(world_pos);
-  //float calc_shadow(vec4 light_space_coords, int cascade_index) {
+  // Do shadow mapping..
+  vec4 light_space_coord[4];
+  for (int i = 0; i < 4; ++i) {
+    light_space_coord[i] = lsm[i] * vec4(world_pos,1.0);
+  }
+  int layer = calc_cascade_map_layer_index(world_pos);
+  float shadowed = calc_shadow(light_space_coord[layer], layer);
 
   vec3 ambient = vec3(0.03) * albedo * ao;
-  vec3 color = ambient + Lo;
+  vec3 color = ambient + Lo * (1-shadowed);
 
 
 

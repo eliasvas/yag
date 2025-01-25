@@ -135,6 +135,7 @@ xGLTF_Material :: struct {
   roughness_factor : float;
 
   normal_tex_id : s64 = XGLTF_INVALID_ID;
+  ao_tex_id : s64 = XGLTF_INVALID_ID;
   // extra normal properties
 
   emissive_factor : v3;
@@ -386,6 +387,8 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
 
     normal_tex_id, nn_found := xjson_get_int(material_node, "normalTexture.index", XGLTF_INVALID_ID);
 
+    ao_tex_id, ao_found := xjson_get_int(material_node, "occlusionTexture.index", XGLTF_INVALID_ID);
+
     emissive_factor, ef_found := xjson_get_float_array(material_node, "emissiveFactor", 3);
 
 
@@ -399,6 +402,7 @@ xgltf_scene_load :: (gltf_path : string) ->xGLTF_Scene {
     if rf_found then material.roughness_factor = roughness_factor;
 
     if nn_found then material.normal_tex_id = normal_tex_id;
+    if ao_found then material.ao_tex_id = ao_tex_id;
 
     array_add(*scene.materials, material);
   }
@@ -607,6 +611,7 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
       tex : *oglTex = alloc(size_of(oglTex));
       ntex : *oglTex = alloc(size_of(oglTex));
       mtex : *oglTex = alloc(size_of(oglTex));
+      aotex : *oglTex = alloc(size_of(oglTex));
       // FIXME: it can also be other image formats.. we should encode this somewhere in GLTF structure
       if primitive.material_id != XGLTF_INVALID_ID {
         gltf_mat := scene.materials[primitive.material_id];
@@ -648,6 +653,19 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
         } else {
           m.material.normal_tex = null;
         }
+        // initialize ao map if there is one
+        if gltf_mat.ao_tex_id != XGLTF_INVALID_ID {
+          png_data := scene.images[scene.textures[scene.materials[primitive.material_id].ao_tex_id].image_id].buf;
+          tex_w, tex_h, channels : s32;
+          //stbi_set_flip_vertically_on_load(1);
+          raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
+          //defer free(raw_image_data);
+          ogl_tex_init(aotex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+          m.material.ao_tex = aotex;
+        } else {
+          m.material.ao_tex = null;
+        }
+ 
       }
       //////////////////////////////////////////////////
 
@@ -692,6 +710,9 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
       }
       array_add(*mesh.primitives, m);
     }
+
+    // TODO: generate tangent attrib, if there is a normal attrib
+    //array_add(*mesh.primitives, tangent_attrib_desc);
 
     // FIXME: this is hacky, we should parse the node hierarchy and create meshes from there generally
     // we find the skin node associated with the mesh and attach it inside the mesh
