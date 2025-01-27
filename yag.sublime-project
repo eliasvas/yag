@@ -1,0 +1,19 @@
+{
+   "folders":
+   [
+      {
+         "path": "."
+      }
+   ],
+   "build_systems":
+   [
+      {
+         "file_regex": "^([A-Z]:[^:]+):(\\d+(,\\d+)?): Error: (.*)",
+         "name": "yag-build",
+         "shell_cmd": "jai -quiet build.jai && cd .build && game && cd ..",
+         "working_dir": "$project_path",
+      }
+   ],
+   // install JaiTools (via CTRL+Shift+P -> PackageInstall -> JaiTools) for jai support
+   // also install neovim (via web) + NeoVintageous (via CTRL+Shift+P -> PackageInstall -> NeoVintageous) if you like VIM motions!
+}

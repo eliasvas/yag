@@ -1,6 +1,7 @@
 ### Description
-Yet Another Game/Engine. Not sure what I'll do with this one.
-I think I'll start off with a simple model/material viewer and go from there.
+My attempt at making (yet-another) Game/Engine in Jai.</br>
+I want to keep things minimal, to be able to move around the codebase easily.</br>
+I'll try to make an actual game this time, I promise!</br>
 
 ### Building
 Generally, you can:
@@ -28,3 +29,10 @@ vim.api.nvim_set_keymap('n', '<C-b>', ':w<CR>:!jai -quiet build.jai && cd .build
 Now you can build while inside neovim by pressing CTRL+B and a terminal will spawn for the whole build/run for debug info
 It just works.
 ```
+
+### Favourite Resources:
+[LearnOpenGL](https://learnopengl.com/) - to understand/implement the 'modern' rendering pipeline  </br>
+[glTF-Sample-Models](https://github.com/KhronosGroup/glTF-Sample-Models) - model collection to test out the glTF parser</br>
+[Ryan's UI Series](https://www.rfleury.com/p/ui-series-table-of-contents) - great UI articles, helped me a ton</br>
+[Ryan's Arena Article](https://www.rfleury.com/p/untangling-lifetimes-the-arena-allocator) opened my eyes to manual memory management</br>
+[Cherno Asset System](https://www.youtube.com/watch?v=9oDIdb8RLh0) good intro to asset systems</br>

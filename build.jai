@@ -1,14 +1,9 @@
-// @NOTE: If you use neovim, you can add this to your init.lua for hassle free building with CTRL+B
-// vim.api.nvim_set_keymap('n', '<C-b>', ':w<CR>:!jai -quiet build.jai && cd .build && game && cd .. && echo "Press any key to continue..." && pause<CR>', { noremap = true, silent = true })
+#import "Basic";
+#import "Compiler";
 
 #run build();
 
 build :: () {
-   {
-      w2 := get_current_workspace();
-      print("the current workspace is %\n", w2);
-   }
-
    {
       w := compiler_create_workspace();
       options := get_build_options();
@@ -16,11 +11,10 @@ build :: () {
       options.output_executable_name = "game";
       options.output_path = ".build";
 
-      import_path: [..] string;
-      array_add(*import_path, ..options.import_path);
-      array_add(*import_path, ".");
-      array_add(*import_path, "./chaos");
-      options.import_path = import_path;
+      import_paths: [..]string;
+      array_add(*import_paths, tprint("%", #filepath));
+      for options.import_path array_add(*import_paths, it);
+      options.import_path = import_paths;
 
       // TODO: differentiate on DEBUG/RELEASE builds
       {
@@ -42,7 +36,3 @@ build :: () {
    }
    set_build_options_dc(.{do_output=false});
 }
-
-#import "Basic";
-#import "Compiler";
-

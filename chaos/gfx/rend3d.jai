@@ -6,6 +6,8 @@
 
 // TODO: Add bindings to samplers shader code!
 
+// TODO: Add SSAO pass (optional)
+
 xRenderableBundle :: struct {
   mesh : xMesh;
   model : m4;
