@@ -240,9 +240,9 @@ xmesh_render :: (using mesh : *xMesh, sp : *oglSP, mat_ublock : *oglUBlock, mode
       ogl_ublock_bind_to_slot(mat_ublock);
     }
 
-    if mp.ibo.count {
+    if mp.ibo.count > 0 {
       ogl_bind_index_buffer(*mp.ibo);
-      ogl_draw_indexed(oglPrimitive.TRIANGLES, xx mp.ibo.count, mp.ibo.size / mp.ibo.count);
+      ogl_draw_indexed(oglPrimitive.TRIANGLES, xx mp.ibo.count, mp.ibo.bytes_per_element);
     } else {
       ogl_draw(oglPrimitive.TRIANGLES, 0, xx mp.vbos[0].vbuf.count);
     }

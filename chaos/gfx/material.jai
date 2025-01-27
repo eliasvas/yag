@@ -12,7 +12,6 @@ xPBR_Material :: struct {
   emissive_factor : v3 = v3.{1,1,1};
 }
 
-//@FIXME: this is retarded - move over to actual PBR pipeline
 xpbr_material_set_to_shader :: (using mat : *xPBR_Material, sp : *oglSP) {
   if base_col_tex then ogl_sp_bind_sampler_to_slot(sp, "albedo_map", base_col_tex, 0);
   if metal_rough_tex then ogl_sp_bind_sampler_to_slot(sp, "metal_rough_map", metal_rough_tex, 1);
@@ -20,19 +19,9 @@ xpbr_material_set_to_shader :: (using mat : *xPBR_Material, sp : *oglSP) {
   if ao_tex then ogl_sp_bind_sampler_to_slot(sp, "ao_map", ao_tex, 3);
 }
 
-xpbr_material_set_to_ublock:: (using mat : *xPBR_Material, mat_ublock : *oglUBlock) {
+xpbr_material_set_to_ublock :: (using mat : *xPBR_Material, mat_ublock : *oglUBlock) {
   ogl_ublock_set(mat_ublock, "base_factor", xx *base_factor);
   ogl_ublock_set(mat_ublock, "metallic_factor", xx *metal_factor);
   ogl_ublock_set(mat_ublock, "roughness_factor", xx *rough_factor);
   ogl_ublock_set(mat_ublock, "emissive_factor", xx *emissive_factor);
 }
-
-/*
-layout(std140, binding = 3) uniform MaterialData {
-  vec4 base_factor;
-  float metallic_factor;
-  float roughness_factor;
-  vec3 emissive_factor;
-};
-*/
-

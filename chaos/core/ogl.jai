@@ -4,47 +4,127 @@
 
 // TODO: minimize the code: texture/RT generation could be improved a lot - the less code the better!
 
-/*
-Exposition:
-  OpenGL SUCKS! Tons of global state, undefined behaviour, horrible anachronistic API and countless other things. It does one thing right though, cross-platform support. Pretty much every OS supports OpenGLES3. ogl is a wrapper that addresses most issues plaguing current-day OpenGL. The interface is modern enough (D3D11 look and feel), which is a sweet spot because you can prototype fast without having to think about synchronization or pipelines or other low level stuff. Its a single-file OpenGL abstraction that is Gud enough.
-General usage:
-  The basis around this wrapper is the SP (shader program), it ecompasses most of the drawcall. You should initialize your SP with correct attributes from your GLSL shaders. To begin drawing you first bind your Render Target (null for fbo0), then bind the SP then you bind the vertex and index buffer along with any shader bindings (be it texture samplers or uniform blocks) and also any dynamic state you wish to configure (for example enable depth testing with LESS condition) and then you simply draw your specified amount of vertices.
-Sample drawcall:
-  ogl_bind_rt(*my_rt);
-  ogl_bind_sp(*my_sp);
-  ogl_set_viewport(0,0,my_rt.dim.x, my_rt.dim.y);
-  ogl_set_scissor(0,0,my_rt.dim.x, my_rt.dim.y);
-  ogl_bind_vertex_buffer(*my_vbo);
-  ogl_bind_index_buffer(*my_ibo);
-  ogl_add_binding(0,0, *ublock_0);
-  ogl_add_binding(0,1, *tex0);
-  ogl_draw(.TRIANGLES, 0, 36);
-*/
+/* This is a simple example on how to use the major features of ogl - like VBOS/IBOS ublocks/textures and stuff
+main :: () {
+  xeng_init();
+  VERT_SHADER :: #string DONE
+  #version 430 core
+  layout (location = 0) in vec3 in_pos;
+  layout (location = 1) in vec3 in_color;
 
+  out VS_OUT {
+    vec3 color;
+    vec2 tc;
+  } vs_out;
+
+  void main() {
+    gl_Position = vec4(in_pos.xyz, 1.0);
+    vs_out.tc = in_pos.xy;
+    vs_out.color = in_color;
+  }
+  DONE
+  FRAG_SHADER :: #string DONE
+  #version 430 core
+  in VS_OUT {
+    vec3 color;
+    vec2 tc;
+  } fs_in;
+
+  layout(std140, binding = 1) uniform SimpleData {
+    float time;
+  };
+
+  uniform sampler2D tex;
+
+  void main() {
+    gl_FragColor = vec4(time*fs_in.color * texture(tex, fs_in.tc).xyz, 1.0);
+  }
+  DONE
+
+  // Creating a texture for use in the shader
+  white_tex:oglTex;
+  white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
+  ogl_tex_init(*white_tex, .{1,1}, white.data, oglTexFormat.RGBA8U);
+
+  // Creating the shader program
+  simple_sp : oglSP;
+  ogl_sp_init(*simple_sp, VERT_SHADER, FRAG_SHADER);
+
+  // Creating the uniform block associated with this shader
+  simple_ub : oglUBlock;
+  ogl_ublock_load(*simple_ub, *simple_sp, 1);
+ 
+  // Creating the vertex Definition for the VBO (can be omitted if all locations are in a single buffer, we figure it out!)
+  MyVertex :: struct {pos : v3; color: v3;};
+  vertex_def : oglVertexDef; // the definition for the vertex drawn
+  vertex_def.vbuf = alloc(size_of(oglBuf));
+  attribs : [..]oglShaderAttrib;
+  array_add(*attribs, .{loc=0,offset=cast(u32)offset_of(MyVertex,#code pos)});
+  array_add(*attribs, .{loc=1,offset=cast(u32)offset_of(MyVertex,#code color)});
+  vertex_def.attribs = attribs;
+
+  // Creating the vertex buffer holding our data for the drawcall
+  triangle_data : []float32 = .[ -1.0,-1.0,0.0,1,0,0, +1.0,-1.0,0.0,0,1,0, +0.0,+1.0,0.0,0,0,1, ];
+  ogl_buf_init(vertex_def.vbuf, .VERTEX, triangle_data.data, cast(u32)triangle_data.count, size_of(MyVertex));
+
+  // Creating the index buffer for our data
+  indices := u32.[0,1,2];
+  ibo : oglBuf;
+  ogl_buf_init(*ibo, .INDEX, indices.data, cast(u32)indices.count, size_of(u32));
+
+  while true {
+    xeng_frame_init();
+    ogl_rt_clear(null);
+    if (xim_kkey_pressed(.SC_ESCAPE)) exit(1);
+
+    ogl_sp_bind_sampler_to_slot(*simple_sp, "tex", *white_tex, 0);
+
+    ogl_bind_sp(*simple_sp);
+
+    time := cast(float32)seconds_since_init();
+    ogl_ublock_set(*simple_ub, "time", xx *time);
+
+    bindings := oglBindingDesc.{
+      index_buf = *ibo,
+      vertex_bufs = []oglVertexDef.{1, *vertex_def},
+    };
+    ogl_sp_apply_bindings(*simple_sp, bindings);
+
+    dyn_state := oglDynState.{
+      viewport = .{0,0,xeng().win.dim.x, xeng().win.dim.y},
+      scissor = .{},
+      flags = .BLEND
+    };
+    ogl_sp_apply_dyn_state(*simple_sp, dyn_state);
+    ogl_ublock_bind_to_slot(*simple_ub);
+
+    ogl_draw_indexed(oglPrimitive.TRIANGLES, cast(u32)ibo.count, ibo.bytes_per_element);
+
+    xeng_frame_end();
+  }
+}
+*/
 
 ///////////////////////////////
 // ogl Constants
 ///////////////////////////////
+
 OGL_MAX_ATTRIBS :: 8;
 OGL_MAX_TEX_SLOTS :: 8;
-
 
 ///////////////////////////////
 // ogl Buffers
 ///////////////////////////////
 
-oglBufKind :: enum {
-  VERTEX;
-  INDEX;
-  UNIFORM;
-};
+oglBufKind :: enum { VERTEX; INDEX; UNIFORM; };
 oglBuf :: struct {
-  count      : s64;
-  // @CHECK: is this per-element or for all?
-  size       : s64; //in bytes
-  kind       : oglBufKind;
-  impl_state : *void;
+  bytes_per_element : s64; // how much space each element takes
+  count             : s64; // how many elements (e.g 2 x vec4)
+  kind              : oglBufKind; // kind of buffer (index/vertex/uniform)
+  impl_state        : *void; // OpenGL id
 };
+
+ogl_buf_get_total_byte_count :: (using buf: *oglBuf) -> s64 { return count * bytes_per_element; }
 
 ogl_buf_to_gl_buf :: (kind : oglBufKind) ->GLuint {
   gl_buf_kind : GLuint = 0;
@@ -60,14 +140,14 @@ ogl_buf_to_gl_buf :: (kind : oglBufKind) ->GLuint {
   }
   return gl_buf_kind;
 }
-ogl_buf_init :: (using buf : *oglBuf, bkind : oglBufKind, data : *void, data_count : u32, data_size : u32) -> bool {
+ogl_buf_init :: (using buf : *oglBuf, bkind : oglBufKind, data : *void, data_count : u32, bytes_per_elem : u32) -> bool {
   kind = bkind;
   count = data_count;
-  size = data_size * data_count;
+  bytes_per_element = bytes_per_elem;
   buffer_kind := ogl_buf_to_gl_buf(kind);
   glGenBuffers(1, xx *impl_state);
   glBindBuffer(buffer_kind, xx buf.impl_state);
-  ogl_buf_update(buf, data,data_count,data_size);
+  ogl_buf_update(buf, data,xx count,xx bytes_per_element);
   glBindBuffer(buffer_kind, 0);
   return true;
 }
@@ -76,22 +156,22 @@ ogl_buf_deinit :: (using buf : *oglBuf) -> bool {
   glDeleteBuffers(1, xx impl_state);
   return true;
 }
-ogl_buf_update :: (using buf : *oglBuf, data : *void, data_count : u32, data_size : u32) {
+ogl_buf_update :: (using buf : *oglBuf, data : *void, data_count : u32, bytes_per_elem: u32) {
   count = data_count;
-  size = data_size * data_count;
+  bytes_per_element = bytes_per_elem;
   buffer_kind := ogl_buf_to_gl_buf(kind);
   glBindBuffer(buffer_kind, xx buf.impl_state);
   //if data != null {
-  glBufferData(buffer_kind, size, data, GL_STREAM_DRAW);
+  glBufferData(buffer_kind, ogl_buf_get_total_byte_count(buf), data, GL_STREAM_DRAW);
   //}
 }
-ogl_buf_sub_update :: (using buf : *oglBuf, offset : s64, data : *void, data_count : u32, data_size : u32) {
+ogl_buf_sub_update :: (using buf : *oglBuf, offset : s64, data : *void, data_count : u32, bytes_per_elem : u32) {
   buffer_kind := ogl_buf_to_gl_buf(kind);
   glBindBuffer(buffer_kind, xx buf.impl_state);
-  s := data_size * data_count;
+  size := data_count * bytes_per_elem;
   if data != null {
     buffer_kind := ogl_buf_to_gl_buf(kind);
-    glBufferSubData(buffer_kind, offset, s, data);
+    glBufferSubData(buffer_kind, offset, size, data);
   }
 }
 
@@ -122,6 +202,7 @@ ogl_bind_uniform_buffer :: (using buf : *oglBuf) {
 ///////////////////////////////
 // ogl Shaders
 ///////////////////////////////
+
 oglShaderDataType :: enum {
   FLOAT;
   INT;
@@ -305,7 +386,7 @@ ogl_bind_attrib :: (attrib : *oglShaderAttrib) {
 ogl_bind_attribs :: (sp : * oglSP, vbo : *oglBuf, attribs : []oglShaderAttrib){
   for i : 0..attribs.count-1 {
     attrib : oglShaderAttrib = attribs[i];
-    if attrib.stride == 0 then attrib.stride = cast(u32)vbo.size / cast(u32)vbo.count;
+    if attrib.stride == 0 then attrib.stride = cast(u32)vbo.bytes_per_element;
     attrib.type = sp.attribs[attrib.loc].type;
     ogl_bind_attrib(*attrib);
   }
@@ -356,15 +437,17 @@ ogl_prim_to_gl_prim :: (prim : oglPrimitive) -> GLuint {
   }
   return gl_prim;
 }
+
 ogl_draw :: (prim : oglPrimitive, first : u32, count : u32) {
   glDrawArrays(ogl_prim_to_gl_prim(prim), xx first, xx count);
 }
 ogl_draw_instanced :: (prim : oglPrimitive, first : u32, count : u32, instance_count : u32) {
   glDrawArraysInstanced(ogl_prim_to_gl_prim(prim), xx first, xx count, instance_count);
 }
-ogl_draw_indexed :: (prim : oglPrimitive, count : u32, index_size :s64= size_of(u32)) {
+ogl_draw_indexed :: (prim : oglPrimitive, count : u32, index_size :s64 = size_of(u32)) {
   glDrawElements(ogl_prim_to_gl_prim(prim), count, xx ifx index_size == size_of(u32) then GL_UNSIGNED_INT else GL_UNSIGNED_SHORT, null);
 }
+
 ///////////////////////////////
 // ogl Textures
 ///////////////////////////////
@@ -641,7 +724,7 @@ ogl_ublock_bind_to_slot :: (using ub : *oglUBlock) {
 }
 
 ogl_ublock_set :: (using ub : *oglUBlock, buf : *u8) {
-  ogl_buf_update(*uniform_buf, buf, 1, xx uniform_buf.size);
+  ogl_buf_update(*uniform_buf, buf, 1, xx ogl_buf_get_total_byte_count(*uniform_buf));
 }
 
 ogl_ublock_calc_array_offset :: (var_name : string) ->u32 {
@@ -740,7 +823,7 @@ ogl_sp_apply_bindings :: (using sp : *oglSP, bindings : oglBindingDesc) {
   }
   enabled_locs : [OGL_MAX_ATTRIBS]bool;
   for *vbo, idx : bindings.vertex_bufs {
-    if vbo.vbuf.size == 0 then continue;
+    if ogl_buf_get_total_byte_count(vbo.vbuf) == 0 then continue;
     ogl_bind_vertex_buffer(vbo.vbuf, vbo.attribs);
     ogl_bind_attribs(sp, vbo.vbuf, vbo.attribs);
     for attr : vbo.attribs {
