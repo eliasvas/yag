@@ -35,6 +35,7 @@ xRend3D :: struct {
 
   shadow_rt : oglRT;
   g_buffer  : oglRT;
+  hdr_skybox : xHDR_Skybox;
 };
 
 
@@ -60,7 +61,9 @@ xr3d_init :: (using rend : *xRend3D) {
   ogl_sp_init(*copy_to_depth_sp, DEF_VERT_SHADER, COPY_TO_DEPTH_FRAG_SHADER);
   // initialize the shadow Render Target
   assert(ogl_rt_init(*shadow_rt, .{2048,2048}, .D32F));
-  assert(ogl_rt_init(*g_buffer, .{xeng().win.dim.x,xeng().win.dim.y}, .RGBA32F));
+  assert(ogl_rt_init(*g_buffer, .{xeng().win.dim.x,xeng().win.dim.y}, .RGBA16F));
+
+  rend.hdr_skybox = xhdr_skybox_generate("../assets/boma_4k.hdr");
 }
 
 xr3d_push_bundle :: (using rend : *xRend3D, mesh : xMesh, model : m4) {
@@ -203,6 +206,8 @@ xr3d_do_def_pass :: (using rend : *xRend3D) {
 
   shadow_map := ogl_rt_get_attachment(*shadow_rt, .DS);
   ogl_sp_bind_sampler_to_slot(*def_sp, "shadow_map", *shadow_map, 4);
+
+  xhdr_skybox_bind_cubemap_to_sp(*hdr_skybox, *def_sp);
 
   xcsm_data_set_to_ub(*def_ub1, *xeng().csm_data, xeng().dir_light.dl, true);
 
@@ -368,6 +373,9 @@ uniform sampler2D g_albedo_spec;
 uniform sampler2D g_occ_rough_met;
 uniform sampler2DArray shadow_map;
 
+uniform sampler2D irradiance_map;
+uniform samplerCube cubemap;
+
 struct DirLight {
     vec3 dir;
 
@@ -443,6 +451,9 @@ void main() {
   vec3 normal = texture(g_norm, fs_in.tc).xyz;
   vec2 tex_coords = fs_in.tc;
 
+
+  vec4 irradiance_from_map = texture(irradiance_map, fs_in.tc);
+  vec4 cubemap_from_map = texture(cubemap, vec3(fs_in.tc,0));
 
   vec3 albedo     = pow(texture(g_albedo_spec, fs_in.tc).xyz, vec3(2.2));
   //vec3 albedo     = texture(g_albedo_spec, fs_in.tc).xyz;

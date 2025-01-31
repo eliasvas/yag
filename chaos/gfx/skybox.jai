@@ -117,3 +117,58 @@ void main() {
   FragColor = vec4(col, 1.0);
 }
 DONE
+
+xHDR_Skybox :: struct {
+  hdr_eq_tex : oglTex;
+  cubemap : oglTex;
+  sp  : oglSP;
+  ub_b1  : oglUBlock;
+};
+
+xhdr_skybox_generate :: (hdr_eq_image_path : string) -> xHDR_Skybox {
+  skybox : xHDR_Skybox;
+
+  // create the base equirectangular HDR texture
+  {
+    hdr_data, succ := read_entire_file(hdr_eq_image_path);
+    assert(succ);
+    tex_w, tex_h, channels : s32;
+    assert(stbi_is_hdr(hdr_eq_image_path.data) != 0);
+    stbi_set_flip_vertically_on_load(1);
+    assert(stbi_is_hdr_from_memory(hdr_data.data, cast(s32)hdr_data.count) != 0);
+    raw_image_data := stbi_loadf_from_memory(hdr_data.data, cast(s32)hdr_data.count, *tex_w, *tex_h, *channels, 4);
+    stbi_set_flip_vertically_on_load(0);
+    //defer free(raw_image_data);
+    ogl_tex_init(*skybox.hdr_eq_tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA16F);
+  }
+  // write all 6 sides of cubemap to a render target
+  junk_rt : oglRT;
+  {
+    ogl_rt_init(*junk_rt, .{512,512}, oglTexFormat.RGBA16F, 6);
+    ogl_rt_clear(*junk_rt, .{1,0,0,1});
+  }
+  // copy these from the RT to a cubemap!
+  skybox.cubemap = ogl_tex_convert_rt_to_cubemap(*junk_rt);
+
+  // optional: deinit the RT
+
+  return skybox;
+}
+
+xhdr_skybox_render :: (using skybox : *xHDR_Skybox) {
+
+}
+
+xhdr_skybox_deinit :: (hdr_equi_image_path : string) {
+  // delete hdr_eq_tex
+  // delete cubemap 
+  // delete sp
+}
+
+// @FIXME: clean this up
+xhdr_skybox_bind_cubemap_to_sp :: (using skybox : *xHDR_Skybox, shader : *oglSP) {
+  ogl_sp_bind_sampler_to_slot(shader, "irradiance_map", *hdr_eq_tex, 5);
+  ogl_sp_bind_sampler_to_slot(shader, "cubemap", *cubemap, 6);
+}
+
+
