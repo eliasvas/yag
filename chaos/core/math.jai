@@ -11,7 +11,6 @@
   * https://www.scratchapixel.com/index.html
   * https://learnopengl.com/
   * https://immersivemath.com/ila/index.html
-  * TODO: we need to add support for Quaternions
 */
 
 ////////////////////////

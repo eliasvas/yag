@@ -648,8 +648,17 @@ ogl_rt_init :: (using rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat, at
   }
   return (impl_state != null);
 }
-ogl_rt_bind :: (using rt : *oglRT) {
-  glBindFramebuffer(GL_FRAMEBUFFER, xx (ifx rt != null then impl_state else null));
+ogl_rt_bind :: (using rt : *oglRT, attachment_indices : []oglRTAttachment = .{}) {
+  if attachment_indices.count == 0 {
+    glBindFramebuffer(GL_FRAMEBUFFER, xx (ifx rt != null then impl_state else null));
+  }else {
+    // here we can bind only specific attachments, instead of the whole RT
+    attachments_gl : [..] u32;
+    attachments_gl.allocator = temp;
+    for idx : attachment_indices { array_add(*attachments_gl, xx(GL_COLOR_ATTACHMENT0+idx)); }
+    glDrawBuffers(xx attachments_gl.count, attachments_gl.data);
+    glBindFramebuffer(GL_FRAMEBUFFER, xx (ifx rt != null then impl_state else null));
+  }
 }
 ogl_rt_clear :: (using rt : *oglRT, color : v4 = .{0,0,0,0}) {
   ogl_rt_bind(rt);

@@ -373,8 +373,7 @@ uniform sampler2D g_albedo_spec;
 uniform sampler2D g_occ_rough_met;
 uniform sampler2DArray shadow_map;
 
-uniform sampler2D irradiance_map;
-uniform samplerCube cubemap;
+uniform samplerCube irradiance_map;
 
 struct DirLight {
     vec3 dir;
@@ -444,16 +443,13 @@ float DistributionGGX(vec3 N, vec3 H, float roughness) { float a = roughness*rou
 float GeometrySchlickGGX(float NdotV, float roughness) { float r = (roughness + 1.0); float k = (r*r) / 8.0; float nom   = NdotV; float denom = NdotV * (1.0 - k) + k; return nom / denom; }
 float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) { float NdotV = max(dot(N, V), 0.0); float NdotL = max(dot(N, L), 0.0); float ggx2 = GeometrySchlickGGX(NdotV, roughness); float ggx1 = GeometrySchlickGGX(NdotL, roughness); return ggx1 * ggx2;}
 vec3 fresnelSchlick(float cosTheta, vec3 F0) { return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0); }
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) { return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0); }   
 
 
 void main() {
   vec3 world_pos = texture(g_pos, fs_in.tc).xyz;
   vec3 normal = texture(g_norm, fs_in.tc).xyz;
   vec2 tex_coords = fs_in.tc;
-
-
-  vec4 irradiance_from_map = texture(irradiance_map, fs_in.tc);
-  vec4 cubemap_from_map = texture(cubemap, vec3(fs_in.tc,0));
 
   vec3 albedo     = pow(texture(g_albedo_spec, fs_in.tc).xyz, vec3(2.2));
   //vec3 albedo     = texture(g_albedo_spec, fs_in.tc).xyz;
@@ -496,9 +492,20 @@ void main() {
   int layer = calc_cascade_map_layer_index(world_pos);
   float shadowed = calc_shadow(light_space_coord[layer], layer);
 
-  vec3 ambient = vec3(0.03) * albedo * ao;
-  vec3 color = ambient + Lo * (1-shadowed);
+  // ambient lighting (via IBL)
+  ///*
+  vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+  vec3 kD = vec3(1.0) - kS;
+  kD *= 1.0 - metallic;
+  //vec3 irradiance = texture(irradiance_map, N).rgb;
+  vec3 irradiance = vec3(0.7,0.7,0.7);
+  vec3 diffuse = irradiance * albedo; 
+  vec3 ambient = (kD * diffuse) * ao;
+  //*/
+  //vec3 ambient = vec3(0.002);
 
+
+  vec3 color = ambient + Lo * (1-shadowed);
 
 
   // HDR tonemapping

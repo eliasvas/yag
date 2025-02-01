@@ -253,7 +253,7 @@ CSM_GEOM_SHADER :: #string DONE
 #version 430 core
 layout(triangles, invocations = 4) in;
 layout(triangle_strip, max_vertices = 3) out;
- 
+
 layout(std140, binding = 1) uniform ShadowData {
   mat4 lsm[4];
   mat4 model;
@@ -261,11 +261,11 @@ layout(std140, binding = 1) uniform ShadowData {
 };
 
 void main() {          
-    for (int i = 0; i < 4; ++i) {
-        gl_Position = lsm[gl_InvocationID] * gl_in[i].gl_Position;
-        gl_Layer = gl_InvocationID;
-        EmitVertex();
-    }
-    EndPrimitive();
+  for (int i = 0; i < 4; ++i) {
+    gl_Position = lsm[gl_InvocationID] * gl_in[i].gl_Position;
+    gl_Layer = gl_InvocationID;
+    EmitVertex();
+  }
+  EndPrimitive();
 }
 DONE
