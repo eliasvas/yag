@@ -497,8 +497,8 @@ void main() {
   vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
   vec3 kD = vec3(1.0) - kS;
   kD *= 1.0 - metallic;
-  //vec3 irradiance = texture(irradiance_map, N).rgb;
-  vec3 irradiance = vec3(0.7,0.7,0.7);
+  //vec3 irradiance = texture(irradiance_map, N).rgb * 0.02; // WHY ???? i think convolution map is generated wrongly (@FIXME)
+  vec3 irradiance = vec3(0.4,0.4,0.4);
   vec3 diffuse = irradiance * albedo; 
   vec3 ambient = (kD * diffuse) * ao;
   //*/

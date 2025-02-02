@@ -453,6 +453,56 @@ ogl_draw_indexed :: (prim : oglPrimitive, count : u32, index_size :s64 = size_of
 // ogl Textures
 ///////////////////////////////
 
+oglTexFilter :: enum {
+  NEAREST;
+  LINEAR;
+}
+ogl_tex_filter_to_gl_tex_filter :: (tf : oglTexFilter) -> u32 {
+  if tf == {
+    case .NEAREST; return GL_NEAREST;
+    case .LINEAR; return GL_LINEAR;
+    case; return GL_LINEAR;
+  }
+}
+
+oglTexWrapMethod :: enum {
+  REPEAT;
+  MIRRORED_REPEAT;
+  CLAMP_TO_EDGE;
+  CLAMP_TO_BORDER;
+}
+ogl_tex_wrap_method_to_gl_tex_wrap_method :: (wrap : oglTexWrapMethod) -> u32 {
+  if wrap == {
+    case .REPEAT; return GL_REPEAT;
+    case .MIRRORED_REPEAT; return GL_MIRRORED_REPEAT;
+    case .CLAMP_TO_EDGE; return GL_CLAMP_TO_EDGE;
+    case .CLAMP_TO_BORDER; return GL_CLAMP_TO_BORDER;
+    case; return GL_REPEAT;
+  }
+}
+
+oglTexParams :: struct {
+  min_filter    : oglTexFilter;
+  mag_filter    : oglTexFilter;
+  wrap_s        : oglTexWrapMethod;
+  wrap_t        : oglTexWrapMethod;
+  wrap_r        : oglTexWrapMethod;
+  generate_mips : bool;
+}
+
+ogl_apply_tex_parameters_for_gl_tex_target :: (target : u32, params : oglTexParams) {
+  //if params.generate_mips then glGenerateMipmap(GL_TEXTURE_2D);
+  glTexParameteri(target, GL_TEXTURE_MIN_FILTER, xx ogl_tex_filter_to_gl_tex_filter(params.min_filter));
+  glTexParameteri(target, GL_TEXTURE_MAG_FILTER, xx ogl_tex_filter_to_gl_tex_filter(params.mag_filter));
+  glTexParameteri(target, GL_TEXTURE_WRAP_S, xx ogl_tex_wrap_method_to_gl_tex_wrap_method(params.wrap_s));
+  border_color := float32.[1,1,1,1];
+  if params.wrap_s == .CLAMP_TO_BORDER then glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, border_color.data);
+  glTexParameteri(target, GL_TEXTURE_WRAP_T, xx ogl_tex_wrap_method_to_gl_tex_wrap_method(params.wrap_t));
+  if params.wrap_t == .CLAMP_TO_BORDER then glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, border_color.data);
+  glTexParameteri(target, GL_TEXTURE_WRAP_R, xx ogl_tex_wrap_method_to_gl_tex_wrap_method(params.wrap_r));
+  if params.wrap_r == .CLAMP_TO_BORDER then glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, border_color.data);
+}
+
 oglTexFormat :: enum {
   R8U;
   RGBA8U;
@@ -479,11 +529,14 @@ ogl_tex_convert_rt_to_cubemap :: (using rt : *oglRT) -> oglTex {
 
   for i : 0..5 { glTexImage2D(xx (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i), 0, GL_RGBA16F, xx dim.x, xx dim.y, 0, GL_RGBA, GL_HALF_FLOAT, xx 0); }
 
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  params := oglTexParams.{
+    min_filter = .LINEAR,
+    mag_filter = .LINEAR,
+    wrap_s = .CLAMP_TO_EDGE,
+    wrap_t = .CLAMP_TO_EDGE,
+    wrap_r = .CLAMP_TO_EDGE,
+  };
+  ogl_apply_tex_parameters_for_gl_tex_target(GL_TEXTURE_CUBE_MAP, params);
 
   ogl_rt_bind(rt);
   for i : 0..5{
@@ -495,20 +548,16 @@ ogl_tex_convert_rt_to_cubemap :: (using rt : *oglRT) -> oglTex {
   return cubemap;
 }
 
-ogl_tex_init :: (using tex : *oglTex, dimensions : v2, data : *u8, data_format : oglTexFormat) -> bool {
+ogl_tex_init :: (using tex : *oglTex, dimensions : v2, data : *u8, data_format : oglTexFormat, params : oglTexParams = .{}) -> bool {
   dim = dimensions;
   format = data_format;
 
   pixel_type := ifx ogl_tex_format_is_integral(format) then GL_UNSIGNED_BYTE else GL_FLOAT;
   glGenTextures(1, xx *impl_state);
   glBindTexture(GL_TEXTURE_2D, cast(GLuint)impl_state);
-  // @TODO: options for wrapping/filters/mips
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  ogl_apply_tex_parameters_for_gl_tex_target(GL_TEXTURE_2D, params);
   glTexImage2D(GL_TEXTURE_2D, 0, xx ogl_tex_format_to_gl_internal_format(format), xx dim.x, xx dim.y, 0, xx ogl_tex_format_to_gl_pixel_format(format), xx pixel_type, data);
-  glGenerateMipmap(GL_TEXTURE_2D);
+  if params.generate_mips then glGenerateMipmap(GL_TEXTURE_2D);
 
   return (impl_state != null);
 }
@@ -592,12 +641,14 @@ ogl_rt_init :: (using rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat, at
       glGenTextures(1, *g_light_depth_maps);
       glBindTexture(GL_TEXTURE_2D_ARRAY, g_light_depth_maps);
       glTexImage3D( GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT32F, xx dim.x, xx dim.y,cascade_count+1,0, GL_DEPTH_COMPONENT, GL_FLOAT, xx 0);
-      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-      border_color := float32.[1,1,1,1];
-      glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, border_color.data);
+      params := oglTexParams.{
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+        wrap_s = .CLAMP_TO_BORDER,
+        wrap_t = .CLAMP_TO_BORDER,
+        wrap_r = .CLAMP_TO_BORDER,
+      };
+      ogl_apply_tex_parameters_for_gl_tex_target(GL_TEXTURE_2D_ARRAY, params);
       glBindFramebuffer(GL_FRAMEBUFFER, xx impl_state);
       glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, g_light_depth_maps, 0);
       glDrawBuffer(GL_NONE);
@@ -616,12 +667,14 @@ ogl_rt_init :: (using rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat, at
         pixel_type := ifx ogl_tex_format_is_integral(format) then GL_UNSIGNED_BYTE else GL_FLOAT;
         glGenTextures(1, xx *attachments[i]);
         glBindTexture(GL_TEXTURE_2D, attachments[i]);
-        // @TODO: options for wrapping/filters/mips
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, xx ogl_tex_format_to_gl_internal_format(format), xx dim.x, xx dim.y, 0, xx ogl_tex_format_to_gl_pixel_format(format), xx pixel_type, null);
+        params := oglTexParams.{
+          min_filter = .NEAREST,
+          mag_filter = .NEAREST,
+          wrap_s = .REPEAT,
+          wrap_t = .REPEAT,
+        };
+        ogl_apply_tex_parameters_for_gl_tex_target(GL_TEXTURE_2D, params);
         glFramebufferTexture2D(GL_FRAMEBUFFER, xx (GL_COLOR_ATTACHMENT0 + i), GL_TEXTURE_2D, attachments[i], 0);
       }
 
@@ -634,12 +687,13 @@ ogl_rt_init :: (using rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat, at
       glGenTextures(1, *ds_tex);
       glBindTexture(GL_TEXTURE_2D, ds_tex);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, xx dim.x, xx dim.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, null);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-      border_col := float32.[1.0, 1.0, 1.0, 1.0];
-      glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_col.data);
+      params := oglTexParams.{
+        min_filter = .NEAREST,
+        mag_filter = .NEAREST,
+        wrap_s = .CLAMP_TO_BORDER,
+        wrap_t = .CLAMP_TO_BORDER,
+      };
+      ogl_apply_tex_parameters_for_gl_tex_target(GL_TEXTURE_2D, params);
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, ds_tex, 0);
 
       assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);

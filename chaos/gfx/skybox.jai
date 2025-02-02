@@ -162,7 +162,7 @@ xhdr_skybox_generate :: (hdr_eq_image_path : string) -> xHDR_Skybox {
   // write all 6 sides of cubemap to a render target
   junk_rt : oglRT;
   {
-    ogl_rt_init(*junk_rt, .{512,512}, oglTexFormat.RGBA16F, 6);
+    ogl_rt_init(*junk_rt, .{1024,1024}, oglTexFormat.RGBA16F, 6);
     ogl_rt_clear(*junk_rt, .{1,0,0,1});
 
     ogl_rt_bind(*junk_rt);
@@ -184,7 +184,7 @@ xhdr_skybox_generate :: (hdr_eq_image_path : string) -> xHDR_Skybox {
       ogl_sp_bind_sampler_to_slot(*eq_to_rt_sp, "eq_tex", *skybox.hdr_eq_tex, 0);
       ogl_ublock_bind_to_slot(*eq_to_rt_ub1);
       dyn_state := oglDynState.{
-        viewport = .{0,0,512,512},
+        viewport = .{0,0,1024,1024},
         scissor = .{},
         flags = .DEPTH
       };
@@ -253,8 +253,8 @@ xhdr_skybox_render :: (using skybox : *xHDR_Skybox) {
     flags = .DEPTH
   };
   ogl_sp_apply_dyn_state(*sp, dyn_state);
-  ogl_sp_bind_sampler_to_slot(*sp, "cubemap", *cubemap, 0);
-  //ogl_sp_bind_sampler_to_slot(*sp, "cubemap", *irradiance_map, 0);
+  //ogl_sp_bind_sampler_to_slot(*sp, "cubemap", *cubemap, 0);
+  ogl_sp_bind_sampler_to_slot(*sp, "cubemap", *irradiance_map, 0);
   xmesh_render(*cube_mesh, *sp, null, m4_I);
 }
 
