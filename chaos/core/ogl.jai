@@ -456,11 +456,13 @@ ogl_draw_indexed :: (prim : oglPrimitive, count : u32, index_size :s64 = size_of
 oglTexFilter :: enum {
   NEAREST;
   LINEAR;
+  LINEAR_MIPMAP_LINEAR;
 }
 ogl_tex_filter_to_gl_tex_filter :: (tf : oglTexFilter) -> u32 {
   if tf == {
     case .NEAREST; return GL_NEAREST;
     case .LINEAR; return GL_LINEAR;
+    case .LINEAR_MIPMAP_LINEAR; return GL_LINEAR_MIPMAP_LINEAR;
     case; return GL_LINEAR;
   }
 }
@@ -519,7 +521,7 @@ oglTex :: struct {
 };
 
 // FIXME: hacky AF
-ogl_tex_convert_rt_to_cubemap :: (using rt : *oglRT) -> oglTex {
+ogl_tex_convert_rt_to_cubemap :: (using rt : *oglRT, mips : bool = false) -> oglTex {
   cubemap : oglTex;
   cubemap.dim = rt.dim;
   cubemap.is_cube = true;
@@ -529,8 +531,17 @@ ogl_tex_convert_rt_to_cubemap :: (using rt : *oglRT) -> oglTex {
 
   for i : 0..5 { glTexImage2D(xx (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i), 0, GL_RGBA16F, xx dim.x, xx dim.y, 0, GL_RGBA, GL_HALF_FLOAT, xx 0); }
 
+  ogl_rt_bind(rt);
+  for i : 0..5{
+    glReadBuffer(xx(GL_COLOR_ATTACHMENT0 + i)); // Select the correct color attachment
+    glBindTexture(GL_TEXTURE_CUBE_MAP, xx cubemap.impl_state);
+    glCopyTexSubImage2D(xx(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i), 0, 0, 0, 0, 0, xx dim.x, xx dim.y);
+  }
+
+  glBindTexture(GL_TEXTURE_CUBE_MAP, xx cubemap.impl_state);
   params := oglTexParams.{
-    min_filter = .LINEAR,
+    min_filter = ifx mips then .LINEAR_MIPMAP_LINEAR else .LINEAR,
+    //min_filter = .LINEAR,
     mag_filter = .LINEAR,
     wrap_s = .CLAMP_TO_EDGE,
     wrap_t = .CLAMP_TO_EDGE,
@@ -538,11 +549,11 @@ ogl_tex_convert_rt_to_cubemap :: (using rt : *oglRT) -> oglTex {
   };
   ogl_apply_tex_parameters_for_gl_tex_target(GL_TEXTURE_CUBE_MAP, params);
 
-  ogl_rt_bind(rt);
-  for i : 0..5{
-    glReadBuffer(xx(GL_COLOR_ATTACHMENT0 + i)); // Select the correct color attachment
+
+  if mips {
     glBindTexture(GL_TEXTURE_CUBE_MAP, xx cubemap.impl_state);
-    glCopyTexSubImage2D(xx(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i), 0, 0, 0, 0, 0, xx dim.x, xx dim.y);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
   }
 
   return cubemap;
@@ -671,8 +682,8 @@ ogl_rt_init :: (using rt : *oglRT, rt_dim : v2, rt_img_format : oglTexFormat, at
         params := oglTexParams.{
           min_filter = .NEAREST,
           mag_filter = .NEAREST,
-          wrap_s = .REPEAT,
-          wrap_t = .REPEAT,
+          wrap_s = .CLAMP_TO_EDGE,
+          wrap_t = .CLAMP_TO_EDGE,
         };
         ogl_apply_tex_parameters_for_gl_tex_target(GL_TEXTURE_2D, params);
         glFramebufferTexture2D(GL_FRAMEBUFFER, xx (GL_COLOR_ATTACHMENT0 + i), GL_TEXTURE_2D, attachments[i], 0);

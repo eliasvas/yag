@@ -122,6 +122,8 @@ xHDR_Skybox :: struct {
   hdr_eq_tex : oglTex;
   cubemap : oglTex;
   irradiance_map : oglTex;
+  prefilter_map : oglTex;
+  brdf_lut : oglTex;
   sp  : oglSP;
   ub1  : oglUBlock;
   cube_mesh : xMesh;
@@ -135,10 +137,17 @@ xhdr_skybox_generate :: (hdr_eq_image_path : string) -> xHDR_Skybox {
   ogl_ublock_load(*skybox.ub1, *skybox.sp, 1);
 
   gen_irradiance_sp : oglSP;
-  ogl_sp_init(*gen_irradiance_sp, GENERATE_CONVOLUTION_VERT_SHADER, GENERATE_CONVOLUTION_FRAG_SHADER);
-
+  ogl_sp_init(*gen_irradiance_sp, GENERATE_IRRADIANCE_VERT_SHADER, GENERATE_IRRADIANCE_FRAG_SHADER);
   gen_irradiance_ub1 : oglUBlock;
   ogl_ublock_load(*gen_irradiance_ub1, *gen_irradiance_sp, 1);
+
+  gen_prefilter_sp : oglSP;
+  ogl_sp_init(*gen_prefilter_sp, GENERATE_PREFILTER_VERT_SHADER, GENERATE_PREFILTER_FRAG_SHADER);
+  gen_prefilter_ub1 : oglUBlock;
+  ogl_ublock_load(*gen_prefilter_ub1, *gen_prefilter_sp, 1);
+
+  gen_brdf_lut_sp : oglSP;
+  ogl_sp_init(*gen_brdf_lut_sp, GENERATE_BRDF_LUT_VERT_SHADER, GENERATE_BRDF_LUT_FRAG_SHADER);
 
   eq_to_rt_sp : oglSP;
   assert(ogl_sp_init(*eq_to_rt_sp, EQ_TO_RT_VERT_SHADER, EQ_TO_RT_FRAG_SHADER));
@@ -220,7 +229,7 @@ xhdr_skybox_generate :: (hdr_eq_image_path : string) -> xHDR_Skybox {
       ogl_sp_bind_sampler_to_slot(*gen_irradiance_sp, "env_map", *skybox.cubemap, 0);
       ogl_ublock_bind_to_slot(*gen_irradiance_ub1);
       dyn_state := oglDynState.{
-        viewport = .{0,0,512,512},
+        viewport = .{0,0,32,32},
         scissor = .{},
         flags = .DEPTH
       };
@@ -230,8 +239,61 @@ xhdr_skybox_generate :: (hdr_eq_image_path : string) -> xHDR_Skybox {
     }
   }
   skybox.irradiance_map = ogl_tex_convert_rt_to_cubemap(*junk_rt2);
+  // now generate the prefilter map
+  junk_rt3 : oglRT;
+  {
+    ogl_rt_init(*junk_rt3, .{128,128}, oglTexFormat.RGBA16F, 6);
+    ogl_rt_clear(*junk_rt3, .{1,0,0,1});
 
-  // optional: deinit the RT
+    ogl_rt_bind(*junk_rt3);
+    ogl_bind_sp(*gen_prefilter_sp);
+    projt := m4_transpose(m4_persp(90.0, 1.0, 0.1, 10));
+    ogl_ublock_set(*gen_prefilter_ub1, "proj", xx projt.raw.data);
+    view_mats := m4.[
+      m4_look_at(.{0,0,0}, .{0,0,1}, .{0,-1,0}),
+      m4_look_at(.{0,0,0}, .{0,0,-1}, .{0,-1,0}),
+      m4_look_at(.{0,0,0}, .{0,1,0}, .{-1,0,0}),
+      m4_look_at(.{0,0,0}, .{0,-1,0}, .{1,0,0}),
+      m4_look_at(.{0,0,0}, .{-1,0,0}, .{0,-1,0}),
+      m4_look_at(.{0,0,0}, .{1,0,0}, .{0,-1,0}),
+    ];
+    for i : 0..5 {
+      ogl_rt_bind(*junk_rt3, .[xx(i)]);
+      viewt := m4_transpose(view_mats[i]);
+      ogl_ublock_set(*gen_prefilter_ub1, "view", xx viewt.raw.data);
+      ogl_sp_bind_sampler_to_slot(*gen_prefilter_sp, "env_map", *skybox.cubemap, 0);
+      ogl_ublock_bind_to_slot(*gen_prefilter_ub1);
+      dyn_state := oglDynState.{
+        viewport = .{0,0,128,128},
+        scissor = .{},
+        flags = .DEPTH
+      };
+      ogl_sp_apply_dyn_state(*gen_prefilter_sp, dyn_state);
+      xmesh_render(*skybox.cube_mesh, *gen_prefilter_sp, null, m4_I);
+    }
+  }
+  skybox.prefilter_map = ogl_tex_convert_rt_to_cubemap(*junk_rt3, true);
+  // generate the BRDF-LUT
+  //ogl_tex_init(*skybox.brdf_lut, .{512,512}, null, oglTexFormat.RGBA16F, .{wrap_s = .CLAMP_TO_EDGE, wrap_t = .CLAMP_TO_EDGE});
+  brdf_rt : oglRT;
+  ogl_rt_init(*brdf_rt, .{512,512}, oglTexFormat.RGBA16F, 1);
+  ogl_rt_clear(*brdf_rt, .{0,0,0,1});
+
+  ogl_bind_sp(*gen_brdf_lut_sp);
+  ogl_rt_bind(*brdf_rt);
+
+  bindings : oglBindingDesc = .{};
+  ogl_sp_apply_bindings(*gen_brdf_lut_sp, bindings);
+
+  dyn_state := oglDynState.{
+    viewport = .{0,0,512,512},
+    scissor = .{},
+    flags = .BLEND | .DEPTH
+  };
+  ogl_sp_apply_dyn_state(*gen_brdf_lut_sp, dyn_state);
+  ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
+  skybox.brdf_lut = ogl_rt_get_attachment(*brdf_rt, .A0);
+  // optional: deinit the RTs
 
   return skybox;
 }
@@ -255,6 +317,7 @@ xhdr_skybox_render :: (using skybox : *xHDR_Skybox) {
   ogl_sp_apply_dyn_state(*sp, dyn_state);
   //ogl_sp_bind_sampler_to_slot(*sp, "cubemap", *cubemap, 0);
   ogl_sp_bind_sampler_to_slot(*sp, "cubemap", *irradiance_map, 0);
+  //ogl_sp_bind_sampler_to_slot(*sp, "cubemap", *prefilter_map, 0);
   xmesh_render(*cube_mesh, *sp, null, m4_I);
 }
 
@@ -267,6 +330,8 @@ xhdr_skybox_deinit :: (hdr_equi_image_path : string) {
 // @FIXME: clean this up
 xhdr_skybox_bind_cubemap_to_sp :: (using skybox : *xHDR_Skybox, shader : *oglSP) {
   ogl_sp_bind_sampler_to_slot(shader, "irradiance_map", *irradiance_map, 5);
+  ogl_sp_bind_sampler_to_slot(shader, "prefilter_map", *prefilter_map, 6);
+  ogl_sp_bind_sampler_to_slot(shader, "brdf_lut", *brdf_lut, 7);
 }
 
 EQ_TO_RT_VERT_SHADER :: #string DONE
@@ -399,7 +464,7 @@ void main() {
 DONE
 
 
-GENERATE_CONVOLUTION_VERT_SHADER :: #string DONE
+GENERATE_IRRADIANCE_VERT_SHADER :: #string DONE
 #version 430 core
 layout (location = 0) in vec3 in_pos;
 
@@ -419,7 +484,7 @@ void main()
 }
 DONE
 
-GENERATE_CONVOLUTION_FRAG_SHADER :: #string DONE
+GENERATE_IRRADIANCE_FRAG_SHADER :: #string DONE
 #version 430 core
 out vec4 FragColor;
 
@@ -459,4 +524,261 @@ void main() {
   FragColor = vec4(irradiance, 1.0);
 }
 DONE
+
+GENERATE_PREFILTER_VERT_SHADER :: #string DONE
+#version 430 core
+layout (location = 0) in vec3 in_pos;
+
+out VS_OUT {
+  vec3 world_pos;
+} vs_out;
+
+layout(std140, binding = 1) uniform SharedData {
+  mat4 proj;
+  mat4 view;
+};
+
+void main()
+{
+  vs_out.world_pos = in_pos;  
+  gl_Position =  proj * view * vec4(in_pos, 1.0);
+}
+DONE
+
+GENERATE_PREFILTER_FRAG_SHADER :: #string DONE
+#version 430 core
+out vec4 FragColor;
+
+in VS_OUT {
+  vec3 world_pos;
+} fs_in;
+
+layout(std140, binding = 1) uniform SharedData {
+  mat4 proj;
+  mat4 view;
+};
+
+uniform samplerCube env_map;
+uniform float roughness;
+
+const float PI = 3.14159265359;
+
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+  float a = roughness*roughness;
+  float a2 = a*a;
+  float NdotH = max(dot(N, H), 0.0);
+  float NdotH2 = NdotH*NdotH;
+
+  float nom   = a2;
+  float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+  denom = PI * denom * denom;
+
+  return nom / denom;
+}
+float RadicalInverse_VdC(uint bits) {
+  bits = (bits << 16u) | (bits >> 16u);
+  bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+  bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+  bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+  bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+  return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+vec2 Hammersley(uint i, uint N) {
+  return vec2(float(i)/float(N), RadicalInverse_VdC(i));
+}
+
+vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
+  float a = roughness*roughness;
+  
+  float phi = 2.0 * PI * Xi.x;
+  float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+  float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+  
+  vec3 H;
+  H.x = cos(phi) * sinTheta;
+  H.y = sin(phi) * sinTheta;
+  H.z = cosTheta;
+  
+  vec3 up          = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+  vec3 tangent   = normalize(cross(up, N));
+  vec3 bitangent = cross(N, tangent);
+  
+  vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+  return normalize(sampleVec);
+}
+
+void main()
+{   
+  vec3 N = normalize(fs_in.world_pos);
+  vec3 R = N;
+  vec3 V = R;
+  const uint SAMPLE_COUNT = 1024u;
+  vec3 prefilteredColor = vec3(0.0);
+  float totalWeight = 0.0;
+  for(uint i = 0u; i < SAMPLE_COUNT; ++i) {
+    vec2 Xi = Hammersley(i, SAMPLE_COUNT);
+    vec3 H = ImportanceSampleGGX(Xi, N, roughness);
+    vec3 L  = normalize(2.0 * dot(V, H) * H - V);
+    float NdotL = max(dot(N, L), 0.0);
+    if(NdotL > 0.0) {
+      float D   = DistributionGGX(N, H, roughness);
+      float NdotH = max(dot(N, H), 0.0);
+      float HdotV = max(dot(H, V), 0.0);
+      float pdf = D * NdotH / (4.0 * HdotV) + 0.0001; 
+
+      float resolution = 512.0; // resolution of source cubemap (per face)
+      float saTexel  = 4.0 * PI / (6.0 * resolution * resolution);
+      float saSample = 1.0 / (float(SAMPLE_COUNT) * pdf + 0.0001);
+
+      float mipLevel = roughness == 0.0 ? 0.0 : 0.5 * log2(saSample / saTexel); 
+      
+      prefilteredColor += textureLod(env_map, L, mipLevel).rgb * NdotL;
+      totalWeight      += NdotL;
+    }
+  }
+  prefilteredColor = prefilteredColor / totalWeight;
+  FragColor = vec4(prefilteredColor, 1.0);
+}
+DONE
+
+
+GENERATE_BRDF_LUT_VERT_SHADER :: #string DONE
+#version 430 core
+
+vec3 quads[4] = vec3[](
+  vec3(+1.0,-1.0,0),
+  vec3(+1.0,+1.0,0),
+  vec3(-1.0,+1.0,0),
+  vec3(-1.0,-1.0,0)
+);
+
+layout(std140, binding = 0) uniform GlobalData {
+  mat4 proj;
+  mat4 view;
+};
+
+layout(std140, binding = 1) uniform GridData {
+  vec4 cell_color;
+  vec4 subcell_color;
+  vec3 cam_pos;
+  float grid_stretch_factor;
+  float cell_line_thickness;
+  float subcell_line_thickness;
+};
+
+
+out VS_OUT {
+  vec2 tex_coords;
+} vs_out;
+
+void main() {
+  vec4 p = vec4(quads[gl_VertexID].xyz, 1.0);
+  vs_out.tex_coords = p.xy/2.0 + 0.5;
+  gl_Position = p;
+}
+DONE
+
+GENERATE_BRDF_LUT_FRAG_SHADER :: #string DONE
+#version 430 core
+out vec4 FragColor;
+
+in VS_OUT {
+  vec2 tex_coords;
+} fs_in;
+
+const float PI = 3.14159265359;
+float RadicalInverse_VdC(uint bits) {
+  bits = (bits << 16u) | (bits >> 16u);
+  bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+  bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+  bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+  bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+  return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+vec2 Hammersley(uint i, uint N) {
+  return vec2(float(i)/float(N), RadicalInverse_VdC(i));
+}
+vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
+  float a = roughness*roughness;
+  
+  float phi = 2.0 * PI * Xi.x;
+  float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+  float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+  
+  vec3 H;
+  H.x = cos(phi) * sinTheta;
+  H.y = sin(phi) * sinTheta;
+  H.z = cosTheta;
+
+  vec3 up          = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+  vec3 tangent   = normalize(cross(up, N));
+  vec3 bitangent = cross(N, tangent);
+  
+  vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+  return normalize(sampleVec);
+}
+float GeometrySchlickGGX(float NdotV, float roughness) {
+  // note that we use a different k for IBL
+  float a = roughness;
+  float k = (a * a) / 2.0;
+
+  float nom   = NdotV;
+  float denom = NdotV * (1.0 - k) + k;
+
+  return nom / denom;
+}
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+  float NdotV = max(dot(N, V), 0.0);
+  float NdotL = max(dot(N, L), 0.0);
+  float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+  float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+  return ggx1 * ggx2;
+}
+vec2 IntegrateBRDF(float NdotV, float roughness) {
+  vec3 V;
+  V.x = sqrt(1.0 - NdotV*NdotV);
+  V.y = 0.0;
+  V.z = NdotV;
+
+  float A = 0.0;
+  float B = 0.0; 
+
+  vec3 N = vec3(0.0, 0.0, 1.0);
+  
+  const uint SAMPLE_COUNT = 1024u;
+  for(uint i = 0u; i < SAMPLE_COUNT; ++i) {
+    // generates a sample vector that's biased towards the
+    // preferred alignment direction (importance sampling).
+    vec2 Xi = Hammersley(i, SAMPLE_COUNT);
+    vec3 H = ImportanceSampleGGX(Xi, N, roughness);
+    vec3 L = normalize(2.0 * dot(V, H) * H - V);
+
+    float NdotL = max(L.z, 0.0);
+    float NdotH = max(H.z, 0.0);
+    float VdotH = max(dot(V, H), 0.0);
+
+    if(NdotL > 0.0)
+    {
+      float G = GeometrySmith(N, V, L, roughness);
+      float G_Vis = (G * VdotH) / (NdotH * NdotV);
+      float Fc = pow(1.0 - VdotH, 5.0);
+
+      A += (1.0 - Fc) * G_Vis;
+      B += Fc * G_Vis;
+    }
+  }
+  A /= float(SAMPLE_COUNT);
+  B /= float(SAMPLE_COUNT);
+  return vec2(A, B);
+}
+
+void main() {
+  vec2 integratedBRDF = IntegrateBRDF(fs_in.tex_coords.x, fs_in.tex_coords.y);
+  FragColor = vec4(integratedBRDF,0,1);
+}
+DONE
+
+
 

@@ -4,7 +4,7 @@ xPBR_Material :: struct {
   base_col_tex : *oglTex; // binding 0
   base_factor : v4 = v4.{1,1,1,1};
   metal_rough_tex : *oglTex; // binding 1
-  metal_factor : float = 1.0;
+  metal_factor : float = 0.0;
   rough_factor : float = 1.0;
   normal_tex : *oglTex; // binding 2
   ao_tex : *oglTex; // binding 2

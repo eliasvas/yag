@@ -17,7 +17,6 @@ xRend3D :: struct {
   bundles : [..]xRenderableBundle;
 
   white_tex : oglTex;
-  default_normal_tex : oglTex;
 
   g_sp  : oglSP;
   g_ub1 : oglUBlock; // model
@@ -43,8 +42,6 @@ xRend3D :: struct {
 xr3d_init :: (using rend : *xRend3D) {
   // create the white tex
   white := u8.[ 0xFF,0xFF,0xFF,0xFF ]; ogl_tex_init(*white_tex, .{1,1}, white.data, oglTexFormat.RGBA8U);
-  // create the default normal tex
-  default_norm := u8.[ 0xFF/2,0xFF/2,0xFF,0xFF ]; ogl_tex_init(*default_normal_tex, .{1,1}, default_norm.data, oglTexFormat.RGBA8U);
   // create Shadow-Pass Shader
   ogl_sp_init(*shadow_sp, CSM_VERT_SHADER, CSM_GEOM_SHADER, CSM_FRAG_SHADER);
   ogl_ublock_load(*shadow_ub1, *shadow_sp, 1);
@@ -374,6 +371,8 @@ uniform sampler2D g_occ_rough_met;
 uniform sampler2DArray shadow_map;
 
 uniform samplerCube irradiance_map;
+uniform samplerCube prefilter_map;
+uniform sampler2D brdf_lut;
 
 struct DirLight {
     vec3 dir;
@@ -459,6 +458,7 @@ void main() {
   //float ao        = 1.0;
   vec3 N = texture(g_norm, fs_in.tc).xyz;
   vec3 V = normalize(view_pos - world_pos);
+  vec3 R = reflect(-V, N); 
   g_shadow_bias = max(0.05 * (1.0 - dot(N, dir_light.dir)), 0.005);
 
   vec3 F0 = vec3(0.04); 
@@ -493,16 +493,24 @@ void main() {
   float shadowed = calc_shadow(light_space_coord[layer], layer);
 
   // ambient lighting (via IBL)
-  ///*
-  vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-  vec3 kD = vec3(1.0) - kS;
-  kD *= 1.0 - metallic;
-  //vec3 irradiance = texture(irradiance_map, N).rgb * 0.02; // WHY ???? i think convolution map is generated wrongly (@FIXME)
-  vec3 irradiance = vec3(0.4,0.4,0.4);
-  vec3 diffuse = irradiance * albedo; 
-  vec3 ambient = (kD * diffuse) * ao;
-  //*/
   //vec3 ambient = vec3(0.002);
+
+  // diffuse term
+  vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+  vec3 kS = F;
+  vec3 kD = 1.0 - kS;
+  kD *= 1.0 - metallic;
+  vec3 irradiance = texture(irradiance_map, N).rgb; 
+  vec3 diffuse = irradiance * albedo; 
+
+  // specular term
+  const float MAX_REFLECTION_LOD = 4.0;
+  vec3 prefilteredColor = textureLod(prefilter_map, R,  roughness * MAX_REFLECTION_LOD).rgb;    
+  vec2 brdf  = texture(brdf_lut, vec2(max(dot(N, V), 0.0), roughness)).rg;
+  vec3 specular = prefilteredColor * (kS * brdf.x + brdf.y);
+
+  // combine
+  vec3 ambient = (kD * diffuse + specular) * ao;
 
 
   vec3 color = ambient + Lo * (1-shadowed);
