@@ -13,8 +13,6 @@ xSkydome :: struct {
   sun_color   : v3 = .{1,0.7,0.4};
   cloud_speed : float = 1.0;
   sphere_mesh : xMesh;
-
-  grid : xGrid;
 };
 
 xskydome_make :: () -> xSkydome {
@@ -27,7 +25,6 @@ xskydome_make :: () -> xSkydome {
   white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
   ogl_tex_init(*noise_tex, .{1,1}, white.data, oglTexFormat.RGBA8U);
   sphere_mesh = xmesh_gen_sphere(1,8,8,true);
-  grid = xgrid_make();
   return skydome;
 }
 
@@ -62,8 +59,6 @@ xskydome_render :: (using skydome : *xSkydome) {
   };
   ogl_sp_apply_dyn_state(*sp, dyn_state);
   xmesh_render(*sphere_mesh, *sp, null, m4_I);
-
-  xgrid_render(*skydome.grid);
 }
 
 

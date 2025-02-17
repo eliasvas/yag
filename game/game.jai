@@ -10,6 +10,7 @@
 cube_mesh : xMesh;
 sphere_mesh : xMesh;
 skydome : xSkydome;
+grid : xGrid;
 
 rend : xRend3D;
 
@@ -45,6 +46,8 @@ main :: () {
 
   diff_img := make_weird_tex(u8.[ 0xFF,0x3F,0x3F,0xFF ],u8.[ 0x3F,0x3F,0x3F,0xFF ], 400, 50);
   spec_img := make_weird_tex(u8.[ 0xFF,0xFF,0xFF,0xFF ],u8.[ 0x00,0x00,0x00,0x00 ], 400, 50);
+
+  grid = xgrid_make();
 
 
   xr3d_init(*rend);
@@ -135,8 +138,9 @@ main :: () {
     xr3d_do_copy_depth_from_g_buf_to_d0(*rend);
     xr3d_clear_bundles(*rend);
     // do 'transparent' pass
-    //xskydome_render(*skydome);
+    //xgrid_render(*grid);
     xhdr_skybox_render(*rend.hdr_skybox);
+
 
     xeng_frame_end();
   }

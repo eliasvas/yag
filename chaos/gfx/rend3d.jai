@@ -59,7 +59,6 @@ xr3d_init :: (using rend : *xRend3D) {
   // initialize the shadow Render Target
   assert(ogl_rt_init(*shadow_rt, .{2048,2048}, .D32F));
   assert(ogl_rt_init(*g_buffer, .{xeng().win.dim.x,xeng().win.dim.y}, .RGBA16F));
-
   rend.hdr_skybox = xhdr_skybox_generate("../assets/boma_4k.hdr");
 }
 
