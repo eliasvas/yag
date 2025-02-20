@@ -7,48 +7,14 @@
 // TODO: instead of xeng(), do just xeng
 // TODO: FIRE RENDERING!!!!! (lights will also be emmitted?!??!?!)
 
-cube_mesh : xMesh;
-sphere_mesh : xMesh;
 skydome : xSkydome;
 grid : xGrid;
 
 rend : xRend3D;
 
-make_weird_tex :: ( col0 : []u8, col1 : []u8, dim : s64, cutoff : s64) -> oglTex {
-  tex : oglTex;
-  t := cast(*u32)alloc(dim*dim*size_of(u32));
-  defer free(t);
-  for y : 0..400-1 {
-    for x : 0..400-1 {
-      col : *u32 = *t[x + y * dim];
-      if x < cutoff || y < cutoff || x + cutoff > dim || y + cutoff > dim {
-        col.* = (cast(*u32)col0.data).*;
-      } else {
-        col.* = (cast(*u32)col1.data).*;
-      }
-    }
-  }
-  ogl_tex_init(*tex, .{cast(float)dim,cast(float)dim}, xx t, oglTexFormat.RGBA8U);
-  return tex;
-}
-
-
-
-main :: () {
+main2 :: () {
   xeng_init();
-
-  white_img:oglTex; white := u8.[ 0xFF,0xFF,0xFF,0xFF ]; ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
-
-  blue_img:oglTex; blue := u8.[ 0x00,0x00,0xFF,0xFF ]; ogl_tex_init(*blue_img, .{1,1}, blue.data, oglTexFormat.RGBA8U);
-  green_img:oglTex; green := u8.[ 0x00,0xFF,0x00,0xFF ]; ogl_tex_init(*green_img, .{1,1}, green.data, oglTexFormat.RGBA8U);
-
-  trans_red_img : oglTex; trans_red := u8.[ 0xFF,0x00,0x00,0x7F ]; ogl_tex_init(*trans_red_img, .{1,1}, trans_red.data, oglTexFormat.RGBA8U);
-
-  diff_img := make_weird_tex(u8.[ 0xFF,0x3F,0x3F,0xFF ],u8.[ 0x3F,0x3F,0x3F,0xFF ], 400, 50);
-  spec_img := make_weird_tex(u8.[ 0xFF,0xFF,0xFF,0xFF ],u8.[ 0x00,0x00,0x00,0x00 ], 400, 50);
-
   grid = xgrid_make();
-
 
   xr3d_init(*rend);
 
@@ -63,19 +29,11 @@ main :: () {
   gltf_path := "../assets/glTF-Sample-Models/2.0/MetalRoughSpheres/glTF/MetalRoughSpheres.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/OrientationTest/glTF/OrientationTest.gltf";
   //gltf_path := "../assets/glTF-Sample-Models/2.0/BrainStem/glTF-Embedded/BrainStem.gltf";
-
   sample_gltf_meshes := xgltf_parse_meshes(gltf_path);
-
   sample_gltf_animations := xgltf_parse_animations(gltf_path, sample_gltf_meshes.data);
 
-
-  // FIXME: Context has been DEPRECATED! we should find a new way to do this, the new Jai way I guess
-  //sample_timer_cb :: (retries : u32, usr_ctx : *void) {print("cb triggered!\n");}
-  //t := xtimer_make(100, 5, sample_timer_cb, null);
-
-  skydome = xskydome_make();
-  cube_mesh = xmesh_gen_cube();
-  sphere_mesh = xmesh_gen_sphere(1.0, 64,64);
+  cube_mesh := xmesh_gen_cube();
+  sphere_mesh := xmesh_gen_sphere(1.0, 64,64);
 
   while true {
     xeng_frame_init();
@@ -109,14 +67,6 @@ main :: () {
     ImGui.End();
 
 
-    big_model := m4_mult(m4_trans(.{0,-2,0}),m4_scale(.{100,1,100}));
-    big_cube_mat := xPBR_Material.{base_col_tex = *green_img};
-    cube_mesh.primitives[0].material = big_cube_mat;
-    //xr3d_push_bundle(*rend, cube_mesh, big_model);
-
-
-
-
     // render the json mesh!!
     for sample_gltf_mesh : sample_gltf_meshes {
       model := xgltf_transform_calc_matrix(*sample_gltf_mesh.transform);
@@ -126,7 +76,6 @@ main :: () {
       xr3d_push_bundle(*rend, *sample_gltf_mesh, m4_mult(m4_rotate(0, .{0,1,0}),m4_mult(m4_rotate(3.14/2.0, .{1,0,0}), model)));
       //xr3d_push_bundle(*rend, *sample_gltf_mesh, model);
     }
-
 
     if xeng().csm_data.enabled {
       xr3d_do_shadow_pass(*rend);
@@ -146,3 +95,31 @@ main :: () {
   }
 
 }
+
+xim_print_state :: () {
+  using g_input_manager;
+  ImGui.SetNextWindowSizeConstraints(.{100.0, 100.0}, .{400, 200});
+  ImGui.Begin("KeyScanCodes");
+  for enum_values_as_s64(xKeyScanCode) {
+    key_index := it / 64;
+    s := tprint("% -> [%,%]\0", cast(xKeyScanCode) it, (button_state.state[key_index] >> (it%64))&1, (button_state.prev_state[key_index] >> (it%64))&1);
+    ImGui.TextUnformatted(s.data);
+  }
+  ImGui.End();
+}
+ 
+main :: () {
+  xeng_init();
+
+  while xeng().running {
+    xeng_frame_init();
+    if (xim_kkey_pressed(.SC_ESCAPE)) xeng().running = false;
+    ogl_rt_clear(null);
+
+    xim_print_state();
+
+    xeng_frame_end();
+  }
+}
+
+

@@ -1,5 +1,6 @@
 // TODO: perform timing stuff, calc dt / frame_time etc
 xEngine :: struct {
+  running : bool = true;
   frame_start_time : float64;
   dt : float64;
 

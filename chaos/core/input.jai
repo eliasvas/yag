@@ -22,10 +22,10 @@ xInputManager :: struct {
 };
 
 xKeyState :: enum u8 {
-  DOWN;
-  UP;
-  PRESSED;
-  RELEASED;
+  DOWN     :: 0;
+  UP       :: 1;
+  PRESSED  :: 2;
+  RELEASED :: 3;
 };
 
 xMouseKey :: enum u8 {
@@ -126,38 +126,38 @@ xKeyScanCode :: enum u8 {
   SC_MAXIMUM; // AFAIK this isn't needed?
 };
 
+
 g_input_manager : xInputManager;
 
 xim_capture_begin :: () {
   using g_input_manager;
-  for 0..4-1 button_state.prev_state[it] = button_state.state[it];
+  for 0..3 button_state.prev_state[it] = button_state.state[it];
   mouse_state.prev_state = mouse_state.state;
 }
 xim_capture_end :: () {}
 
 xim_consume_events :: (events : []xWindowEvent) {
+  U64_BITS :: size_of(u64) * 8;
+
   using g_input_manager;
-  // NOTE: if multiple xim_consume_events happen in a single frame,
-  // mouse_delta is gonna be wrong if do this
   mp_before_consume := mouse_coords;
   for e : events {
-  if e.kind == {
-    case .QUIT_EVENT;
-    // TODO: propagate this to context, will close at end of frame?
-    exit(1);
-    case .KEYBOARD_EVENT;
-      key_index := e.keeb_evt.key / 64;
-      button_state.state[key_index] = ifx e.keeb_evt.state then (button_state.state[key_index] | xx ((cast(u64)1 << (e.keeb_evt.key%64)))) else (button_state.state[key_index] & xx (~(cast(u64)1 << (e.keeb_evt.key%64))));
-    case .MOUSE_EVENT;
-      mouse_state.state = cast(u8)ifx e.mouse_evt.state then (mouse_state.state | xx ((1 << e.mouse_evt.key))) else (mouse_state.state & cast(u64)(~(cast(u64)1 << e.mouse_evt.key)));
-    case .MOUSE_MOTION_EVENT;
-      mouse_coords = .{e.mouse_mot_evt.x, e.mouse_mot_evt.y};
-    case .SCROLLWHEEL_EVENT;
-      scroll_y = e.scroll_evt.y;
-    case;
+    if e.kind == {
+      case .QUIT_EVENT;
+        xeng().running = false;
+      case .KEYBOARD_EVENT;
+        key_index := e.keeb_evt.key / 64;
+        button_state.state[key_index] = ifx e.keeb_evt.state then (button_state.state[key_index] | cast(u64)(1 << (e.keeb_evt.key%64))) else (button_state.state[key_index] & xx (~(cast(u64)1 << (e.keeb_evt.key%64))));
+      case .MOUSE_EVENT;
+        mouse_state.state = cast(u8)ifx e.mouse_evt.state then (mouse_state.state | xx ((1 << e.mouse_evt.key))) else (mouse_state.state & cast(u64)(~(cast(u64)1 << e.mouse_evt.key)));
+      case .MOUSE_MOTION_EVENT;
+        mouse_coords = .{e.mouse_mot_evt.x, e.mouse_mot_evt.y};
+      case .SCROLLWHEEL_EVENT;
+        scroll_y = e.scroll_evt.y;
+      case;
+    }
   }
-}
-mouse_delta = mouse_coords - mp_before_consume;
+  mouse_delta = mouse_coords - mp_before_consume;
 }
 
 xim_kkey_is_state :: (scancode : xKeyScanCode, state : xKeyState) -> bool {
