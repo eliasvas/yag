@@ -1,5 +1,6 @@
 #import "Basic";
 #import "String";
+#import "Bucket_Array";
 #import "chaos";
 #import "File";
 
@@ -110,7 +111,9 @@ xim_print_state :: () {
  
 main :: () {
   xeng_init();
+  entity_test();
 
+  exit(1);
   while xeng().running {
     xeng_frame_init();
     if (xim_kkey_pressed(.SC_ESCAPE)) xeng().running = false;
