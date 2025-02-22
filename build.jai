@@ -37,7 +37,8 @@ build :: () {
 
       // build the entity placeholders (in entity.jai)
       compiler_begin_intercept(w);
-      add_build_file("game/game.jai", w);
+      add_build_file("chaos/module.jai", w); // engine source
+      add_build_file("game/game.jai", w); // game source (TODO: should be moved to different workspace)
       message_loop();
       compiler_end_intercept(w);
 
@@ -47,13 +48,19 @@ build :: () {
 }
 
 generated_code : bool = false;
+
+has_note :: (header: *Code_Procedure_Header, note: string) -> bool {
+    for header.notes  if it.text == note  return true;
+    return false;
+}
+
 message_loop :: () {
    while true {
       message := compiler_wait_for_message();
       if message.kind == {
          case .TYPECHECKED;
             typechecked := cast(*Message_Typechecked)message;
-            for typechecked.structs note_struct(it.expression);
+            for typechecked.structs try_add_entity_subclasses(it.expression);
          case .PHASE;
             phase := cast(*Message_Phase)message;
             if phase.phase == .TYPECHECKED_ALL_WE_CAN {
@@ -69,19 +76,13 @@ message_loop :: () {
    }
 }
 entity_type_names: [..] string;
-note_struct :: (code_struct: *Code_Struct) {
-
-   /*
-   if has_note(header, "entity") {
-      array_add(*procedures_to_run, header);
-   }
-   */
-
-   if is_subclass_of(code_struct.defined_type, "xEntityBase") && code_struct.defined_type.name != "xEntitySlot" {
-      name := code_struct.defined_type.name;
-
-      added := array_add_if_unique(*entity_type_names, name);
-      if added print("Detected entity '%'.\n", name);
+try_add_entity_subclasses :: (code_struct: *Code_Struct) {
+   for note : code_struct.notes {
+      if note.text == "entity" {
+         name := code_struct.defined_type.name;
+         added := array_add_if_unique(*entity_type_names, name);
+         break;
+      }
    }
 }
 
@@ -93,12 +94,11 @@ generate_entity_code :: (w : Workspace) {
    {
       builder : String_Builder;
       for entity_type_names {
-         items_per_bucket :: 20;
-         print_to_builder(*builder, "    _%1: Bucket_Array(%1, %2, true);\n", it, items_per_bucket);
+         print_to_builder(*builder, "_%1: %1;\n", it);
       }
-      entity_storage_string = builder_to_string(*builder);
-      //print("entity_storage_string: %\n", entity_storage_string);
-      build_string := sprint(ENTITY_INSERTION_STRING, entity_type_names.count, type_names, entity_storage_string);
+      slot_string := builder_to_string(*builder);
+      storage_string :string= "array: Bucket_Array(xEntitySlot, 64, true);";
+      build_string := sprint(ENTITY_INSERTION_STRING, entity_type_names.count, type_names, slot_string, storage_string);
       add_build_string(build_string, w);
       print("Adding build string:\n%\n", build_string);
    }
@@ -107,8 +107,12 @@ generate_entity_code :: (w : Workspace) {
 ENTITY_INSERTION_STRING :: #string DONE
 NUM_ENTITY_TYPES :: %1;
 entity_types : [%1] Type : .[ %2 ];
-Entity_Storage :: struct {
-%3
+xEntitySlot :: union {
+  #as using base : xEntityBase;
+%3 
+}
+xEntityStorage :: struct {
+%4
 }
 DONE
 

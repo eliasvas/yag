@@ -1,5 +1,8 @@
 #import "Basic";
 #import "String";
+#import "Bucket_Array";
+
+//#load "../core/math.jai";
 //#load "math.jai";
 
 // TODO: type/scene serialization
@@ -23,30 +26,14 @@ xEntityBase :: struct {
   */
 }
 
-// TODO: this should be done via metaprogramming, like @entity tag on each struct
-Foo :: struct {
+Foo :: struct @entity {
   #as using base : xEntityBase;
   foo : int;
-} @entity
+}
 
-Bar :: struct {
+Bar :: struct @entity {
   #as using base : xEntityBase;
   bar : string;
-} @entity
-
-xEntitySlot :: union {
-  #as using base : xEntityBase;
-  // This will be a union of all @entity structs!
-  #insert -> string {
-    sb: String_Builder;
-    init_string_builder(*sb);
-
-    for entity_type : entity_type_names {
-      print_to_builder(*sb, "_%1 : %1;\n",entity_type);
-      print("------------_%1 : %1;\n",entity_type);
-    } 
-    return builder_to_string(*sb);
-  }
 }
 
 xentity_calc_global_pos :: (e : *xEntityBase) -> v3 {
@@ -54,18 +41,11 @@ xentity_calc_global_pos :: (e : *xEntityBase) -> v3 {
   return e.local_pos;
 }
 
-entity_type_names: [..] string;
-
-MAX_ENTITIES :: 1024;
-all_entities : [MAX_ENTITIES]xEntitySlot;
-entity_index : u64;
+#placeholder xEntityStorage;
+entity_storage : xEntityStorage;
 
 make_entity :: ($T : Type) -> *T {
-  slot : *xEntitySlot = *all_entities[entity_index];
-  slot.type = T;
-
-  entity_index+=1;
-  assert(entity_index < MAX_ENTITIES);
+  _, slot := bucket_array_add(*entity_storage.array, xEntitySlot.{type=T});
 
   /*
   // we can have specific initialization for each type
@@ -74,6 +54,7 @@ make_entity :: ($T : Type) -> *T {
     case Bar; init_bar(*e.bar);
   }
   */
+
   return cast(*T)slot;
 }
 
@@ -84,9 +65,10 @@ print_entity:: (using e : *xEntityBase) {
   }
 }
 
-
 entity_test :: () {
   print("Hello Entity test!\n");
+
+  print("NUM_ENTITY_TYPES is %.\n", NUM_ENTITY_TYPES);
 
   foo1 := make_entity(Foo);
   print_entity(foo1);
@@ -94,12 +76,3 @@ entity_test :: () {
   bar1 := make_entity(Bar);
   print_entity(bar1);
 }
-
-
-// TODO: maybe entities should be a different metaprogram?!
-/*
-#placeholder NUM_ENTITY_TYPES;  // The total number of entity types.
-#placeholder entity_types;      // The array of entity types.
-#placeholder Entity_Storage;    // Bucket_Arrays that store the various entity types.
-entity_storage: Entity_Storage;
-*/

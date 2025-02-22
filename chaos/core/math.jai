@@ -24,7 +24,7 @@ v2:: struct {
 }
 operator [] :: (v: v2, i : int) -> float {return v.arr[i];}
 operator []= :: (v: *v2, i : int, item: float) {v.arr[i] = item;}
-operator *[] :: (v: *v2, i : int) -> *v2 {return *v.arr[i];}
+operator *[] :: (v: *v2, i : int) -> *float {return *v.arr[i];}
 operator *= :: (v: *v2, scalar : float) {v.x *= scalar;v.y*=scalar;}
 operator + :: (v: v2, scalar : float) -> v2 {return .{v.x+scalar,v.y+scalar};}
 operator - :: (v: v2, scalar : float) -> v2 {return .{v.x-scalar,v.y-scalar};}
@@ -45,7 +45,7 @@ v3:: struct {
 }
 operator [] :: (v: v3, i : int) -> float {return v.arr[i];}
 operator []= :: (v: *v3, i : int, item: float) {v.arr[i] = item;}
-operator *[] :: (v: *v3, i : int) -> *v3 {return *v.arr[i];}
+operator *[] :: (v: *v3, i : int) -> *float {return *v.arr[i];}
 operator *= :: (v: *v3, scalar : float) {v.x *= scalar;v.y*=scalar;v.z*=scalar;}
 operator + :: (v: v3, scalar : float) -> v3 {return .{v.x+scalar,v.y+scalar,v.z+scalar};}
 operator - :: (v: v3, scalar : float) -> v3 {return .{v.x-scalar,v.y-scalar,v.z-scalar};}
@@ -78,7 +78,7 @@ v4:: struct {
 }
 operator [] :: (v: v4, i : int) -> float {return v.arr[i];}
 operator []= :: (v: *v4, i : int, item: float) {v.arr[i] = item;}
-operator *[] :: (v: *v4, i : int) -> *v4 {return *v.arr[i];}
+operator *[] :: (v: *v4, i : int) -> *float {return *v.arr[i];}
 operator *= :: (v: *v4, scalar : float) {v.x *= scalar;v.y*=scalar;v.z*=scalar;v.w*=scalar;}
 operator + :: (v: v4, scalar : float) -> v4 {return .{v.x+scalar,v.y+scalar,v.z+scalar,v.w+scalar};}
 operator - :: (v: v4, scalar : float) -> v4 {return .{v.x-scalar,v.y-scalar,v.z-scalar,v.w-scalar};}

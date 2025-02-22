@@ -5,7 +5,6 @@ SDL_IMPL :: true;
 offset_of :: ($T: Type, ident: Code) -> s64 #expand { t: T = ---; return cast(*void) (*t.#insert ident) - cast(*void) *t; }
 
 #load "math.jai";
-#load "timer.jai";
 #load "ogl.jai";
 #load "window.jai";
 #load "input.jai";

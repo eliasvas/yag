@@ -183,7 +183,7 @@ xCSMData :: struct {
 xcsm_data_calc :: (csm_data : *xCSMData) {
   using csm_data;
 
-  debug_frust_pos :v3= .{0,0,50} + .{xeng().view._14, xeng().view._24,xeng().view._34};
+  debug_frust_pos :v3= v3.{0,0,50} + v3.{xeng().view._14, xeng().view._24,xeng().view._34};
   cview = ifx debug_frustum then m4_trans(debug_frust_pos) else xeng().view;
 
   debug_proj := m4_persp_gen_cascades(xeng().proj, 4)[0];
