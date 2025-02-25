@@ -111,6 +111,7 @@ xim_print_state :: () {
 }
  
 main :: () {
+  ll_tests();
   xeng_init();
   entity_test();
 

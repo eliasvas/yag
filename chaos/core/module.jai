@@ -9,4 +9,5 @@ offset_of :: ($T: Type, ident: Code) -> s64 #expand { t: T = ---; return cast(*v
 #load "window.jai";
 #load "input.jai";
 #load "json_parser.jai";
+#load "linked_list.jai";
 #load "engine.jai";

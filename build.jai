@@ -97,10 +97,18 @@ generate_entity_code :: (w : Workspace) {
          print_to_builder(*builder, "_%1: %1;\n", it);
       }
       slot_string := builder_to_string(*builder);
-      storage_string :string= "array: Bucket_Array(xEntitySlot, 64, true);";
-      build_string := sprint(ENTITY_INSERTION_STRING, entity_type_names.count, type_names, slot_string, storage_string);
+      storage_string : string= "array: Bucket_Array(xEntitySlot, 64, true);";
+
+      ubuilder : String_Builder;
+      for entity_type_names {
+         print_to_builder(*ubuilder, "case %1;\n update(ecast(e,%1));\n", it);
+      }
+      update_string := builder_to_string(*ubuilder);
+
+
+      build_string := sprint(ENTITY_INSERTION_STRING, entity_type_names.count, type_names, slot_string, storage_string, update_string);
       add_build_string(build_string, w);
-      print("Adding build string:\n%\n", build_string);
+      //print("Adding build string:\n%\n", build_string);
    }
 }
 
@@ -113,6 +121,15 @@ xEntitySlot :: union {
 }
 xEntityStorage :: struct {
 %4
+}
+
+entities_update :: (entities : *xEntityStorage) {
+   for *e : entities.array {
+      if e.type == {
+%5
+case;
+      }
+   }
 }
 DONE
 
