@@ -55,6 +55,84 @@ sll_queue_pop :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next") -
   return f,l;
 }
 
+// TODO: What about nil structs? maybe add another auto back for that!
+dll_insert :: (f : *$T, l : *T, p : *T, n : *T, $next_field_name : string = "next", $prev_field_name : string = "prev") -> *T,*T {
+  if f == null { // if list empty
+
+    #insert -> string { 
+      sb : String_Builder;
+      init_string_builder(*sb);
+      print_to_builder(*sb, "n.% = null;", next_field_name); // n.next = null;
+      print_to_builder(*sb, "n.% = null;", prev_field_name); // n.prev = null;
+      return builder_to_string(*sb);
+    }
+    f = n;
+    l = n;
+  } else if p == null { // if we insert to first
+    #insert -> string { 
+      sb : String_Builder;
+      init_string_builder(*sb);
+      print_to_builder(*sb, "n.% = f;", next_field_name); // n.next = f;
+      print_to_builder(*sb, "n.% = null;", prev_field_name); // n.prev = null;
+      print_to_builder(*sb, "f.% = n;", prev_field_name); // f.prev = n;
+      return builder_to_string(*sb);
+    }
+    f = n;
+  } else if p == l { // if we insert to last
+    #insert -> string { 
+      sb : String_Builder;
+      init_string_builder(*sb);
+      print_to_builder(*sb, "l.% = n;", next_field_name); // l.next = n;
+      print_to_builder(*sb, "n.% = l;", prev_field_name); // n.prev = l;
+      print_to_builder(*sb, "n.% = null;", next_field_name); // n.next = null;
+      return builder_to_string(*sb);
+    }
+    l = n;
+  } 
+  else { // default insert
+    #insert -> string { 
+      sb : String_Builder;
+      init_string_builder(*sb);
+      print_to_builder(*sb, "p.%.% = n;", next_field_name, prev_field_name); // p.next.prev = n;
+      print_to_builder(*sb, "n.% = p.%;", next_field_name, next_field_name); // n.next = p.next;
+      print_to_builder(*sb, "p.% = n;", next_field_name); // p.next = n;
+      print_to_builder(*sb, "n.% = p;", prev_field_name); // n.prev = p;
+      return builder_to_string(*sb);
+    }
+  }
+
+  return f,l;
+}
+dll_push_back :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", $prev_field_name : string = "prev") -> *T,*T {
+  f,l := dll_insert(f,l,l,n,next_field_name, prev_field_name);
+  return f,l;
+}
+
+dll_push_front :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", $prev_field_name : string = "prev") -> *T,*T {
+  l,f := dll_insert(l,f,f,n,prev_field_name, next_field_name);
+  return f,l;
+}
+
+// TODO: What about nil structs? maybe add another auto back for that!
+dll_remove :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", $prev_field_name : string = "prev") -> *T,*T {
+  if n == f {
+    #insert -> string { return tprint("f=n.%;\n", next_field_name); } // f = n.next;
+  }
+  if n == l {
+    #insert -> string { return tprint("l=l.%;\n", prev_field_name); } // l = l.prev;
+  }
+  if n.prev != null {
+    #insert -> string { return tprint("n.%.% = n.%;\n", prev_field_name, next_field_name, next_field_name); } // n.prev.next = n.next;
+  }
+  if n.next != null {
+    #insert -> string { return tprint("n.%.% = n.%;\n", next_field_name, prev_field_name, prev_field_name); } // n.next.prev = n.prev;
+  }
+
+  return f,l;
+}
+ 
+
+
 ////////////////////////////////////////////
 // Data Structure for tests
 ////////////////////////////////////////////
@@ -156,6 +234,46 @@ ll_tests :: (){
     first,last = sll_queue_push(first, last, n3);
     assert(concat_sentences(first) == "IEgg");
     assert(concat_sentences(popped) == "Want");
+  }
+  { // doubly-linked list insert
+    reset(*pool);
+    first : *SentenceNode = null;
+    last  : *SentenceNode = null;
+
+    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    first,last = dll_insert(first, last,null, n1);
+    first,last = dll_insert(first, last, last, n2);
+    first,last = dll_insert(first, last, n1, n3);
+    assert(concat_sentences(first) == "IEggWant");
+  }
+  { // doubly-linked list remove 
+    reset(*pool);
+    first : *SentenceNode = null;
+    last  : *SentenceNode = null;
+
+    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    first,last = dll_insert(first, last,null, n1);
+    first,last = dll_insert(first, last, last, n2);
+    first,last = dll_insert(first, last, n1, n3);
+    first,last = dll_remove(first, last, n3);
+    assert(concat_sentences(first) == "IWant");
+  }
+  { // doubly-linked push back/front
+    reset(*pool);
+    first : *SentenceNode = null;
+    last  : *SentenceNode = null;
+
+    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    first,last = dll_insert(first, last, null, n1);
+    first,last = dll_push_back(first, last, n2);
+    first,last = dll_push_front(first, last, n3);
+    assert(concat_sentences(first) == "EggIWant");
   }
 }
 
