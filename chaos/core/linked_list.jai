@@ -113,7 +113,7 @@ dll_push_front :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", 
   return f,l;
 }
 
-// TODO: What about nil structs? maybe add another auto back for that!
+// TODO: What about nil structs? maybe add another auto bake for that!
 dll_remove :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", $prev_field_name : string = "prev") -> *T,*T {
   if n == f {
     #insert -> string { return tprint("f=n.%;\n", next_field_name); } // f = n.next;
@@ -140,8 +140,21 @@ Sentence :: string;
 
 SentenceNode :: struct {
   v : Sentence;
-  next : *SentenceNode;
-  prev : *SentenceNode;
+
+  next   : *SentenceNode;
+  prev   : *SentenceNode;
+  first  : *SentenceNode;
+  last   : *SentenceNode;
+  parent : *SentenceNode;
+
+  // hash map
+  hash_next : *SentenceNode;
+  hash_prev : *SentenceNode;
+}
+SentenceSlot :: struct {
+  // tree
+  first  : *SentenceNode;
+  last   : *SentenceNode;
 }
 concat_sentences :: (first : *SentenceNode) -> string {
   builder: String_Builder;
@@ -152,6 +165,16 @@ concat_sentences :: (first : *SentenceNode) -> string {
     iter = iter.next;
   }
   return builder_to_string(*builder);
+}
+
+djb2 :: (s : string) -> u64 {
+  hash : u64 = 5381;
+  itr : u64;
+  for c : s {
+    hash = ((hash << 5) + hash) + c;
+
+  }
+  return hash;
 }
 
 ////////////////////////////////////////////
@@ -275,6 +298,99 @@ ll_tests :: (){
     first,last = dll_push_front(first, last, n3);
     assert(concat_sentences(first) == "EggIWant");
   }
+  { // tree
+    reset(*pool);
+
+    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1.first,n1.last = dll_push_back(n1.first, n1.last, n2);
+    n2.parent = n1;
+    n1.first,n1.last = dll_push_back(n1.first, n1.last, n3);
+    n3.parent = n1;
+    assert(concat_sentences(n2) == "WantEgg");
+  }
+  // hash table (with Slot array)
+  {
+    reset(*pool);
+
+    SLOTS_COUNT :: 256;
+    slots := alloc_array(*pool, SentenceSlot, SLOTS_COUNT);
+
+    names := string.["I", "Want", "Egg"];
+    for n : names {
+      node := alloc_array(*pool, SentenceNode, 1); node.v = n;
+      slot_num := djb2(node.v) % SLOTS_COUNT;
+      slots[slot_num].first, slots[slot_num].last = sll_queue_push(slots[slot_num].first, slots[slot_num].last, node);
+    }
+
+    for n : names {
+      slot_num := djb2(n) % SLOTS_COUNT;
+      assert(slots[slot_num].first.v == n);
+    }
+
+    // we re-insert our data so that they become linked lists
+    for n : names {
+      node := alloc_array(*pool, SentenceNode, 1); node.v = n;
+      slot_num := djb2(node.v) % SLOTS_COUNT;
+      slots[slot_num].first, slots[slot_num].last = sll_queue_push(slots[slot_num].first, slots[slot_num].last, node);
+    }
+
+    for n : names {
+      slot_num := djb2(n) % SLOTS_COUNT;
+      assert(slots[slot_num].first.next.v == n);
+    }
+  }
+
+  { // hash table (embedded inside a SentenceNode)
+    SLOTS_COUNT :: 256;
+    slots := alloc_array(*pool, SentenceNode, SLOTS_COUNT);
+
+    names := string.["I", "Want", "Egg"];
+    for n : names {
+      node := alloc_array(*pool, SentenceNode, 1); node.v = n;
+      slot_num := djb2(node.v) % SLOTS_COUNT;
+      slots[slot_num].hash_next, slots[slot_num].hash_prev = dll_push_back(slots[slot_num].hash_next, slots[slot_num].hash_prev, node, "hash_next", "hash_prev");
+    }
+
+    for n : names {
+      slot_num := djb2(n) % SLOTS_COUNT;
+      assert(slots[slot_num].hash_next.v == n);
+    }
+  }
+
+  { // tree + embedded hash table!
+    reset(*pool);
+
+    SLOTS_COUNT :: 256;
+    slots := alloc_array(*pool, SentenceNode, SLOTS_COUNT);
+
+
+    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1.first,n1.last = dll_push_back(n1.first, n1.last, n2);
+    n2.parent = n1;
+    n1.first,n1.last = dll_push_back(n1.first, n1.last, n3);
+    n3.parent = n1;
+    assert(concat_sentences(n2) == "WantEgg");
+
+    slot_num := djb2(n1.v) % SLOTS_COUNT;
+    slots[slot_num].hash_next, slots[slot_num].hash_prev = dll_push_back(slots[slot_num].hash_next, slots[slot_num].hash_prev, n1, "hash_next", "hash_prev");
+    assert(slots[slot_num].hash_next.v == n1.v);
+    slot_num = djb2(n2.v) % SLOTS_COUNT;
+    slots[slot_num].hash_next, slots[slot_num].hash_prev = dll_push_back(slots[slot_num].hash_next, slots[slot_num].hash_prev, n2, "hash_next", "hash_prev");
+    assert(slots[slot_num].hash_next.v == n2.v);
+    slot_num = djb2(n3.v) % SLOTS_COUNT;
+    slots[slot_num].hash_next, slots[slot_num].hash_prev = dll_push_back(slots[slot_num].hash_next, slots[slot_num].hash_prev, n3, "hash_next", "hash_prev");
+    assert(slots[slot_num].hash_next.v == n3.v);
+
+    n1_dupe := alloc_array(*pool, SentenceNode, 1);n1_dupe.v = "I";
+    slot_num = djb2(n1_dupe.v) % SLOTS_COUNT;
+    slots[slot_num].hash_next, slots[slot_num].hash_prev = dll_push_back(slots[slot_num].hash_next, slots[slot_num].hash_prev, n1_dupe, "hash_next", "hash_prev");
+    assert(n1.hash_next.v == n1_dupe.v);
+  }
+
 }
 
 //#run tests();
