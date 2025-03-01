@@ -621,6 +621,7 @@ xgltf_parse_meshes :: (gltf_path: string) -> [..]xMesh {
           //stbi_set_flip_vertically_on_load(1);
           raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
           //defer free(raw_image_data);
+          // FIXME: WHY WHY WHYWH WYWHWYWHWYWHWHWYWWHHWHWHWW does this happen 2 times? 1 is not enough?
           ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U, .{min_filter = .LINEAR, mag_filter = .LINEAR, generate_mips = true});
           ogl_tex_init(tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
           m.material.base_col_tex = tex;

@@ -7,4 +7,5 @@
 #load "frustum.jai";
 #load "debug_draw.jai";
 #load "rend3d.jai";
+#load "rend2d.jai";
 #load "xgltf.jai";

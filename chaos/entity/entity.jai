@@ -68,3 +68,6 @@ entity_test :: () {
 
   entities_update(*entities); // should be some kind of scene update probably
 }
+
+
+#run entity_test();

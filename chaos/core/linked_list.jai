@@ -180,7 +180,6 @@ djb2 :: (s : string) -> u64 {
 ////////////////////////////////////////////
 // Linked-List tests
 ////////////////////////////////////////////
-//#run {
 ll_tests :: (){
   pool: Flat_Pool;
   { // singly-linked stack push 
@@ -393,7 +392,7 @@ ll_tests :: (){
 
 }
 
-//#run tests();
+#run ll_tests();
 
 
 
