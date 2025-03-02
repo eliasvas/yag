@@ -139,7 +139,8 @@ main :: () {
     ogl_rt_clear(null);
 
     // render a sample quad
-    xr2d_quad_render(*rend, .{-0.3,-0.3,0.6,0.6}, flask_tc, .{0.8,0.8,0.8,1.0});
+    xr2d_quad_render(*rend, .{0,0,100,100}, flask_tc, .{0.8,0.8,0.8,1.0});
+    //xr2d_quad_render(*rend, .{0,0,0.4,0.3}, flask_tc, .{0.8,0.8,0.8,1.0});
 
     xeng_frame_end();
   }

@@ -20,19 +20,54 @@ xr2d_init :: (using rend : *xRend2D) {
   initialized = true;
 }
 
-xr2d_quad_render :: (using rend : *xRend2D, rect : v4, texcoords : v4, col : v4, tex : *oglTex = null) {
+// TODO: move this to /camera.jai
+xCamera2D :: struct {
+  target : v2;    // world pos focus
+  offset : v2;    // offset in screen-space 
+  rot    : float; // rotation in degrees
+  zoom   : float; // zoom
+}
+
+xcamera_2d_get_matrix :: (c : *xCamera2D) -> m4 {
+  camera_matrix : m4 = m4_I;
+
+  translation := m4_trans(v3.{-c.target.x, -c.target.y,0});
+  rotation := m4_rotate(c.rot, v3.{1,0,0});
+  scale := m4_scale(v3.{c.zoom,c.zoom,1});
+  offset := m4_trans(v3.{c.offset.x, c.offset.y,0});
+
+  return m4_mult(offset,m4_mult(scale,m4_mult(rotation,translation)));
+}
+
+xr2d_quad_render :: (using rend : *xRend2D, r : v4, texcoords : v4, col : v4, tex : *oglTex = null) {
   if !initialized then xr2d_init(rend);
 
   ogl_rt_bind(null);
   ogl_bind_sp(*sp);
 
+  //rect := m4_multv(m4_ortho(0,wdim.x, 0, wdim.y, -1, 1),r);
+  rect := v4.{r.x, r.y, r.x + r.z, r.y + r.w};
+  wdim := xwin_get_dim(*xeng().win);
+  proj := m4_ortho(0,wdim.x, wdim.y, 0, -1, 1);
+  cam := xCamera2D.{
+    target = v2.{0,0},
+    rot = 0,
+    zoom = 3 * (sin(cast(float32)seconds_since_init()*4)/2.0+0.5),
+    offset = v2.{0,0},
+  };
+  camera_matrix := xcamera_2d_get_matrix(*cam);
+  pos_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.x,rect.y,0,1});
+  dim_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.x + rect.z,rect.y + rect.w,0,1});
+  rect = v4.{pos_projected.x, pos_projected.y, dim_projected.x, dim_projected.y};
+
 
   //ogl_buf_deinit(vertex_def.vbuf);
   vertices : [4]QuadVertex;
   vertices[0] = .{pos = .{rect.x, rect.y}, color = col, tc = .{texcoords.x, texcoords.y}};
-  vertices[1] = .{pos = .{rect.x + rect.z, rect.y}, color = col, tc = .{texcoords.x + texcoords.z, texcoords.y}};
-  vertices[2] = .{pos = .{rect.x, rect.y + rect.w}, color = col, tc = .{texcoords.x, texcoords.y + texcoords.w}};
-  vertices[3] = .{pos = .{rect.x + rect.z, rect.y + rect.w}, color = col, tc = .{texcoords.x + texcoords.z, texcoords.y + texcoords.w}};
+  vertices[1] = .{pos = .{rect.z, rect.y}, color = col, tc = .{texcoords.x + texcoords.z, texcoords.y}};
+  vertices[2] = .{pos = .{rect.x, rect.w}, color = col, tc = .{texcoords.x, texcoords.y + texcoords.w}};
+  vertices[3] = .{pos = .{rect.z, rect.w}, color = col, tc = .{texcoords.x + texcoords.z, texcoords.y + texcoords.w}};
+
   ogl_buf_init(vertex_def.vbuf, .VERTEX, vertices.data, cast(u32)vertices.count, size_of(QuadVertex));
   bindings := oglBindingDesc.{
     index_buf = null,
@@ -78,6 +113,7 @@ layout(std140, binding = 0) uniform GlobalData {
 
 layout(std140, binding = 1) uniform QuadData {
   vec4 color;
+  mat4 p;
 };
 
 
@@ -87,8 +123,9 @@ out VS_OUT {
 
 void main() {
   //vec4 p = vec4(quad[gl_VertexID].xy,0.0, 1.0);
-  vec4 p = vec4(in_pos,0.0, 1.0);
-  gl_Position = p;
+  //vec4 pr = p * vec4(in_pos,0.0, 1.0);
+  vec4 pr = vec4(in_pos,0.0, 1.0);
+  gl_Position = pr;
   vs_out.tc = in_tc;
 
 }
@@ -110,6 +147,7 @@ layout(std140, binding = 0) uniform GlobalData {
 
 layout(std140, binding = 1) uniform QuadData {
   vec4 color;
+  mat4 p;
 };
 
 
