@@ -133,13 +133,31 @@ main :: () {
 
   rend : xRend2D;
 
+  cam := xCamera2D.{
+    target = v2.{0,0},
+    rot = 0,
+    zoom = 1,
+    offset = v2.{0,0},
+  };
+  quad_pos := v4.{0,0,200,200};
+
   while xeng().running {
+    // set camera offset to middle of screen
+    wdim := xwin_get_dim(*xeng().win);
+    cam.offset =  v2.{wdim.x/2.0, wdim.y/2.0};
+
+    // sample quad movement
+    if (xim_kkey_down(.SC_UP)) quad_pos.y -= 1;
+    if (xim_kkey_down(.SC_DOWN)) quad_pos.y += 1;
+    if (xim_kkey_down(.SC_LEFT)) quad_pos.x -= 1;
+    if (xim_kkey_down(.SC_RIGHT)) quad_pos.x += 1;
+
     xeng_frame_init();
     if (xim_kkey_pressed(.SC_ESCAPE)) xeng().running = false;
     ogl_rt_clear(null);
 
     // render a sample quad
-    xr2d_quad_render(*rend, .{0,0,100,100}, flask_tc, .{0.8,0.8,0.8,1.0});
+    xr2d_quad_render(*rend, quad_pos, flask_tc, .{0.8,0.8,0.8,1.0}, *cam);
     //xr2d_quad_render(*rend, .{0,0,0.4,0.3}, flask_tc, .{0.8,0.8,0.8,1.0});
 
     xeng_frame_end();

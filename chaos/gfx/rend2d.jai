@@ -20,42 +20,15 @@ xr2d_init :: (using rend : *xRend2D) {
   initialized = true;
 }
 
-// TODO: move this to /camera.jai
-xCamera2D :: struct {
-  target : v2;    // world pos focus
-  offset : v2;    // offset in screen-space 
-  rot    : float; // rotation in degrees
-  zoom   : float; // zoom
-}
-
-xcamera_2d_get_matrix :: (c : *xCamera2D) -> m4 {
-  camera_matrix : m4 = m4_I;
-
-  translation := m4_trans(v3.{-c.target.x, -c.target.y,0});
-  rotation := m4_rotate(c.rot, v3.{1,0,0});
-  scale := m4_scale(v3.{c.zoom,c.zoom,1});
-  offset := m4_trans(v3.{c.offset.x, c.offset.y,0});
-
-  return m4_mult(offset,m4_mult(scale,m4_mult(rotation,translation)));
-}
-
-xr2d_quad_render :: (using rend : *xRend2D, r : v4, texcoords : v4, col : v4, tex : *oglTex = null) {
+xr2d_quad_render :: (using rend : *xRend2D, r : v4, texcoords : v4, col : v4, cam : *xCamera2D, tex : *oglTex = null) {
   if !initialized then xr2d_init(rend);
 
   ogl_rt_bind(null);
   ogl_bind_sp(*sp);
 
-  //rect := m4_multv(m4_ortho(0,wdim.x, 0, wdim.y, -1, 1),r);
   rect := v4.{r.x, r.y, r.x + r.z, r.y + r.w};
-  wdim := xwin_get_dim(*xeng().win);
-  proj := m4_ortho(0,wdim.x, wdim.y, 0, -1, 1);
-  cam := xCamera2D.{
-    target = v2.{0,0},
-    rot = 0,
-    zoom = 3 * (sin(cast(float32)seconds_since_init()*4)/2.0+0.5),
-    offset = v2.{0,0},
-  };
-  camera_matrix := xcamera_2d_get_matrix(*cam);
+  proj := get_projection_matrix(cam, xwin_get_dim(*xeng().win));
+  camera_matrix := get_camera_matrix(cam);
   pos_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.x,rect.y,0,1});
   dim_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.x + rect.z,rect.y + rect.w,0,1});
   rect = v4.{pos_projected.x, pos_projected.y, dim_projected.x, dim_projected.y};
