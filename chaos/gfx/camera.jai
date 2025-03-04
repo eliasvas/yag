@@ -82,8 +82,8 @@ get_camera_matrix :: (using c : *xCamera2D) -> m4 {
   camera_matrix : m4 = m4_I;
 
   translation_mat := m4_trans(v3.{-target.x, -target.y,0});
-  rotation_mat := m4_rotate(rot, v3.{1,0,0});
-  scale_mat := m4_scale(v3.{zoom,c.zoom,1});
+  rotation_mat := m4_rotate(rot, v3.{0,0,1});
+  scale_mat := m4_scale(v3.{zoom,zoom,1});
   offset_mat := m4_trans(v3.{offset.x, offset.y,0});
 
   return m4_mult(offset_mat,m4_mult(scale_mat,m4_mult(rotation_mat,translation_mat)));

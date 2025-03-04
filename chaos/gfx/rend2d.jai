@@ -1,5 +1,9 @@
 
-QuadVertex :: struct {pos : v2; color: v4; tc : v2;};
+QuadVertex :: struct {
+  pos : v2;
+  color: v4;
+  tc : v2;
+}
 
 xRend2D :: struct {
   sp : oglSP;
@@ -29,8 +33,8 @@ xr2d_quad_render :: (using rend : *xRend2D, r : v4, texcoords : v4, col : v4, ca
   rect := v4.{r.x, r.y, r.x + r.z, r.y + r.w};
   proj := get_projection_matrix(cam, xwin_get_dim(*xeng().win));
   camera_matrix := get_camera_matrix(cam);
-  pos_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.x,rect.y,0,1});
-  dim_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.x + rect.z,rect.y + rect.w,0,1});
+  pos_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.x,rect.y,0,0});
+  dim_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.z, rect.w,0,0});
   rect = v4.{pos_projected.x, pos_projected.y, dim_projected.x, dim_projected.y};
 
 

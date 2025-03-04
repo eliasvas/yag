@@ -37,6 +37,8 @@ operator / :: (a: v2, b : v2) -> v2 {return .{a.x/b.x,a.y/b.y};}
 v2_dot :: (a : v2, b : v2) -> float {return a.x*b.x+a.y*b.y;}
 v2_len :: (v : v2) -> float { return sqrt(v2_dot(v,v));}
 v2_norm :: (v : v2) -> v2 {return v*(1.0/v2_len(v));}
+v2_lerp :: (a : v2, b : v2, t : float) -> v2 {return b*t + a*(1.0-t);}
+v2_rotate :: (v : v2, angle_deg : float) -> v2 {return v*(1.0/v2_len(v));}
 
 v3:: struct {
   x,y,z : float;
@@ -363,15 +365,15 @@ m4_rotate :: (angle : float, axis : v3) -> m4 {
   one_minus_c := 1.0 - c;
 
   m._11 = c + x * x * one_minus_c;
-  m._21 = x * y * one_minus_c - z * s;
-  m._31 = x * z * one_minus_c + y * s;
+  m._12 = x * y * one_minus_c - z * s;
+  m._13 = x * z * one_minus_c + y * s;
 
-  m._12 = y * x * one_minus_c + z * s;
+  m._21 = y * x * one_minus_c + z * s;
   m._22 = c + y * y * one_minus_c;
-  m._32 = y * z * one_minus_c - x * s;
+  m._23 = y * z * one_minus_c - x * s;
 
-  m._13 = z * x * one_minus_c - y * s;
-  m._23 = z * y * one_minus_c + x * s;
+  m._31 = z * x * one_minus_c - y * s;
+  m._32 = z * y * one_minus_c + x * s;
   m._33 = c + z * z * one_minus_c;
 
   return m;

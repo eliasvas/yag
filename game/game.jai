@@ -139,7 +139,10 @@ main :: () {
     zoom = 1,
     offset = v2.{0,0},
   };
-  quad_pos := v4.{0,0,200,200};
+  quad_pos := v4.{-100,-100,200,200};
+
+  // make the xy grid
+  grid = xgrid_make();
 
   while xeng().running {
     // set camera offset to middle of screen
@@ -152,13 +155,24 @@ main :: () {
     if (xim_kkey_down(.SC_LEFT)) quad_pos.x -= 1;
     if (xim_kkey_down(.SC_RIGHT)) quad_pos.x += 1;
 
+    if (xim_kkey_down(.SC_Q)) cam.rot -= 0.01;
+    if (xim_kkey_down(.SC_E)) cam.rot += 0.01;
+
+    if (xim_kkey_down(.SC_1)) cam.zoom = 1;
+    if (xim_kkey_down(.SC_2)) cam.zoom = 2;
+    if (xim_kkey_down(.SC_3)) cam.zoom = 3;
+    if (xim_kkey_down(.SC_4)) cam.zoom = 4;
+
     xeng_frame_init();
     if (xim_kkey_pressed(.SC_ESCAPE)) xeng().running = false;
     ogl_rt_clear(null);
 
+    // render the xy grid
+    xgrid_render(*grid);
+
     // render a sample quad
     xr2d_quad_render(*rend, quad_pos, flask_tc, .{0.8,0.8,0.8,1.0}, *cam);
-    //xr2d_quad_render(*rend, .{0,0,0.4,0.3}, flask_tc, .{0.8,0.8,0.8,1.0});
+    xr2d_quad_render(*rend, .{-20,-20,40,40}, flask_tc, .{0.1,0.1,0.1,1.0}, *cam);
 
     xeng_frame_end();
   }

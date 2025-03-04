@@ -41,9 +41,10 @@ xgrid_render :: (using grid : *xGrid) {
   dyn_state := oglDynState.{
     viewport = xwin_get_viewport(*xeng().win),
     scissor = .{},
-    flags = .BLEND | .DEPTH
+    //flags = .BLEND | .DEPTH
+    flags = .BLEND
   };
-  ogl_sp_apply_dyn_state(*imm_sp, dyn_state);
+  ogl_sp_apply_dyn_state(*sp, dyn_state);
   ogl_draw(oglPrimitive.TRIANGLE_FAN,0,4);
 }
 
@@ -52,11 +53,20 @@ xgrid_render :: (using grid : *xGrid) {
 GRID_VERT_SHADER :: #string DONE
 #version 430 core
 
+/*
 vec3 grid_plane[4] = vec3[](
   vec3(+1.0,0,-1.0),
   vec3(+1.0,0,+1.0),
   vec3(-1.0,0,+1.0),
   vec3(-1.0,0,-1.0)
+);
+*/
+
+vec3 grid_plane[4] = vec3[](
+  vec3(+1.0,-1.0,0),
+  vec3(+1.0,+1.0,0),
+  vec3(-1.0,+1.0,0),
+  vec3(-1.0,-1.0,0)
 );
 
 layout(std140, binding = 0) uniform GlobalData {
