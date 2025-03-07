@@ -154,8 +154,12 @@ ogl_buf_init :: (using buf : *oglBuf, bkind : oglBufKind, data : *void, data_cou
 }
 // TODO the using's should be in function declaration
 ogl_buf_deinit :: (using buf : *oglBuf) -> bool {
-  if impl_state != null then glDeleteBuffers(1, xx impl_state);
-  return true;
+  if buf != null && impl_state != null {
+    glDeleteBuffers(1, xx *impl_state);
+    return true;
+  } else {
+    return false;
+  }
 }
 ogl_buf_update :: (using buf : *oglBuf, data : *void, data_count : u32, bytes_per_elem: u32) {
   count = data_count;

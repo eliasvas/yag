@@ -139,7 +139,7 @@ main :: () {
     zoom = 1,
     offset = v2.{0,0},
   };
-  quad_pos := v4.{-100,-100,200,200};
+  quad_pos := v4.{0,0,100,100};
 
   // make the xy grid
   grid = xgrid_make();
@@ -147,7 +147,8 @@ main :: () {
   while xeng().running {
     // set camera offset to middle of screen
     wdim := xwin_get_dim(*xeng().win);
-    cam.offset =  v2.{wdim.x/2.0, wdim.y/2.0};
+    cam.offset = v2.{wdim.x/2.0, wdim.y/2.0};
+    cam.target = v2.{quad_pos.x + quad_pos.z/2.0, quad_pos.y + quad_pos.w/2.0};
 
     // sample quad movement
     if (xim_kkey_down(.SC_UP)) quad_pos.y -= 1;
@@ -155,8 +156,8 @@ main :: () {
     if (xim_kkey_down(.SC_LEFT)) quad_pos.x -= 1;
     if (xim_kkey_down(.SC_RIGHT)) quad_pos.x += 1;
 
-    if (xim_kkey_down(.SC_Q)) cam.rot -= 0.01;
-    if (xim_kkey_down(.SC_E)) cam.rot += 0.01;
+    if (xim_kkey_down(.SC_Q)) cam.rot += 0.001;
+    if (xim_kkey_down(.SC_E)) cam.rot -= 0.001;
 
     if (xim_kkey_down(.SC_1)) cam.zoom = 1;
     if (xim_kkey_down(.SC_2)) cam.zoom = 2;

@@ -26,19 +26,19 @@ xr2d_init :: (using rend : *xRend2D) {
 
 xr2d_quad_render :: (using rend : *xRend2D, r : v4, texcoords : v4, col : v4, cam : *xCamera2D, tex : *oglTex = null) {
   if !initialized then xr2d_init(rend);
+  rect := v4.{r.x, r.y, r.x+r.z, r.y+r.z};
 
   ogl_rt_bind(null);
   ogl_bind_sp(*sp);
 
-  rect := v4.{r.x, r.y, r.x + r.z, r.y + r.w};
+  // Note: Instead of doing all this matrix stuff maybe its
+  // best to just do the actual 2D calculations, its EASY
   proj := get_projection_matrix(cam, xwin_get_dim(*xeng().win));
   camera_matrix := get_camera_matrix(cam);
-  pos_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.x,rect.y,0,0});
-  dim_projected := m4_multv(m4_mult(proj,camera_matrix), v4.{rect.z, rect.w,0,0});
-  rect = v4.{pos_projected.x, pos_projected.y, dim_projected.x, dim_projected.y};
+  final_matrix := m4_transpose(m4_mult(proj, camera_matrix));
 
 
-  //ogl_buf_deinit(vertex_def.vbuf);
+  ogl_buf_deinit(vertex_def.vbuf);
   vertices : [4]QuadVertex;
   vertices[0] = .{pos = .{rect.x, rect.y}, color = col, tc = .{texcoords.x, texcoords.y}};
   vertices[1] = .{pos = .{rect.z, rect.y}, color = col, tc = .{texcoords.x + texcoords.z, texcoords.y}};
@@ -57,6 +57,7 @@ xr2d_quad_render :: (using rend : *xRend2D, r : v4, texcoords : v4, col : v4, ca
   }
 
   ogl_ublock_set(*sp_ub1, "color", xx *col);
+  ogl_ublock_set(*sp_ub1, "final_matrix", xx *final_matrix);
   ogl_ublock_bind_to_slot(*sp_ub1);
 
   dyn_state := oglDynState.{
@@ -89,8 +90,8 @@ layout(std140, binding = 0) uniform GlobalData {
 };
 
 layout(std140, binding = 1) uniform QuadData {
+  mat4 final_matrix;
   vec4 color;
-  mat4 p;
 };
 
 
@@ -100,8 +101,8 @@ out VS_OUT {
 
 void main() {
   //vec4 p = vec4(quad[gl_VertexID].xy,0.0, 1.0);
-  //vec4 pr = p * vec4(in_pos,0.0, 1.0);
-  vec4 pr = vec4(in_pos,0.0, 1.0);
+  vec4 pr = final_matrix * vec4(in_pos,0.0, 1.0);
+  //vec4 pr = vec4(in_pos,0.0, 1.0);
   gl_Position = pr;
   vs_out.tc = in_tc;
 
@@ -121,12 +122,10 @@ layout(std140, binding = 0) uniform GlobalData {
   mat4 view;
 };
 
-
 layout(std140, binding = 1) uniform QuadData {
+  mat4 final_matrix;
   vec4 color;
-  mat4 p;
 };
-
 
 uniform sampler2D tex;
 
