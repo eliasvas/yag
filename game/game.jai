@@ -148,7 +148,7 @@ main :: () {
     // set camera offset to middle of screen
     wdim := xwin_get_dim(*xeng().win);
     cam.offset = v2.{wdim.x/2.0, wdim.y/2.0};
-    cam.target = v2.{quad_pos.x + quad_pos.z/2.0, quad_pos.y + quad_pos.w/2.0};
+    //cam.target = v2.{quad_pos.x + quad_pos.z/2.0, quad_pos.y + quad_pos.w/2.0};
 
     // sample quad movement
     if (xim_kkey_down(.SC_UP)) quad_pos.y -= 1;
@@ -167,6 +167,10 @@ main :: () {
     xeng_frame_init();
     if (xim_kkey_pressed(.SC_ESCAPE)) xeng().running = false;
     ogl_rt_clear(null);
+
+    mp := xim_get_mouse_pos();
+    //print("screen mp: %\n", mp);
+    //print("world mp: %\n", screen_to_world(mp, *cam));
 
     // render the xy grid
     xgrid_render(*grid);

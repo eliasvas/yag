@@ -31,19 +31,25 @@ xr2d_quad_render :: (using rend : *xRend2D, r : v4, texcoords : v4, col : v4, ca
   ogl_rt_bind(null);
   ogl_bind_sp(*sp);
 
-  // Note: Instead of doing all this matrix stuff maybe its
-  // best to just do the actual 2D calculations, its EASY
-  proj := get_projection_matrix(cam, xwin_get_dim(*xeng().win));
-  camera_matrix := get_camera_matrix(cam);
-  final_matrix := m4_transpose(m4_mult(proj, camera_matrix));
-
-
   ogl_buf_deinit(vertex_def.vbuf);
   vertices : [4]QuadVertex;
+
   vertices[0] = .{pos = .{rect.x, rect.y}, color = col, tc = .{texcoords.x, texcoords.y}};
+  vertices[0].pos = apply_camera_transform(vertices[0].pos, cam);
+  vertices[0].pos = apply_projection_transform(vertices[0].pos, xwin_get_dim(*xeng().win));
+
   vertices[1] = .{pos = .{rect.z, rect.y}, color = col, tc = .{texcoords.x + texcoords.z, texcoords.y}};
+  vertices[1].pos = apply_camera_transform(vertices[1].pos, cam);
+  vertices[1].pos = apply_projection_transform(vertices[1].pos, xwin_get_dim(*xeng().win));
+
   vertices[2] = .{pos = .{rect.x, rect.w}, color = col, tc = .{texcoords.x, texcoords.y + texcoords.w}};
+  vertices[2].pos = apply_camera_transform(vertices[2].pos, cam);
+  vertices[2].pos = apply_projection_transform(vertices[2].pos, xwin_get_dim(*xeng().win));
+
   vertices[3] = .{pos = .{rect.z, rect.w}, color = col, tc = .{texcoords.x + texcoords.z, texcoords.y + texcoords.w}};
+  vertices[3].pos = apply_camera_transform(vertices[3].pos, cam);
+  vertices[3].pos = apply_projection_transform(vertices[3].pos, xwin_get_dim(*xeng().win));
+
 
   ogl_buf_init(vertex_def.vbuf, .VERTEX, vertices.data, cast(u32)vertices.count, size_of(QuadVertex));
   bindings := oglBindingDesc.{
@@ -57,7 +63,6 @@ xr2d_quad_render :: (using rend : *xRend2D, r : v4, texcoords : v4, col : v4, ca
   }
 
   ogl_ublock_set(*sp_ub1, "color", xx *col);
-  ogl_ublock_set(*sp_ub1, "final_matrix", xx *final_matrix);
   ogl_ublock_bind_to_slot(*sp_ub1);
 
   dyn_state := oglDynState.{
@@ -101,8 +106,8 @@ out VS_OUT {
 
 void main() {
   //vec4 p = vec4(quad[gl_VertexID].xy,0.0, 1.0);
-  vec4 pr = final_matrix * vec4(in_pos,0.0, 1.0);
-  //vec4 pr = vec4(in_pos,0.0, 1.0);
+  //vec4 pr = final_matrix * vec4(in_pos,0.0, 1.0);
+  vec4 pr = vec4(in_pos,0.0, 1.0);
   gl_Position = pr;
   vs_out.tc = in_tc;
 

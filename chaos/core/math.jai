@@ -38,7 +38,7 @@ v2_dot :: (a : v2, b : v2) -> float {return a.x*b.x+a.y*b.y;}
 v2_len :: (v : v2) -> float { return sqrt(v2_dot(v,v));}
 v2_norm :: (v : v2) -> v2 {return v*(1.0/v2_len(v));}
 v2_lerp :: (a : v2, b : v2, t : float) -> v2 {return b*t + a*(1.0-t);}
-v2_rotate :: (v : v2, angle_deg : float) -> v2 {return v*(1.0/v2_len(v));}
+v2_rotate :: (v : v2, angle_rad : float) -> v2 { return v2.{v.x*cos(angle_rad) - v.y * sin(angle_rad), v.y * cos(angle_rad) + v.x * sin(angle_rad)};}
 
 v3:: struct {
   x,y,z : float;
