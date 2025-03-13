@@ -370,3 +370,16 @@ SAMPLE_JSON :: #string END
   }
 }
 END
+
+#run {
+  root : *xJsonNode = xjson_parse_wholefile_string(SAMPLE_JSON);
+
+  assert(xjson_node_get(root, "scene") != null);
+  assert(xjson_node_get(root, "scene").value == "0");
+  assert(xjson_node_get(root, "asset.version").value == "2.0");
+  for acc : xjson_node_get(root, "accessors").values {
+    assert(xjson_get_int(acc, "count") == 3);
+  }
+
+  assert(true);
+}
