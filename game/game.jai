@@ -123,45 +123,43 @@ calc_animation_test :: (array_node : *xJsonNode, tex : *oglTex, frame: u32) -> v
   tc := v4.{parsed_tc[0] / tex_dim.x, parsed_tc[1] / tex_dim.y, parsed_tc[2] / tex_dim.x, parsed_tc[3] / tex_dim.y};
   return tc;
 }
+
+sprite_tex : oglTex;
+sprite_anim_tc : v4;
+
+particle_tex : oglTex;
+particle_anim_tc : v4;
  
 main :: () {
   xeng_init();
 
-
-  // load the 2d texture
-  tex : oglTex;
-  /*
+  // init sprite texture
   {
     png_data := read_entire_file("../assets/DungeonTiles/DungeonTiles.png");
     tex_w, tex_h, channels : s32;
     //stbi_set_flip_vertically_on_load(1);
     raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
-    ogl_tex_init(*tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+    ogl_tex_init(*sprite_tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
   }
-
-
   // load its accompanying json to get metadata
   root_node := xjson_parse_wholefile_string(read_entire_file("../assets/DungeonTiles/DungeonTiles.json"));
-  parsed_tc,found := xjson_get_float_array(root_node, "flask_big_yellow", 4);
+  sprite_anim_node,found := xjson_node_get(root_node, "big_demon_run_anim");
   assert(found);
-  tex_dim := tex.dim;
-  flask_tc := v4.{parsed_tc[0] / tex_dim.x, parsed_tc[1] / tex_dim.y, parsed_tc[2] / tex_dim.x, parsed_tc[3] / tex_dim.y};
 
 
-*/
 
+  // init particle texture
   {
     png_data := read_entire_file("../assets/SmokeParticles/SmokeParticles.png");
     tex_w, tex_h, channels : s32;
     //stbi_set_flip_vertically_on_load(1);
     raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
-    ogl_tex_init(*tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+    ogl_tex_init(*particle_tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
   }
-
   // load its accompanying json to get metadata
-  root_node := xjson_parse_wholefile_string(read_entire_file("../assets/SmokeParticles/SmokeParticles.json"));
-  smoke_fx_node,found := xjson_node_get(root_node, "smoke_fx_2");
-  assert(found);
+  root_node = xjson_parse_wholefile_string(read_entire_file("../assets/SmokeParticles/SmokeParticles.json"));
+  smoke_fx_node,sfound := xjson_node_get(root_node, "smoke_fx_2");
+  assert(sfound);
 
 
   rend : xRend2D;
@@ -180,7 +178,8 @@ main :: () {
   while xeng().running {
 
     // calculate texture coordinates for a given frame (23 FPS)
-    flask_tc := calc_animation_test(smoke_fx_node, *tex, cast(u32)(seconds_since_init()*23) % 11);
+    particle_anim_tc = calc_animation_test(smoke_fx_node, *particle_tex, cast(u32)(seconds_since_init()*23) % 11);
+    sprite_anim_tc = calc_animation_test(sprite_anim_node, *sprite_tex, cast(u32)(seconds_since_init()*12) % 4);
 
 
     // set camera offset to middle of screen
@@ -204,7 +203,7 @@ main :: () {
 
     xeng_frame_init();
     if (xim_kkey_pressed(.SC_ESCAPE)) xeng().running = false;
-    ogl_rt_clear(null);
+    ogl_rt_clear(null,.{0.7,0.4,0.1,1.0});
 
     mp := xim_get_mouse_pos();
     //print("screen mp: %\n", mp);
@@ -214,8 +213,8 @@ main :: () {
     xgrid_render(*grid);
 
     // render a sample quad
-    xr2d_quad_render(*rend, quad_pos, flask_tc, .{0.8,0.8,0.8,1.0}, *cam);
-    xr2d_quad_render(*rend, .{-20,-20,40,40}, flask_tc, .{0.1,0.1,0.1,1.0}, *cam);
+    xr2d_quad_render(*rend, quad_pos, sprite_anim_tc, .{0.8,0.8,0.8,1.0}, *cam, *sprite_tex);
+    xr2d_quad_render(*rend, .{-20,-20,40,40}, particle_anim_tc, .{1.0,1.0,1.0,1.0}, *cam, *particle_tex);
 
     xeng_frame_end();
   }
