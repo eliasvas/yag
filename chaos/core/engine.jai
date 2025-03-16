@@ -14,6 +14,8 @@ xEngine :: struct {
   dir_light : xLight;
   csm_data : xCSMData;
 
+  persistent_arena : xArena; // no need for initialization I think
+
   global_data_ub : oglUBlock;
 }
 

@@ -97,11 +97,11 @@ generate_entity_code :: (w : Workspace) {
          print_to_builder(*builder, "_%1: %1;\n", it);
       }
       slot_string := builder_to_string(*builder);
-      storage_string : string= "array: Bucket_Array(xEntitySlot, 64, true);";
+      storage_string : string= "slots : [XENTITY_MAX_ENTITIES]xEntityHashSlot;\n freelist : *xEntitySlot;\n next_idx : u32;";
 
       ubuilder : String_Builder;
       for entity_type_names {
-         print_to_builder(*ubuilder, "case %1;\n update(ecast(e,%1));\n", it);
+         print_to_builder(*ubuilder, "case %1;\n update(ecast(itr,%1));\n", it);
       }
       update_string := builder_to_string(*ubuilder);
 
@@ -122,15 +122,21 @@ xEntitySlot :: union {
 xEntityStorage :: struct {
 %4
 }
-
 entities_update :: (entities : *xEntityStorage) {
-   for *e : entities.array {
-      if e.type == {
-%5
-case;
+   for slot : 0..XENTITY_MAX_ENTITIES-1 {
+      e := *entities.slots[slot];
+      itr := e.first;
+      while itr {
+         if itr.type == {
+            %5
+            case;
+         }
+         itr=itr.hash_next;
       }
    }
+
 }
+
 DONE
 
 

@@ -1,11 +1,10 @@
 #import "Basic";
-#import "Flat_Pool";
 
 // TODO: support other allocators, not only Pools
 // NOTE: maybe for_expansion is good here?
 
-alloc_array :: (pool : *Flat_Pool, $type : Type, count : u32) -> *type {
-  ptr := cast(*type)get(pool, size_of(type)*count);
+alloc_array :: (arena : *xArena, $type : Type, count : u32) -> *type {
+  ptr := cast(*type)get(arena, size_of(type)*count);
   memset(ptr, 0, size_of(type)*count);
   return ptr;
 }
@@ -181,26 +180,26 @@ djb2 :: (s : string) -> u64 {
 // Linked-List tests
 ////////////////////////////////////////////
 ll_tests :: (){
-  pool: Flat_Pool;
+  arena: xArena;
   { // singly-linked stack push 
-    reset(*pool);
+    reset(*arena);
     first : *SentenceNode = null;
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     first = sll_stack_push(first, n1);
     first = sll_stack_push(first, n2);
     first = sll_stack_push(first, n3);
     assert(concat_sentences(first) == "EggWantI");
   }
   { // singly-linked stack pop 
-    reset(*pool);
+    reset(*arena);
     first : *SentenceNode = null;
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     first = sll_stack_push(first, n1);
     first = sll_stack_push(first, n2);
 
@@ -213,39 +212,39 @@ ll_tests :: (){
     assert(concat_sentences(popped) == "Want");
   }
   { // singly-linked queue push 
-    reset(*pool);
+    reset(*arena);
     first : *SentenceNode = null;
     last  : *SentenceNode = null;
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     first,last = sll_queue_push(first, last, n1);
     first,last = sll_queue_push(first, last, n2);
     first,last = sll_queue_push(first, last, n3);
     assert(concat_sentences(first) == "IWantEgg");
   }
   { // singly-linked queue push front 
-    reset(*pool);
+    reset(*arena);
     first : *SentenceNode = null;
     last  : *SentenceNode = null;
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     first,last = sll_queue_push(first, last, n1);
     first,last = sll_queue_push_front(first, last, n2);
     first,last = sll_queue_push(first, last, n3);
     assert(concat_sentences(first) == "WantIEgg");
   }
   { // singly-linked queue pop
-    reset(*pool);
+    reset(*arena);
     first : *SentenceNode = null;
     last  : *SentenceNode = null;
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     first,last = sll_queue_push(first, last, n1);
     first,last = sll_queue_push_front(first, last, n2);
 
@@ -258,26 +257,26 @@ ll_tests :: (){
     assert(concat_sentences(popped) == "Want");
   }
   { // doubly-linked list insert
-    reset(*pool);
+    reset(*arena);
     first : *SentenceNode = null;
     last  : *SentenceNode = null;
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     first,last = dll_insert(first, last,null, n1);
     first,last = dll_insert(first, last, last, n2);
     first,last = dll_insert(first, last, n1, n3);
     assert(concat_sentences(first) == "IEggWant");
   }
   { // doubly-linked list remove 
-    reset(*pool);
+    reset(*arena);
     first : *SentenceNode = null;
     last  : *SentenceNode = null;
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     first,last = dll_insert(first, last,null, n1);
     first,last = dll_insert(first, last, last, n2);
     first,last = dll_insert(first, last, n1, n3);
@@ -285,24 +284,24 @@ ll_tests :: (){
     assert(concat_sentences(first) == "IWant");
   }
   { // doubly-linked push back/front
-    reset(*pool);
+    reset(*arena);
     first : *SentenceNode = null;
     last  : *SentenceNode = null;
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     first,last = dll_insert(first, last, null, n1);
     first,last = dll_push_back(first, last, n2);
     first,last = dll_push_front(first, last, n3);
     assert(concat_sentences(first) == "EggIWant");
   }
   { // tree
-    reset(*pool);
+    reset(*arena);
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     n1.first,n1.last = dll_push_back(n1.first, n1.last, n2);
     n2.parent = n1;
     n1.first,n1.last = dll_push_back(n1.first, n1.last, n3);
@@ -311,14 +310,14 @@ ll_tests :: (){
   }
   // hash table (with Slot array)
   {
-    reset(*pool);
+    reset(*arena);
 
     SLOTS_COUNT :: 256;
-    slots := alloc_array(*pool, SentenceSlot, SLOTS_COUNT);
+    slots := alloc_array(*arena, SentenceSlot, SLOTS_COUNT);
 
     names := string.["I", "Want", "Egg"];
     for n : names {
-      node := alloc_array(*pool, SentenceNode, 1); node.v = n;
+      node := alloc_array(*arena, SentenceNode, 1); node.v = n;
       slot_num := djb2(node.v) % SLOTS_COUNT;
       slots[slot_num].first, slots[slot_num].last = sll_queue_push(slots[slot_num].first, slots[slot_num].last, node);
     }
@@ -330,7 +329,7 @@ ll_tests :: (){
 
     // we re-insert our data so that they become linked lists
     for n : names {
-      node := alloc_array(*pool, SentenceNode, 1); node.v = n;
+      node := alloc_array(*arena, SentenceNode, 1); node.v = n;
       slot_num := djb2(node.v) % SLOTS_COUNT;
       slots[slot_num].first, slots[slot_num].last = sll_queue_push(slots[slot_num].first, slots[slot_num].last, node);
     }
@@ -343,11 +342,11 @@ ll_tests :: (){
 
   { // hash table (embedded inside a SentenceNode)
     SLOTS_COUNT :: 256;
-    slots := alloc_array(*pool, SentenceNode, SLOTS_COUNT);
+    slots := alloc_array(*arena, SentenceNode, SLOTS_COUNT);
 
     names := string.["I", "Want", "Egg"];
     for n : names {
-      node := alloc_array(*pool, SentenceNode, 1); node.v = n;
+      node := alloc_array(*arena, SentenceNode, 1); node.v = n;
       slot_num := djb2(node.v) % SLOTS_COUNT;
       slots[slot_num].hash_next, slots[slot_num].hash_prev = dll_push_back(slots[slot_num].hash_next, slots[slot_num].hash_prev, node, "hash_next", "hash_prev");
     }
@@ -359,15 +358,15 @@ ll_tests :: (){
   }
 
   { // tree + embedded hash table!
-    reset(*pool);
+    reset(*arena);
 
     SLOTS_COUNT :: 256;
-    slots := alloc_array(*pool, SentenceNode, SLOTS_COUNT);
+    slots := alloc_array(*arena, SentenceNode, SLOTS_COUNT);
 
 
-    n1 := alloc_array(*pool, SentenceNode, 1);n1.v = "I";
-    n2 := alloc_array(*pool, SentenceNode, 1);n2.v = "Want";
-    n3 := alloc_array(*pool, SentenceNode, 1);n3.v = "Egg";
+    n1 := alloc_array(*arena, SentenceNode, 1);n1.v = "I";
+    n2 := alloc_array(*arena, SentenceNode, 1);n2.v = "Want";
+    n3 := alloc_array(*arena, SentenceNode, 1);n3.v = "Egg";
     n1.first,n1.last = dll_push_back(n1.first, n1.last, n2);
     n2.parent = n1;
     n1.first,n1.last = dll_push_back(n1.first, n1.last, n3);
@@ -384,7 +383,7 @@ ll_tests :: (){
     slots[slot_num].hash_next, slots[slot_num].hash_prev = dll_push_back(slots[slot_num].hash_next, slots[slot_num].hash_prev, n3, "hash_next", "hash_prev");
     assert(slots[slot_num].hash_next.v == n3.v);
 
-    n1_dupe := alloc_array(*pool, SentenceNode, 1);n1_dupe.v = "I";
+    n1_dupe := alloc_array(*arena, SentenceNode, 1);n1_dupe.v = "I";
     slot_num = djb2(n1_dupe.v) % SLOTS_COUNT;
     slots[slot_num].hash_next, slots[slot_num].hash_prev = dll_push_back(slots[slot_num].hash_next, slots[slot_num].hash_prev, n1_dupe, "hash_next", "hash_prev");
     assert(n1.hash_next.v == n1_dupe.v);
