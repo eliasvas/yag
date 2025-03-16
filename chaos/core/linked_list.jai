@@ -132,6 +132,15 @@ dll_remove :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", $pre
  
 
 
+count :: (f : *$T) ->u32 {
+  c : u32 = 0;
+  while f {
+    c+=1;
+    f = f.next;
+  }
+  return c;
+}
+
 ////////////////////////////////////////////
 // Data Structure for tests
 ////////////////////////////////////////////

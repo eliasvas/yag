@@ -39,6 +39,7 @@ build :: () {
       compiler_begin_intercept(w);
       add_build_file("chaos/module.jai", w); // engine source
       add_build_file("game/game.jai", w); // game source (TODO: should be moved to different workspace)
+      add_build_file("game/sprite.jai", w); // game source (TODO: should be moved to different workspace)
       message_loop();
       compiler_end_intercept(w);
 
@@ -97,7 +98,7 @@ generate_entity_code :: (w : Workspace) {
          print_to_builder(*builder, "_%1: %1;\n", it);
       }
       slot_string := builder_to_string(*builder);
-      storage_string : string= "slots : [XENTITY_MAX_ENTITIES]xEntityHashSlot;\n freelist : *xEntitySlot;\n next_idx : u32;";
+      storage_string : string= "slots : [XENTITY_MAX_ENTITIES]xEntityHashSlot;\n freelist_head : *xEntityBase;\n next_idx : u32 = 1;";
 
       ubuilder : String_Builder;
       for entity_type_names {
@@ -105,8 +106,16 @@ generate_entity_code :: (w : Workspace) {
       }
       update_string := builder_to_string(*ubuilder);
 
+      dbuilder : String_Builder;
+      for entity_type_names {
+         print_to_builder(*ubuilder, "case %1;\n deinit(ecast(e,%1));\n", it);
+      }
+      deinit_string := builder_to_string(*ubuilder);
 
-      build_string := sprint(ENTITY_INSERTION_STRING, entity_type_names.count, type_names, slot_string, storage_string, update_string);
+
+
+
+      build_string := sprint(ENTITY_INSERTION_STRING, entity_type_names.count, type_names, slot_string, storage_string, update_string, deinit_string);
       add_build_string(build_string, w);
       //print("Adding build string:\n%\n", build_string);
    }
@@ -137,6 +146,27 @@ entities_update :: (entities : *xEntityStorage) {
 
 }
 
+entity_deinit :: (e : *xEntitySlot) {
+   if e.type == {
+      %6
+      case;
+   }
+}
+
+entities_cleanup :: (entities : *xEntityStorage) {
+   for slot : 0..XENTITY_MAX_ENTITIES-1 {
+      e := *entities.slots[slot];
+      itr := e.first;
+      while itr {
+         // we get the node, memzero it, remove from hashmap and insert it to the freelist
+         if itr.marked_for_destruction {
+            xentity_delete(cast(*xEntitySlot)itr);
+         }
+         itr = itr.next;
+      }
+   }
+
+}
 DONE
 
 

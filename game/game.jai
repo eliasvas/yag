@@ -175,7 +175,24 @@ main :: () {
   // make the xy grid
   grid = xgrid_make();
 
+
+  sprite1 := xentity_make(Sprite);
+  sprite1.tex = *sprite_tex;
+  sprite1.base_tc = calc_animation_test(sprite_anim_node, *sprite_tex, 0);
+  sprite1.frame_count = 4;
+  sprite1.fps = 12;
+
+  player1 := xentity_make(Player).id;
+  xentity_attach(player1, sprite1.id);
+
   while xeng().running {
+    if (xim_kkey_pressed(.SC_Z)) then xentity_make(Player);
+
+    //print("freelist size: %\n", count(entities.freelist_head));
+    entities_cleanup(*entities);
+    entities_update(*entities); // should be some kind of scene update probably
+
+
 
     // calculate texture coordinates for a given frame (23 FPS)
     particle_anim_tc = calc_animation_test(smoke_fx_node, *particle_tex, cast(u32)(seconds_since_init()*23) % 11);
@@ -213,8 +230,10 @@ main :: () {
     xgrid_render(*grid);
 
     // render a sample quad
-    xr2d_quad_render(*rend, quad_pos, sprite_anim_tc, .{0.8,0.8,0.8,1.0}, *cam, *sprite_tex);
+    //xr2d_quad_render(*rend, quad_pos, sprite_anim_tc, .{0.8,0.8,0.8,1.0}, *cam, *sprite_tex);
     xr2d_quad_render(*rend, .{-20,-20,40,40}, particle_anim_tc, .{1.0,1.0,1.0,1.0}, *cam, *particle_tex);
+
+    if sprite1.id then render(sprite1, *rend, *cam);
 
     xeng_frame_end();
   }
