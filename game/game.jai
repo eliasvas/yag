@@ -110,76 +110,42 @@ xim_print_state :: () {
   ImGui.End();
 }
 
-calc_animation_test :: (array_node : *xJsonNode, tex : *oglTex, frame: u32) -> v4 {
-  actual_node := array_node.values[frame];
-
-  parsed_tc : v4;
-  parsed_tc.x = xjson_string_to_float(actual_node.values[0].value);
-  parsed_tc.y = xjson_string_to_float(actual_node.values[1].value);
-  parsed_tc.z = xjson_string_to_float(actual_node.values[2].value);
-  parsed_tc.w = xjson_string_to_float(actual_node.values[3].value);
-
-  tex_dim := tex.dim;
-  tc := v4.{parsed_tc[0] / tex_dim.x, parsed_tc[1] / tex_dim.y, parsed_tc[2] / tex_dim.x, parsed_tc[3] / tex_dim.y};
-  return tc;
+texture_load :: (path : string) -> oglTex {
+  tex : oglTex;
+  png_data := read_entire_file(path);
+  tex_w, tex_h, channels : s32;
+  //stbi_set_flip_vertically_on_load(1);
+  raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
+  ogl_tex_init(*tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+  return tex;
 }
-
-sprite_tex : oglTex;
-sprite_anim_tc : v4;
-
-particle_tex : oglTex;
-particle_anim_tc : v4;
  
+
 main :: () {
   xeng_init();
 
-  // init sprite texture
-  {
-    png_data := read_entire_file("../assets/DungeonTiles/DungeonTiles.png");
-    tex_w, tex_h, channels : s32;
-    //stbi_set_flip_vertically_on_load(1);
-    raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
-    ogl_tex_init(*sprite_tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
-  }
-  // load its accompanying json to get metadata
-  root_node := xjson_parse_wholefile_string(read_entire_file("../assets/DungeonTiles/DungeonTiles.json"));
-  sprite_anim_node,found := xjson_node_get(root_node, "big_demon_run_anim");
-  assert(found);
-
-
-
-  // init particle texture
-  {
-    png_data := read_entire_file("../assets/SmokeParticles/SmokeParticles.png");
-    tex_w, tex_h, channels : s32;
-    //stbi_set_flip_vertically_on_load(1);
-    raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
-    ogl_tex_init(*particle_tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
-  }
-  // load its accompanying json to get metadata
-  root_node = xjson_parse_wholefile_string(read_entire_file("../assets/SmokeParticles/SmokeParticles.json"));
-  smoke_fx_node,sfound := xjson_node_get(root_node, "smoke_fx_2");
-  assert(sfound);
-
+  sprite_tex := texture_load("../assets/DungeonTiles/DungeonTiles.png");
+  particle_tex := texture_load("../assets/SmokeParticles/SmokeParticles.png");
 
   rend : xRend2D;
-
   cam := xCamera2D.{
     target = v2.{0,0},
     rot = 0,
     zoom = 1,
     offset = v2.{0,0},
   };
-  quad_pos := v4.{0,0,100,100};
 
-  // make the xy grid
-  grid = xgrid_make();
-
+  // TODO: make asset system, specifying the texture and JSON separately is painful
+  sprite2 := xentity_make(Sprite);
+  sprite_fill_from_json(xjson_parse_wholefile_string(read_entire_file("../assets/SmokeParticles/SmokeParticles.json")), "smoke_fx_6", *particle_tex,sprite2);
+  sprite2.tex = *particle_tex;
+  sprite2.halfdim = v2.{sprite2.base_tc.z*particle_tex.dim.x*2, sprite2.base_tc.w*particle_tex.dim.y*2};
+  sprite2.fps = 24;
 
   sprite1 := xentity_make(Sprite);
+  sprite_fill_from_json(xjson_parse_wholefile_string(read_entire_file("../assets/DungeonTiles/DungeonTiles.json")), "big_demon_run_anim", *sprite_tex,sprite1);
   sprite1.tex = *sprite_tex;
-  sprite1.base_tc = calc_animation_test(sprite_anim_node, *sprite_tex, 0);
-  sprite1.frame_count = 4;
+  sprite1.halfdim = v2.{sprite1.base_tc.z*sprite_tex.dim.x, sprite1.base_tc.w*sprite_tex.dim.y};
   sprite1.fps = 12;
 
   player1 := xentity_make(Player).id;
@@ -192,23 +158,9 @@ main :: () {
     entities_cleanup(*entities);
     entities_update(*entities); // should be some kind of scene update probably
 
-
-
-    // calculate texture coordinates for a given frame (23 FPS)
-    particle_anim_tc = calc_animation_test(smoke_fx_node, *particle_tex, cast(u32)(seconds_since_init()*23) % 11);
-    sprite_anim_tc = calc_animation_test(sprite_anim_node, *sprite_tex, cast(u32)(seconds_since_init()*12) % 4);
-
-
     // set camera offset to middle of screen
     wdim := xwin_get_dim(*xeng().win);
     cam.offset = v2.{wdim.x/2.0, wdim.y/2.0};
-    //cam.target = v2.{quad_pos.x + quad_pos.z/2.0, quad_pos.y + quad_pos.w/2.0};
-
-    // sample quad movement
-    if (xim_kkey_down(.SC_UP)) quad_pos.y -= 1;
-    if (xim_kkey_down(.SC_DOWN)) quad_pos.y += 1;
-    if (xim_kkey_down(.SC_LEFT)) quad_pos.x -= 1;
-    if (xim_kkey_down(.SC_RIGHT)) quad_pos.x += 1;
 
     if (xim_kkey_down(.SC_Q)) cam.rot += 0.001;
     if (xim_kkey_down(.SC_E)) cam.rot -= 0.001;
@@ -220,20 +172,10 @@ main :: () {
 
     xeng_frame_init();
     if (xim_kkey_pressed(.SC_ESCAPE)) xeng().running = false;
-    ogl_rt_clear(null,.{0.7,0.4,0.1,1.0});
+    ogl_rt_clear(null,.{0.7,0.3,0.2,1.0});
 
-    mp := xim_get_mouse_pos();
-    //print("screen mp: %\n", mp);
-    //print("world mp: %\n", screen_to_world(mp, *cam));
-
-    // render the xy grid
-    xgrid_render(*grid);
-
-    // render a sample quad
-    //xr2d_quad_render(*rend, quad_pos, sprite_anim_tc, .{0.8,0.8,0.8,1.0}, *cam, *sprite_tex);
-    xr2d_quad_render(*rend, .{-20,-20,40,40}, particle_anim_tc, .{1.0,1.0,1.0,1.0}, *cam, *particle_tex);
-
-    if sprite1.id then render(sprite1, *rend, *cam);
+    if sprite1.id then render(sprite1, *rend, *cam, ecast(xentity_find(player1),Player).flip_x);
+    if sprite2.id then render(sprite2, *rend, *cam, false);
 
     xeng_frame_end();
   }
