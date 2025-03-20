@@ -32,13 +32,13 @@ Foo :: struct @entity {
   foo : int;
 }
 update :: (using b : *Foo) {
-  print("foo update!\n");
+  //print("foo update!\n");
 }
 init :: (using b : *Foo) {
-  print("foo init!\n");
+  //print("foo init!\n");
 }
 deinit :: (using b : *Foo) {
-  print("foo deinit!\n");
+  //print("foo deinit!\n");
 }
 
 
@@ -50,14 +50,14 @@ Bar :: struct @entity {
   bar : string;
 }
 init :: (using b : *Bar) {
-  print("bar init!\n");
+  //print("bar init!\n");
 }
 deinit :: (using b : *Bar) {
-  print("bar init!\n");
+  //print("bar init!\n");
 }
 update :: (using b : *Bar) {
   if (xim_kkey_pressed(.SC_UP)) xentity_lazy_delete(b.id);
-  print("bar update!\n");
+  //print("bar update!\n");
 }
 
 // TODO: this should be a whole transform not just position in the future

@@ -124,8 +124,8 @@ texture_load :: (path : string) -> oglTex {
 main :: () {
   xeng_init();
 
-  sprite_tex := texture_load("../assets/DungeonTiles/DungeonTiles.png");
-  particle_tex := texture_load("../assets/SmokeParticles/SmokeParticles.png");
+  mgr : xAssetMgr;
+  xasset_mgr_init(*mgr);
 
   rend : xRend2D;
   cam := xCamera2D.{
@@ -135,18 +135,20 @@ main :: () {
     offset = v2.{0,0},
   };
 
-  // TODO: make asset system, specifying the texture and JSON separately is painful
-  sprite2 := xentity_make(Sprite);
-  sprite_fill_from_json(xjson_parse_wholefile_string(read_entire_file("../assets/SmokeParticles/SmokeParticles.json")), "smoke_fx_6", *particle_tex,sprite2);
-  sprite2.tex = *particle_tex;
-  sprite2.halfdim = v2.{sprite2.base_tc.z*particle_tex.dim.x*2, sprite2.base_tc.w*particle_tex.dim.y*2};
-  sprite2.fps = 24;
-
+  // make a sprite with a texture from a tileset
+  dungeon_tileset := xasset_mgr_load(*mgr, "../assets/DungeonTiles");
+  assert(xasset_find(*mgr, dungeon_tileset) != null);
   sprite1 := xentity_make(Sprite);
-  sprite_fill_from_json(xjson_parse_wholefile_string(read_entire_file("../assets/DungeonTiles/DungeonTiles.json")), "big_demon_run_anim", *sprite_tex,sprite1);
-  sprite1.tex = *sprite_tex;
-  sprite1.halfdim = v2.{sprite1.base_tc.z*sprite_tex.dim.x, sprite1.base_tc.w*sprite_tex.dim.y};
-  sprite1.fps = 12;
+  sprite_init(sprite1, acast(xasset_find(*mgr, dungeon_tileset), xTextureAsset), "big_demon_run_anim", 8);
+
+  // make a sprite with a texture from another tileset
+  particle_tileset := xasset_mgr_load(*mgr, "../assets/SmokeParticles");
+  assert(xasset_find(*mgr, particle_tileset) != null);
+  sprite2 := xentity_make(Sprite);
+  sprite_init(sprite2, acast(xasset_find(*mgr, particle_tileset), xTextureAsset), "smoke_fx_6", 24);
+
+
+
 
   player1 := xentity_make(Player).id;
   xentity_attach(player1, sprite1.id);
@@ -161,6 +163,9 @@ main :: () {
     // set camera offset to middle of screen
     wdim := xwin_get_dim(*xeng().win);
     cam.offset = v2.{wdim.x/2.0, wdim.y/2.0};
+
+    gpos := xentity_calc_global_pos(xentity_find(player1));
+    cam.target = v2.{gpos.x, gpos.y};
 
     if (xim_kkey_down(.SC_Q)) cam.rot += 0.001;
     if (xim_kkey_down(.SC_E)) cam.rot -= 0.001;

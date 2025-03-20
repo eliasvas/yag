@@ -175,16 +175,6 @@ concat_sentences :: (first : *SentenceNode) -> string {
   return builder_to_string(*builder);
 }
 
-djb2 :: (s : string) -> u64 {
-  hash : u64 = 5381;
-  itr : u64;
-  for c : s {
-    hash = ((hash << 5) + hash) + c;
-
-  }
-  return hash;
-}
-
 ////////////////////////////////////////////
 // Linked-List tests
 ////////////////////////////////////////////

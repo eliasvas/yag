@@ -9,7 +9,7 @@ Sprite :: struct @entity {
   fps : u32;
 }
 
-sprite_fill_from_json :: (root : *xJsonNode, path : string, tex : *oglTex, dest : *Sprite) {
+sprite_fill_spritesheet_from_json :: (root : *xJsonNode, path : string, tex : *oglTex, dest : *Sprite) {
   node,found := xjson_node_get(root, path);
   assert(found);
 
@@ -31,16 +31,24 @@ sprite_fill_from_json :: (root : *xJsonNode, path : string, tex : *oglTex, dest 
   dest.base_tc = tc;
 }
 
+sprite_init :: (sprite : *Sprite, tex_asset : *xTextureAsset, sprite_name : string, fps : u32) {
+  sprite_fill_spritesheet_from_json(tex_asset.details, sprite_name, *tex_asset.tex, sprite);
+  sprite.tex = *tex_asset.tex;
+  sprite.halfdim = v2.{sprite.base_tc.z*tex_asset.tex.dim.x*2, sprite.base_tc.w*tex_asset.tex.dim.y*2};
+  sprite.fps = fps;
+}
+
+
 init :: (using s : *Sprite) {
-  print("Sprite init!\n");
+  //print("Sprite init!\n");
 }
 
 deinit :: (using s : *Sprite) {
-  print("Sprite deinit!\n");
+  //print("Sprite deinit!\n");
 }
 
 update :: (using s : *Sprite) {
-  print("Sprite update!\n");
+  //print("Sprite update!\n");
   tc = base_tc;
   tc.x += (cast(u32)(seconds_since_init() * cast(float)fps) % frame_count) * base_tc.z;
   //tc.y += (cast(u32)(seconds_since_init() * cast(float)fps) % frame_count) * base_tc.w;
@@ -64,16 +72,16 @@ Player :: struct @entity {
 }
 
 init :: (using p : *Player) {
-	print("Player init!\n");
+	//print("Player init!\n");
 }
 
 deinit :: (using p : *Player) {
-	print("Player deinit!\n");
+	//print("Player deinit!\n");
 }
 
 
 update :: (using p : *Player) {
-	print("Player update! %\n", local_pos);
+	//print("Player update! %\n", local_pos);
 	if (xim_kkey_down(.SC_UP)) local_pos.y -= 1;
 	if (xim_kkey_down(.SC_DOWN)) local_pos.y += 1;
 	if (xim_kkey_down(.SC_LEFT)) local_pos.x -= 1;
