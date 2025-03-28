@@ -124,6 +124,8 @@ texture_load :: (path : string) -> oglTex {
 main :: () {
   xeng_init();
 
+  ft_lingo();
+
   mgr : xAssetMgr;
   xasset_mgr_init(*mgr);
 
@@ -181,6 +183,8 @@ main :: () {
 
     if sprite1.id then render(sprite1, *rend, *cam, ecast(xentity_find(player1),Player).flip_x);
     if sprite2.id then render(sprite2, *rend, *cam, false);
+
+    xr2d_quad_render(*rend, .{0,0,320,320}, .{0,0,1,1}, .{1,1,1,1}, *cam, *g_font_tex);
 
     xeng_frame_end();
   }
