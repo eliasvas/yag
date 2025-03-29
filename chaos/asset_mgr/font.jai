@@ -61,11 +61,11 @@ freetype_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : u32, ve
   error = FT_Render_Glyph(face.glyph, .FT_RENDER_MODE_NORMAL);
 
   g_metrics = xFontGlyphMetrics.{
-    width = (face.glyph.metrics.width >> 6),
-    height = (face.glyph.metrics.height >> 6),
-    hbearing_x = (face.glyph.metrics.horiBearingX >> 6),
-    hbearing_y = (face.glyph.metrics.horiBearingY >> 6),
-    hadvance = (face.glyph.metrics.horiAdvance >> 6),
+    width = xx (face.glyph.metrics.width >> 6),
+    height = xx (face.glyph.metrics.height >> 6),
+    hbearing_x = xx (face.glyph.metrics.horiBearingX >> 6),
+    hbearing_y = xx (face.glyph.metrics.horiBearingY >> 6),
+    hadvance = xx (face.glyph.metrics.horiAdvance >> 6),
   };
 
   bitmap_px_count := cast(u32)face.glyph.bitmap.width * face.glyph.bitmap.rows;
@@ -130,10 +130,11 @@ freetype_pack_all_ascii_to_texture :: (face : FT_Face) -> oglTex {
 xfont_get_default_font_path :: () -> string {
   #if OS == .WINDOWS {
     XDEFAULT_FONT_PATH :: "C:/Windows/Fonts";
+    XDEFAULT_FONT_FILE :: "georgia.ttf";
   } else #if OS == .LINUX {
     XDEFAULT_FONT_PATH :: "/usr/share/fonts";
+    XDEFAULT_FONT_FILE :: "open-sans/OpenSans-Bold.ttf";
   }
-  XDEFAULT_FONT_FILE :: "georgia.ttf";
   font_path := tprint("%/%\0", XDEFAULT_FONT_PATH, XDEFAULT_FONT_FILE);
 
   return font_path;

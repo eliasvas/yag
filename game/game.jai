@@ -113,10 +113,13 @@ xim_print_state :: () {
 texture_load :: (path : string) -> oglTex {
   tex : oglTex;
   png_data := read_entire_file(path);
+  assert(png_data.count > 0);
   tex_w, tex_h, channels : s32;
   //stbi_set_flip_vertically_on_load(1);
   raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
   ogl_tex_init(*tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+  assert(tex.dim.x > 0);
+  assert(tex.dim.y > 0);
   return tex;
 }
  

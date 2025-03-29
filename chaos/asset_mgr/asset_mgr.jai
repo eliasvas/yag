@@ -37,8 +37,8 @@ xasset_mgr_load :: (mgr : *xAssetMgr, base_path : string) -> xAssetTag {
 			case xTextureAsset;
 				// maybe this should be a function on the asset type
 				found,asset_path,texture_name := split_from_right(base_path, #char "/");
-				png_path := tprint("%/%.png", base_path, texture_name);
-				json_path := tprint("%/%.json", base_path, texture_name);
+				png_path := tprint("%/%.png\0", base_path, texture_name);
+				json_path := tprint("%/%.json\0", base_path, texture_name);
 
 				asset : *xTextureAsset = alloc(size_of(xTextureAsset));
 				asset.details = xjson_parse_wholefile_string(read_entire_file(json_path));
@@ -58,7 +58,7 @@ xasset_mgr_load :: (mgr : *xAssetMgr, base_path : string) -> xAssetTag {
 		}
 
   } else {
-  	print("XASSET: Loading asset dir=[%] failed - it's not a directory!", base_path);
+  	print("XASSET: Loading asset dir=[%] failed", base_path);
   }
   return tag;
 }
