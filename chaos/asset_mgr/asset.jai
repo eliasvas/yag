@@ -16,15 +16,6 @@ xAssetBase :: struct {
 
 xasset_alloc :: ($type : Type) -> *type { return alloc(size_of(type)); }
 
-
-xFontMetaData :: struct { } // TODO
-
-xFontAsset :: struct @asset {
-  #as using base : xAssetBase;
-  tex : oglTex;
-  metadata : xFontMetaData;
-}
-
 xTextureAsset :: struct @asset {
   #as using base : xAssetBase;
   tex : oglTex;

@@ -17,7 +17,7 @@
 // Vectors
 ////////////////////////
 
-v2:: struct {
+v2 :: struct {
   x,y : float;
   #place x; r,g : float;
   #place x; arr : [2]float;
@@ -425,3 +425,11 @@ quat_to_m4 :: (q: Quat) ->m4 {
 
   return m;
 }
+
+////////////////////////
+// Rects
+////////////////////////
+
+Rect :: struct { x,y,w,h : float; }
+iRect :: struct { x,y,w,h : s32; }
+

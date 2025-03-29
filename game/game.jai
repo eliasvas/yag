@@ -124,7 +124,7 @@ texture_load :: (path : string) -> oglTex {
 main :: () {
   xeng_init();
 
-  ft_lingo();
+  ft_test();
 
   mgr : xAssetMgr;
   xasset_mgr_init(*mgr);
