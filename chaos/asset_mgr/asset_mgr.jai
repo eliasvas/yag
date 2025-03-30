@@ -48,8 +48,7 @@ xasset_mgr_load :: (mgr : *xAssetMgr, base_path : string) -> xAssetTag {
 			  asset.base_path = base_path;
 			  asset.type = asset_type;
 
-			  slot := djb2(asset.tag) % XASSET_MGR_MAX_ASSETS;
-		    mgr.slots[slot].first, mgr.slots[slot].last = dll_push_back(mgr.slots[slot].first, mgr.slots[slot].last, asset);
+				xasset_mgr_add(mgr, asset);
 
 		    tag = asset.tag;
 
@@ -61,6 +60,13 @@ xasset_mgr_load :: (mgr : *xAssetMgr, base_path : string) -> xAssetTag {
   	print("XASSET: Loading asset dir=[%] failed", base_path);
   }
   return tag;
+}
+
+xasset_mgr_add :: (mgr : *xAssetMgr, asset: *xAssetBase) -> bool {
+  slot := djb2(asset.tag) % XASSET_MGR_MAX_ASSETS;
+  mgr.slots[slot].first, mgr.slots[slot].last = dll_push_back(mgr.slots[slot].first, mgr.slots[slot].last, asset);
+
+  return true;
 }
 
 xasset_find :: (mgr : *xAssetMgr, tag : xAssetTag) -> *xAssetBase {

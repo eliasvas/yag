@@ -10,7 +10,7 @@
       {
          "file_regex": "^([A-Z]:[^:]+):(\\d+(,\\d+)?): Error: (.*)",
          "name": "yag-build",
-         "shell_cmd": "/jai/jai-linux -quiet build.jai && cd .build && game && cd ..",
+         "shell_cmd": "/jai/bin/jai-linux -quiet build.jai && cd .build && ./game && cd ..",
          "working_dir": "$project_path",
       }
    ],

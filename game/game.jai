@@ -127,10 +127,9 @@ texture_load :: (path : string) -> oglTex {
 main :: () {
   xeng_init();
 
-  ft_test();
-
   mgr : xAssetMgr;
   xasset_mgr_init(*mgr);
+  xasset_mgr_add(*mgr, xfont_asset_make(.{32, 126}));
 
   rend : xRend2D;
   cam := xCamera2D.{
@@ -139,6 +138,7 @@ main :: () {
     zoom = 1,
     offset = v2.{0,0},
   };
+
 
   // make a sprite with a texture from a tileset
   dungeon_tileset := xasset_mgr_load(*mgr, "../assets/DungeonTiles");
@@ -187,10 +187,13 @@ main :: () {
     if sprite1.id then render(sprite1, *rend, *cam, ecast(xentity_find(player1),Player).flip_x);
     if sprite2.id then render(sprite2, *rend, *cam, false);
 
-    xr2d_quad_render(*rend, .{0,0,320,320}, .{0,0,1,1}, .{1,1,1,1}, *cam, *g_font_tex);
+
+    dfont := acast(xasset_find(*mgr, "default.ttf"), xFontAsset);
+    codepoint := dfont.glyphs.base_codepoint + cast(u32)(cast(u32)floor(seconds_since_init()*10)%dfont.glyphs.glyphs.count);
+    glyph_info, found := xfont_asset_lookup_glyph_info(dfont, codepoint);
+    assert(found);
+    xr2d_quad_render(*rend, .{0,0,glyph_info.metrics.width*4.0,glyph_info.metrics.height*4.0}, glyph_info.tex_coord, .{0,1,1,1}, *cam, *dfont.atlas);
 
     xeng_frame_end();
   }
 }
-
-

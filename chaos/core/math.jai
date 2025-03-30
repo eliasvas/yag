@@ -433,3 +433,7 @@ quat_to_m4 :: (q: Quat) ->m4 {
 Rect :: struct { x,y,w,h : float; }
 iRect :: struct { x,y,w,h : s32; }
 
+////////////////////////
+// Misc
+////////////////////////
+iv2 :: struct { x,y : s32;}

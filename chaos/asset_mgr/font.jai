@@ -10,6 +10,20 @@
 // - kerning
 // - investigate OpenGL texture coordinates
 // - subpixel rendering
+// - support multiple codepoint ranges per font asset
+
+#if OS == .WINDOWS {
+  XDEFAULT_FONT_PATH :: "C:/Windows/Fonts";
+  XDEFAULT_FONT_FILE :: "georgia.ttf";
+} else #if OS == .LINUX {
+  XDEFAULT_FONT_PATH :: "/usr/share/fonts/open-sans";
+  XDEFAULT_FONT_FILE :: "OpenSans-Bold.ttf";
+}
+xfont_get_default_font_path :: () -> string { return tprint("%/%\0", XDEFAULT_FONT_PATH, XDEFAULT_FONT_FILE); }
+
+//////////////////////////////////
+// xFont Asset
+//////////////////////////////////
 
 xFontAsset :: struct @asset {
   #as using base : xAssetBase;
@@ -18,19 +32,11 @@ xFontAsset :: struct @asset {
 }
 
 xFontGlyphCache :: struct {
-  map : *xFontGlyphInfoSlot;
-  //count : u32; // how many glyphs/codepoints
-}
-
-xFontGlyphInfoSlot :: struct {
-  first : *xFontGlyphInfo;
-  last : *xFontGlyphInfo;
+  base_codepoint : u32;
+  glyphs : []xFontGlyphInfo;
 }
 
 xFontGlyphInfo :: struct {
-  next : *xFontGlyphInfo;
-  prev : *xFontGlyphInfo;
-
   codepoint : u32;
   metrics : xFontGlyphMetrics;
   tex_coord : v4; // NOTE: this should maybe be a Rect?
@@ -45,11 +51,56 @@ xFontGlyphMetrics :: struct {
 }
 
 
-g_font_tex : oglTex;
-g_metrics : xFontGlyphMetrics;
+xfont_asset_make :: (codepoint_range : iv2) -> *xFontAsset {
+  font_path := xfont_get_default_font_path();
+  name : string = "default.ttf";
+  asset : *xFontAsset = alloc(size_of(xFontAsset));
+  // TODO: actual reference counting
+  asset.ref_count = 1;
+  asset.type = xFontAsset;
+  asset.tag = name;
+  asset.base_path = XDEFAULT_FONT_PATH;
+
+  library, face := freetype_helper_load_font(font_path);
+  defer FT_Done_FreeType(library);
+  defer FT_Done_Face(face);
+
+
+  font_atlas_pixels, glyph_infos := freetype_helper_pack_codepoint_range(face, codepoint_range);
+  ogl_tex_init(*asset.atlas, v2.{512,512}, cast(*u8)font_atlas_pixels, oglTexFormat.RGBA8U);
+
+  asset.glyphs.base_codepoint = cast(u32)codepoint_range.x;
+  asset.glyphs.glyphs = .{codepoint_range.y - codepoint_range.x, glyph_infos};
+
+  return asset;
+}
+
+xfont_asset_lookup_glyph_info :: (using fasset : *xFontAsset, codepoint : u32) -> *xFontGlyphInfo, bool {
+  if codepoint < fasset.glyphs.base_codepoint || codepoint > fasset.glyphs.base_codepoint + fasset.glyphs.glyphs.count {
+    return null, false;
+  }
+  return *fasset.glyphs.glyphs[codepoint - fasset.glyphs.base_codepoint], true;
+}
+
+//////////////////////////////////
+// FreeType helper functions
+//////////////////////////////////
+
+freetype_helper_load_font :: (fullpath : string) -> FT_Library, FT_Face {
+  library : FT_Library;
+  error := FT_Init_FreeType(*library);
+  //defer FT_Done_FreeType(library);
+  assert(!error);
+
+  face : FT_Face;
+  error = FT_New_Face(library, fullpath.data, 0, *face);
+  //defer FT_Done_Face(face);
+
+  return library, face;
+}
 
 FT_RGBA_Pixel :: struct { r,g,b,a : u8; }
-freetype_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : u32, vert_size_px : u32 = 64) -> *FT_RGBA_Pixel, xFontGlyphMetrics {
+freetype_helper_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : u32, vert_size_px : u32 = 64) -> *FT_RGBA_Pixel, xFontGlyphMetrics {
   error := FT_Set_Pixel_Sizes(face, 0, vert_size_px); 
   assert(!error);
 
@@ -60,7 +111,7 @@ freetype_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : u32, ve
   assert(!error);
   error = FT_Render_Glyph(face.glyph, .FT_RENDER_MODE_NORMAL);
 
-  g_metrics = xFontGlyphMetrics.{
+  metrics := xFontGlyphMetrics.{
     width = xx (face.glyph.metrics.width >> 6),
     height = xx (face.glyph.metrics.height >> 6),
     hbearing_x = xx (face.glyph.metrics.horiBearingX >> 6),
@@ -69,24 +120,28 @@ freetype_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : u32, ve
   };
 
   bitmap_px_count := cast(u32)face.glyph.bitmap.width * face.glyph.bitmap.rows;
-  rgba_tex :*FT_RGBA_Pixel= talloc(bitmap_px_count * size_of(FT_RGBA_Pixel));
-  for i : 0..bitmap_px_count-1 {
-    c : u8 = xx (cast(*u8)face.glyph.bitmap.buffer)[i];
-    rgba_tex[i] = .{c,c,c,c};
-    //rgba_tex[i] = .{c,c,c,255};
+  if bitmap_px_count == 0 { // Space (32)
+    return null, metrics;
+  } else {
+    rgba_tex :*FT_RGBA_Pixel= talloc(bitmap_px_count * size_of(FT_RGBA_Pixel));
+    for i : 0..bitmap_px_count-1 {
+      c : u8 = xx (cast(*u8)face.glyph.bitmap.buffer)[i];
+      rgba_tex[i] = .{c,c,c,c};
+      //rgba_tex[i] = .{c,c,c,255};
+    }
+    return rgba_tex, metrics;
   }
-
-  return rgba_tex, g_metrics;
 }
 
-freetype_pack_all_ascii_to_texture :: (face : FT_Face) -> oglTex {
+freetype_helper_pack_codepoint_range :: (face : FT_Face, range : iv2) -> *FT_RGBA_Pixel, *xFontGlyphInfo {
   atlas_width :: 512;
   atlas_height :: 512;
-  atlas_pixels :*FT_RGBA_Pixel= talloc(atlas_width * atlas_height * size_of(FT_RGBA_Pixel));
+  atlas_pixels :*FT_RGBA_Pixel = talloc(atlas_width * atlas_height * size_of(FT_RGBA_Pixel));
+  glyphs : *xFontGlyphInfo = alloc(size_of(xFontGlyphInfo) * (range.y - range.x));
 
-  iv2 :: struct { x,y : s32;}
   // hrect is internal, used for the packing, it will do the 'layouting'
   copy :: (src : *FT_RGBA_Pixel, src_dim : iv2, dst : *FT_RGBA_Pixel, dst_dim : iv2, hrect : *iRect) {
+    if src == null return;
     assert(src_dim.x <= dst_dim.x);
     assert(src_dim.y <= dst_dim.y);
 
@@ -116,48 +171,18 @@ freetype_pack_all_ascii_to_texture :: (face : FT_Face) -> oglTex {
   current_h := 0;
   // 32 is space.. do we need it?
   hrect : iRect;
-  for i : 33..126 {
-    pixels, metrics := freetype_extract_font_bitmap_and_metrics(face,cast(u32)i);
-    copy(pixels, iv2.{metrics.width, metrics.height}, atlas_pixels, iv2.{atlas_width, atlas_height}, *hrect);
+  for i : range.x..range.y {
+    pixels, metrics_codepoint := freetype_helper_extract_font_bitmap_and_metrics(face,cast(u32)i);
+    copy(pixels, iv2.{metrics_codepoint.width, metrics_codepoint.height}, atlas_pixels, iv2.{atlas_width, atlas_height}, *hrect);
+
+    glyphs[i - range.x] = xFontGlyphInfo.{
+      codepoint = cast(u32)i,
+      metrics = metrics_codepoint,
+      //tex_coord = .{(hrect.x + hrect.w - metrics_codepoint.width) / cast(float)atlas_width , (hrect.y) / cast(float)atlas_height,(hrect.x + hrect.w) / cast(float)atlas_width,(hrect.y + metrics_codepoint.height) / cast(float)atlas_height},
+      tex_coord = .{(hrect.x + hrect.w - metrics_codepoint.width) / cast(float)atlas_width , (hrect.y) / cast(float)atlas_height,(metrics_codepoint.width) / cast(float)atlas_width,(metrics_codepoint.height) / cast(float)atlas_height},
+    };
   }
 
-  atlas : oglTex;
-  ogl_tex_init(*atlas, v2.{atlas_width, atlas_height}, cast(*u8)atlas_pixels, oglTexFormat.RGBA8U);
-
-  return atlas;
+  return atlas_pixels, glyphs;
 }
 
-xfont_get_default_font_path :: () -> string {
-  #if OS == .WINDOWS {
-    XDEFAULT_FONT_PATH :: "C:/Windows/Fonts";
-    XDEFAULT_FONT_FILE :: "georgia.ttf";
-  } else #if OS == .LINUX {
-    XDEFAULT_FONT_PATH :: "/usr/share/fonts";
-    XDEFAULT_FONT_FILE :: "open-sans/OpenSans-Bold.ttf";
-  }
-  font_path := tprint("%/%\0", XDEFAULT_FONT_PATH, XDEFAULT_FONT_FILE);
-
-  return font_path;
-}
-
-// xfont_load_asset(..., font_range : []u32);
-
-ft_test :: () {
-  library : FT_Library;
-  error := FT_Init_FreeType(*library);
-  defer FT_Done_FreeType(library);
-  assert(!error);
-
-  font_path := xfont_get_default_font_path();
-
-  face : FT_Face;
-  error = FT_New_Face(library, font_path.data, 0, *face);
-  defer FT_Done_Face(face);
-
-  assert(!error);
-  glyph_bitmap, metrics := freetype_extract_font_bitmap_and_metrics(face, #char "a");
-  print("extracted metrics : %\n", metrics);
-  //ogl_tex_init(*g_font_tex, v2.{cast(float)face.glyph.bitmap.width, cast(float)face.glyph.bitmap.rows}, cast(*u8)glyph_bitmap, oglTexFormat.RGBA8U);
-
-  g_font_tex = freetype_pack_all_ascii_to_texture(face);
-}
