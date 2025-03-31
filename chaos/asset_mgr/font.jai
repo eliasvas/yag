@@ -50,11 +50,10 @@ xFontGlyphMetrics :: struct {
   hadvance : s32; // how many pixels to advance to account for glyph
 }
 
-
 xfont_asset_make :: (codepoint_range : iv2) -> *xFontAsset {
-  font_path := xfont_get_default_font_path();
   name : string = "default.ttf";
   asset : *xFontAsset = alloc(size_of(xFontAsset));
+  font_path := xfont_get_default_font_path();
   // TODO: actual reference counting
   asset.ref_count = 1;
   asset.type = xFontAsset;

@@ -1,7 +1,11 @@
+//////////////////////////////////
+// Actual Entity Stuff
+//////////////////////////////////
+
+entities : xEntityStorage; // a placeholder, generated, sum-super-type, its super
+
 XENTITY_MAX_ENTITIES :: 1024;
-
 xEntityID :: u64;
-
 xEntityBase :: struct { 
   id : xEntityID;
   local_pos : v3; // TODO: should be transform
@@ -27,39 +31,6 @@ xEntityHashSlot :: struct {
   last : *xEntityBase;
 }
 
-Foo :: struct @entity {
-  #as using base : xEntityBase;
-  foo : int;
-}
-update :: (using b : *Foo) {
-  //print("foo update!\n");
-}
-init :: (using b : *Foo) {
-  //print("foo init!\n");
-}
-deinit :: (using b : *Foo) {
-  //print("foo deinit!\n");
-}
-
-
-
-
-
-Bar :: struct @entity {
-  #as using base : xEntityBase;
-  bar : string;
-}
-init :: (using b : *Bar) {
-  //print("bar init!\n");
-}
-deinit :: (using b : *Bar) {
-  //print("bar init!\n");
-}
-update :: (using b : *Bar) {
-  if (xim_kkey_pressed(.SC_UP)) xentity_lazy_delete(b.id);
-  //print("bar update!\n");
-}
-
 // TODO: this should be a whole transform not just position in the future
 // we accumulate transforms from the parent to each node
 xentity_calc_global_pos :: (e : *xEntityBase) -> v3 {
@@ -71,9 +42,6 @@ xentity_calc_global_pos :: (e : *xEntityBase) -> v3 {
   }
   return gpos;
 }
-
-#placeholder xEntityStorage;
-entities : xEntityStorage;
 
 xentity_make :: ($T : Type) -> *T {
   entity_node : *xEntityBase;
@@ -161,6 +129,148 @@ ecast :: (e : *xEntityBase, $T : Type) -> *T {
   assert(e.type == T);
   return cast(*T)e;
 }
+
+//////////////////////////////////
+// Entity Codegen
+//////////////////////////////////
+
+// these placeholders will be generated here..
+#placeholder NUM_ENTITY_TYPES;
+#placeholder entity_types;
+#placeholder Entity_Storage;
+#placeholder entities_cleanup;
+#placeholder entities_deinit;
+
+ENTITY_INSERTION_STRING :: #string DONE
+NUM_ENTITY_TYPES :: %1;
+entity_types : [%1] Type : .[ %2 ];
+xEntitySlot :: union {
+  #as using base : xEntityBase;
+%3 
+}
+xEntityStorage :: struct {
+%4
+}
+entities_update :: (entities : *xEntityStorage) {
+   for slot : 0..XENTITY_MAX_ENTITIES-1 {
+      e := *entities.slots[slot];
+      itr := e.first;
+      while itr {
+         if itr.type == {
+            %5
+            case;
+         }
+         itr=itr.hash_next;
+      }
+   }
+
+}
+
+entity_deinit :: (e : *xEntitySlot) {
+   if e.type == {
+      %6
+      case;
+   }
+}
+
+entities_cleanup :: (entities : *xEntityStorage) {
+   for slot : 0..XENTITY_MAX_ENTITIES-1 {
+      e := *entities.slots[slot];
+      itr := e.first;
+      while itr {
+         // we get the node, memzero it, remove from hashmap and insert it to the freelist
+         if itr.marked_for_destruction {
+            xentity_delete(cast(*xEntitySlot)itr);
+         }
+         itr = itr.next;
+      }
+   }
+
+}
+DONE
+
+generate_entity_code :: () {
+  w := get_current_workspace();
+  table := get_type_table(w);
+  entity_type_names: [..] string;
+  for table {
+    if it.type != .STRUCT continue;
+    info_struct := cast(*Type_Info_Struct) it;
+    if is_subclass_of(it, "xEntityBase") {
+      array_add(*entity_type_names, info_struct.name);
+    }
+  }
+
+
+  quick_sort(entity_type_names, compare_strings);
+  // comma separated string of entity names
+  type_names := join(..entity_type_names, ", ");
+
+   entity_storage_string : string;
+   {
+    builder : String_Builder;
+    for entity_type_names {
+      print_to_builder(*builder, "_%1: %1;\n", it);
+    }
+    slot_string := builder_to_string(*builder);
+    storage_string : string= "slots : [XENTITY_MAX_ENTITIES]xEntityHashSlot;\n freelist_head : *xEntityBase;\n next_idx : u32 = 1;";
+
+    ubuilder : String_Builder;
+    for entity_type_names {
+      print_to_builder(*ubuilder, "case %1;\n update(ecast(itr,%1));\n", it);
+    }
+    update_string := builder_to_string(*ubuilder);
+
+    dbuilder : String_Builder;
+    for entity_type_names {
+      print_to_builder(*ubuilder, "case %1;\n deinit(ecast(e,%1));\n", it);
+    }
+    deinit_string := builder_to_string(*ubuilder);
+
+    build_string := sprint(ENTITY_INSERTION_STRING, entity_type_names.count, type_names, slot_string, storage_string, update_string, deinit_string);
+    add_build_string(build_string, w);
+    //print("Adding build string:\n%\n", build_string);
+   }
+} @RunWhenReady
+#import "String";
+#import "Sort";
+#import "Compiler";
+
+
+
+//////////////////////////////////
+// Entity Sysrtem tests
+//////////////////////////////////
+
+Foo :: struct @entity {
+  #as using base : xEntityBase;
+  foo : int;
+}
+update :: (using b : *Foo) {
+  //print("foo update!\n");
+}
+init :: (using b : *Foo) {
+  //print("foo init!\n");
+}
+deinit :: (using b : *Foo) {
+  //print("foo deinit!\n");
+}
+
+Bar :: struct @entity {
+  #as using base : xEntityBase;
+  bar : string;
+}
+init :: (using b : *Bar) {
+  //print("bar init!\n");
+}
+deinit :: (using b : *Bar) {
+  //print("bar init!\n");
+}
+update :: (using b : *Bar) {
+  if (xim_kkey_pressed(.SC_UP)) xentity_lazy_delete(b.id);
+  //print("bar update!\n");
+}
+
 
 entity_test :: () {
   print("Hello Entity test!\n");

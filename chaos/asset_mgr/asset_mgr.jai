@@ -41,14 +41,17 @@ xasset_mgr_load :: (mgr : *xAssetMgr, base_path : string) -> xAssetTag {
 				json_path := tprint("%/%.json\0", base_path, texture_name);
 
 				asset : *xTextureAsset = alloc(size_of(xTextureAsset));
-				asset.details = xjson_parse_wholefile_string(read_entire_file(json_path));
-			  asset.tex = texture_load(png_path);
 			  asset.tag = texture_name;
-			  asset.ref_count = 1;
-			  asset.base_path = base_path;
-			  asset.type = asset_type;
-
-				xasset_mgr_add(mgr, asset);
+				_, first_time_created := xasset_mgr_add(mgr, asset); // this is triggered here so no allocations happen before its tried to be created
+				if first_time_created {
+					asset.details = xjson_parse_wholefile_string(read_entire_file(json_path));
+				  asset.tex = texture_load(png_path);
+				  asset.ref_count = 1;
+				  asset.base_path = base_path;
+				  asset.type = asset_type;
+				} else {
+					asset.ref_count +=1;
+				}
 
 		    tag = asset.tag;
 
@@ -62,11 +65,17 @@ xasset_mgr_load :: (mgr : *xAssetMgr, base_path : string) -> xAssetTag {
   return tag;
 }
 
-xasset_mgr_add :: (mgr : *xAssetMgr, asset: *xAssetBase) -> bool {
+
+xasset_mgr_add :: (mgr : *xAssetMgr, asset: *xAssetBase) -> xAssetTag, bool {
+
   slot := djb2(asset.tag) % XASSET_MGR_MAX_ASSETS;
+
+	asset_tag_already_created := find(mgr.slots[slot].first, "tag", asset.tag);
+	assert(asset_tag_already_created == null);
+
   mgr.slots[slot].first, mgr.slots[slot].last = dll_push_back(mgr.slots[slot].first, mgr.slots[slot].last, asset);
 
-  return true;
+  return asset.tag, true;
 }
 
 xasset_find :: (mgr : *xAssetMgr, tag : xAssetTag) -> *xAssetBase {

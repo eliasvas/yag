@@ -141,6 +141,17 @@ count :: (f : *$T) ->u32 {
   return c;
 }
 
+
+
+find :: (f : *$T, $field_name : string = "next", field_val : $K) -> *T {
+  found : *T = null;
+  while f {
+    #insert -> string { return tprint("if f.% == field_val then found = f;\n", field_name); }
+    f = f.next;
+  }
+  return found;
+}
+
 ////////////////////////////////////////////
 // Data Structure for tests
 ////////////////////////////////////////////

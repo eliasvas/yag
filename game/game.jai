@@ -129,7 +129,9 @@ main :: () {
 
   mgr : xAssetMgr;
   xasset_mgr_init(*mgr);
-  xasset_mgr_add(*mgr, xfont_asset_make(.{32, 126}));
+  dfont_tag, first_time_created := xasset_mgr_add(*mgr, xfont_asset_make(.{32, 126}));
+  assert(first_time_created);
+  //xasset_mgr_add(*mgr, xfont_asset_make(.{32, 126})); // failure scenario we need to track this
 
   rend : xRend2D;
   cam := xCamera2D.{
@@ -188,7 +190,7 @@ main :: () {
     if sprite2.id then render(sprite2, *rend, *cam, false);
 
 
-    dfont := acast(xasset_find(*mgr, "default.ttf"), xFontAsset);
+    dfont := acast(xasset_find(*mgr, dfont_tag), xFontAsset);
     codepoint := dfont.glyphs.base_codepoint + cast(u32)(cast(u32)floor(seconds_since_init()*10)%dfont.glyphs.glyphs.count);
     glyph_info, found := xfont_asset_lookup_glyph_info(dfont, codepoint);
     assert(found);
