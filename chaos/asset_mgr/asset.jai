@@ -12,17 +12,24 @@ xAssetBase :: struct {
   type : Type;
 }
 
+acast :: (a : *xAssetBase, $T : Type) -> *T {
+  assert(a.type == T);
+  return cast(*T)a;
+}
+
 // we provide an alloc strategy via pushing allocator (xArena) and return the asset
 
-xasset_alloc :: ($type : Type) -> *type { return alloc(size_of(type)); }
+//xasset_alloc :: ($type : Type) -> *type { return alloc(size_of(type)); }
 
-xTextureAsset :: struct @asset {
+xTextureAsset :: struct {
   #as using base : xAssetBase;
   tex : oglTex;
   details : *xJsonNode;
+  type = xTextureAsset;
 }
 
-xSceneAsset :: struct @asset {
+xSceneAsset :: struct {
   #as using base : xAssetBase;
   root : *xJsonNode;
+  type = xSceneAsset;
 }

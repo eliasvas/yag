@@ -54,6 +54,7 @@ xentity_make :: ($T : Type) -> *T {
   } else {
     entity_node = cast(*xEntityBase)alloc_array(*xeng().persistent_arena, xEntitySlot, 1);
     entity_node.type = T;
+    Initialize(ecast(entity_node, T)); // default initialize the node
   }
 
 
@@ -130,6 +131,20 @@ ecast :: (e : *xEntityBase, $T : Type) -> *T {
   return cast(*T)e;
 }
 
+entities_cleanup :: (entities : *xEntityStorage) {
+   for slot : 0..XENTITY_MAX_ENTITIES-1 {
+      e := *entities.slots[slot];
+      itr := e.first;
+      while itr {
+        // we get the node, memzero it, remove from hashmap and insert it to the freelist
+        if itr.marked_for_destruction {
+           xentity_delete(cast(*xEntitySlot)itr);
+        }
+        itr = itr.next;
+      }
+   }
+}
+
 //////////////////////////////////
 // Entity Codegen
 //////////////////////////////////
@@ -138,7 +153,6 @@ ecast :: (e : *xEntityBase, $T : Type) -> *T {
 #placeholder NUM_ENTITY_TYPES;
 #placeholder entity_types;
 #placeholder Entity_Storage;
-#placeholder entities_cleanup;
 #placeholder entities_deinit;
 
 ENTITY_INSERTION_STRING :: #string DONE
@@ -172,21 +186,6 @@ entity_deinit :: (e : *xEntitySlot) {
       case;
    }
 }
-
-entities_cleanup :: (entities : *xEntityStorage) {
-   for slot : 0..XENTITY_MAX_ENTITIES-1 {
-      e := *entities.slots[slot];
-      itr := e.first;
-      while itr {
-         // we get the node, memzero it, remove from hashmap and insert it to the freelist
-         if itr.marked_for_destruction {
-            xentity_delete(cast(*xEntitySlot)itr);
-         }
-         itr = itr.next;
-      }
-   }
-
-}
 DONE
 
 generate_entity_code :: () {
@@ -201,13 +200,12 @@ generate_entity_code :: () {
     }
   }
 
-
   quick_sort(entity_type_names, compare_strings);
   // comma separated string of entity names
   type_names := join(..entity_type_names, ", ");
 
-   entity_storage_string : string;
-   {
+  entity_storage_string : string;
+  {
     builder : String_Builder;
     for entity_type_names {
       print_to_builder(*builder, "_%1: %1;\n", it);
@@ -230,7 +228,7 @@ generate_entity_code :: () {
     build_string := sprint(ENTITY_INSERTION_STRING, entity_type_names.count, type_names, slot_string, storage_string, update_string, deinit_string);
     add_build_string(build_string, w);
     //print("Adding build string:\n%\n", build_string);
-   }
+  }
 } @RunWhenReady
 #import "String";
 #import "Sort";
@@ -242,9 +240,10 @@ generate_entity_code :: () {
 // Entity Sysrtem tests
 //////////////////////////////////
 
-Foo :: struct @entity {
+Foo :: struct {
   #as using base : xEntityBase;
   foo : int;
+  type = Foo;
 }
 update :: (using b : *Foo) {
   //print("foo update!\n");
@@ -256,9 +255,10 @@ deinit :: (using b : *Foo) {
   //print("foo deinit!\n");
 }
 
-Bar :: struct @entity {
+Bar :: struct {
   #as using base : xEntityBase;
   bar : string;
+  type = Bar;
 }
 init :: (using b : *Bar) {
   //print("bar init!\n");

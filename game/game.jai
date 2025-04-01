@@ -126,6 +126,7 @@ texture_load :: (path : string) -> oglTex {
 
 main :: () {
   xeng_init();
+  asset_mgr_tests(); 
 
   mgr : xAssetMgr;
   xasset_mgr_init(*mgr);
@@ -144,15 +145,15 @@ main :: () {
 
   // make a sprite with a texture from a tileset
   dungeon_tileset := xasset_mgr_load(*mgr, "../assets/DungeonTiles");
-  assert(xasset_find(*mgr, dungeon_tileset) != null);
+  assert(xasset_mgr_find(*mgr, dungeon_tileset) != null);
   sprite1 := xentity_make(Sprite);
-  sprite_init(sprite1, acast(xasset_find(*mgr, dungeon_tileset), xTextureAsset), "big_demon_run_anim", 8);
+  sprite_init(sprite1, acast(xasset_mgr_find(*mgr, dungeon_tileset), xTextureAsset), "big_demon_run_anim", 8);
 
   // make a sprite with a texture from another tileset
   particle_tileset := xasset_mgr_load(*mgr, "../assets/SmokeParticles");
-  assert(xasset_find(*mgr, particle_tileset) != null);
+  assert(xasset_mgr_find(*mgr, particle_tileset) != null);
   sprite2 := xentity_make(Sprite);
-  sprite_init(sprite2, acast(xasset_find(*mgr, particle_tileset), xTextureAsset), "smoke_fx_6", 24);
+  sprite_init(sprite2, acast(xasset_mgr_find(*mgr, particle_tileset), xTextureAsset), "smoke_fx_6", 24);
 
 
 
@@ -190,7 +191,7 @@ main :: () {
     if sprite2.id then render(sprite2, *rend, *cam, false);
 
 
-    dfont := acast(xasset_find(*mgr, dfont_tag), xFontAsset);
+    dfont := acast(xasset_mgr_find(*mgr, dfont_tag), xFontAsset);
     codepoint := dfont.glyphs.base_codepoint + cast(u32)(cast(u32)floor(seconds_since_init()*10)%dfont.glyphs.glyphs.count);
     glyph_info, found := xfont_asset_lookup_glyph_info(dfont, codepoint);
     assert(found);

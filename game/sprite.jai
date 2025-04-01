@@ -1,4 +1,4 @@
-Sprite :: struct @entity {
+Sprite :: struct {
   #as using base : xEntityBase;
 
   tex : *oglTex;
@@ -7,6 +7,7 @@ Sprite :: struct @entity {
   halfdim : v2;
   frame_count : u32;
   fps : u32;
+  type = Sprite;
 }
 
 sprite_fill_spritesheet_from_json :: (root : *xJsonNode, path : string, tex : *oglTex, dest : *Sprite) {
@@ -65,10 +66,11 @@ render :: (using s : *Sprite, rend : *xRend2D, cam : *xCamera2D, flip_x : bool) 
 }
 
 
-Player :: struct @entity {
+Player :: struct {
   #as using base : xEntityBase;
 
   flip_x : bool;
+  type = Player;
 }
 
 init :: (using p : *Player) {

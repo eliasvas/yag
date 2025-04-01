@@ -11,6 +11,7 @@
 // - investigate OpenGL texture coordinates
 // - subpixel rendering
 // - support multiple codepoint ranges per font asset
+// - hint resolution for given font.. small/medium/large maybe?
 
 #if OS == .WINDOWS {
   XDEFAULT_FONT_PATH :: "C:/Windows/Fonts";
@@ -25,10 +26,11 @@ xfont_get_default_font_path :: () -> string { return tprint("%/%\0", XDEFAULT_FO
 // xFont Asset
 //////////////////////////////////
 
-xFontAsset :: struct @asset {
+xFontAsset :: struct {
   #as using base : xAssetBase;
   atlas : oglTex;
   glyphs : xFontGlyphCache;
+  type = xFontAsset;
 }
 
 xFontGlyphCache :: struct {
@@ -52,7 +54,7 @@ xFontGlyphMetrics :: struct {
 
 xfont_asset_make :: (codepoint_range : iv2) -> *xFontAsset {
   name : string = "default.ttf";
-  asset : *xFontAsset = alloc(size_of(xFontAsset));
+  asset : *xFontAsset = New(xFontAsset);
   font_path := xfont_get_default_font_path();
   // TODO: actual reference counting
   asset.ref_count = 1;

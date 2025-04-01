@@ -1,12 +1,7 @@
-xResourceManager :: struct {
-  // TODO
-  res_type : int;
-}
-
 xGameScene :: struct {
   name : string;
   entities : xEntityStorage;
-  resources : xResourceManager;
+  //resources : xResourceManager; <---- Asset Manager here right??
   pool : Flat_Pool; // ALL our memory will come from here, at scene deinit we dealloc the whole pool!
 }
 
