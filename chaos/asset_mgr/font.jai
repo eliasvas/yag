@@ -44,6 +44,7 @@ xFontGlyphInfo :: struct {
   tex_coord : v4; // NOTE: this should maybe be a Rect?
 }
 
+// more info https://freetype.org/freetype2/docs/glyphs/glyphs-3.html
 xFontGlyphMetrics :: struct {
   width : s32; // glyph width (in pixels)
   height : s32; // glyph height (in pixels)
@@ -119,12 +120,14 @@ freetype_helper_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : 
     hbearing_y = xx (face.glyph.metrics.horiBearingY >> 6),
     hadvance = xx (face.glyph.metrics.horiAdvance >> 6),
   };
+  if codepoint == #char "i" { print("i metrics: %\n", metrics);};
+  if codepoint == #char "m" { print("m metrics: %\n", metrics);};
 
   bitmap_px_count := cast(u32)face.glyph.bitmap.width * face.glyph.bitmap.rows;
   if bitmap_px_count == 0 { // Space (32)
     return null, metrics;
   } else {
-    rgba_tex :*FT_RGBA_Pixel= talloc(bitmap_px_count * size_of(FT_RGBA_Pixel));
+    rgba_tex :*FT_RGBA_Pixel = talloc(bitmap_px_count * size_of(FT_RGBA_Pixel));
     for i : 0..bitmap_px_count-1 {
       c : u8 = xx (cast(*u8)face.glyph.bitmap.buffer)[i];
       rgba_tex[i] = .{c,c,c,c};
@@ -179,7 +182,6 @@ freetype_helper_pack_codepoint_range :: (face : FT_Face, range : iv2) -> *FT_RGB
     glyphs[i - range.x] = xFontGlyphInfo.{
       codepoint = cast(u32)i,
       metrics = metrics_codepoint,
-      //tex_coord = .{(hrect.x + hrect.w - metrics_codepoint.width) / cast(float)atlas_width , (hrect.y) / cast(float)atlas_height,(hrect.x + hrect.w) / cast(float)atlas_width,(hrect.y + metrics_codepoint.height) / cast(float)atlas_height},
       tex_coord = .{(hrect.x + hrect.w - metrics_codepoint.width) / cast(float)atlas_width , (hrect.y) / cast(float)atlas_height,(metrics_codepoint.width) / cast(float)atlas_width,(metrics_codepoint.height) / cast(float)atlas_height},
     };
   }

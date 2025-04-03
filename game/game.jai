@@ -1,9 +1,4 @@
-#import "Basic";
-#import "String";
-#import "Bucket_Array";
 //#import "chaos";
-#import "File";
-
 
 // TODO: get a good bitmap font, like in microui, and BAKE it in font rendering code path
 // TODO: instead of xeng(), do just xeng
@@ -191,12 +186,76 @@ main :: () {
     if sprite2.id then render(sprite2, *rend, *cam, false);
 
 
-    dfont := acast(xasset_mgr_find(*mgr, dfont_tag), xFontAsset);
-    codepoint := dfont.glyphs.base_codepoint + cast(u32)(cast(u32)floor(seconds_since_init()*10)%dfont.glyphs.glyphs.count);
-    glyph_info, found := xfont_asset_lookup_glyph_info(dfont, codepoint);
-    assert(found);
-    xr2d_quad_render(*rend, .{0,0,glyph_info.metrics.width*4.0,glyph_info.metrics.height*4.0}, glyph_info.tex_coord, .{0,1,1,1}, *cam, *dfont.atlas);
+    test_render_string(*rend, "Very Hungry!", *mgr, .{0,0});
 
     xeng_frame_end();
   }
+}
+
+
+xfont_get_text_width :: (text : string, font : *xFontAsset, scale : float = 1.0) -> float {
+  total_width : float = 0.0;
+  for c : text {
+    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)c);
+    if found {
+      total_width += glyph_info.metrics.hadvance;
+    }
+  }
+  return total_width*scale;
+}
+
+xfont_get_ymax :: (text : string, font : *xFontAsset, scale : float = 1.0) -> float {
+  ymax : float = 0.0;
+  for c : text {
+    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)c);
+    if found {
+      ymax = max(ymax, cast(float)glyph_info.metrics.hbearing_y);
+    }
+  }
+  return ymax*scale;
+}
+
+xfont_get_ymin :: (text : string, font : *xFontAsset, scale : float = 1.0) -> float {
+  ymin : float = 0.0;
+  for c : text {
+    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)c);
+    if found {
+      //ymin = max(ymin, cast(float)(glyph_info.metrics.height - glyph_info.metrics.hbearing_y));
+      ymin = min(ymin, cast(float)glyph_info.metrics.hbearing_y);
+    }
+  }
+  return ymin*scale;
+}
+
+
+test_render_string :: (rend : *xRend2D, text : string, mgr : *xAssetMgr, pos : v2) {
+
+  font := acast(xasset_mgr_find(mgr, "default.ttf"), xFontAsset);
+
+
+  // measure the text's total width
+  width := xfont_get_text_width(text, font, 1.0);
+  // find top-most character
+  ymax := xfont_get_ymax(text, font, 1.0);
+  // find bottom-most character
+  ymin := xfont_get_ymin(text, font, 1.0);
+  height := ymax + ymin;
+
+
+  wdim := xwin_get_dim(*xeng().win);
+  cam := xCamera2D.{ target = v2.{0,0}, rot = 0, zoom = 1, offset = v2.{(wdim.x - width)/2.0,wdim.y/2.0 - 100}, };
+
+  rpos := pos;
+  for c : text {
+    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)c);
+    if found {
+      rpos += v2.{cast(float)glyph_info.metrics.hbearing_x, -cast(float)glyph_info.metrics.hbearing_y};
+      xr2d_quad_render(rend, .{rpos.x,rpos.y, cast(float)glyph_info.metrics.width, cast(float)glyph_info.metrics.height}, glyph_info.tex_coord, .{0.7,0.9,1.0,1}, *cam, *font.atlas);
+      rpos -= v2.{cast(float)glyph_info.metrics.hbearing_x, -cast(float)glyph_info.metrics.hbearing_y};
+      rpos.x += glyph_info.metrics.hadvance;
+    }
+  }
+
+
+
 }

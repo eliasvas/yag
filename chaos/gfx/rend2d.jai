@@ -26,7 +26,7 @@ xr2d_init :: (using rend : *xRend2D) {
 
 xr2d_quad_render :: (using rend : *xRend2D, r : v4, texcoords : v4, col : v4, cam : *xCamera2D, tex : *oglTex = null) {
   if !initialized then xr2d_init(rend);
-  rect := v4.{r.x, r.y, r.x+r.z, r.y+r.z};
+  rect := v4.{r.x, r.y, r.x+r.z, r.y+r.w};
 
   ogl_rt_bind(null);
   ogl_bind_sp(*sp);

@@ -4,6 +4,7 @@
 //////////////////////////////////
 // TODO: currently im not sure init/deinit stuff work... @check
 // TODO: look into allocation / deallocation (freelist)
+// FIXME: WHY are AssetTags strings? WHERE are they allocated? AM I RETARDED?
 
 xAssetMgr :: struct {
 	slots : *xAssetHashSlot;
