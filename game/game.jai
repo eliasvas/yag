@@ -119,31 +119,34 @@ texture_load :: (path : string) -> oglTex {
 }
  
 
+// global asset manager, maybe should be inside xeng
+mgr : xAssetMgr;
+
 main :: () {
   xeng_init();
-  asset_mgr_tests(); 
-
-  mgr : xAssetMgr;
-  xasset_mgr_init(*mgr);
-  dfont_tag, first_time_created := xasset_mgr_add(*mgr, xfont_asset_make(.{32, 126}));
-  assert(first_time_created);
-  //xasset_mgr_add(*mgr, xfont_asset_make(.{32, 126})); // failure scenario we need to track this
 
   rend : xRend2D;
   cam := xCamera2D.{
     target = v2.{0,0},
     rot = 0,
-    zoom = 1,
-    offset = v2.{0,0},
+    zoom = 1, offset = v2.{0,0},
   };
 
-
+  ////////////////////
+  // Asset Manager initialization
+  ////////////////////
+  xasset_mgr_init(*mgr);
+  // Add the default white texture
+  white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
+  white_tag := xasset_mgr_add(*mgr, xtexture_asset_make(white.data, v2.{1,1}));
+  // Add the default font (OS specific sadly)
+  dfont_tag, first_time_created := xasset_mgr_add(*mgr, xfont_asset_make(.{32, 126}));
+  assert(first_time_created);
   // make a sprite with a texture from a tileset
   dungeon_tileset := xasset_mgr_load(*mgr, "../assets/DungeonTiles");
   assert(xasset_mgr_find(*mgr, dungeon_tileset) != null);
   sprite1 := xentity_make(Sprite);
   sprite_init(sprite1, acast(xasset_mgr_find(*mgr, dungeon_tileset), xTextureAsset), "big_demon_run_anim", 8);
-
   // make a sprite with a texture from another tileset
   particle_tileset := xasset_mgr_load(*mgr, "../assets/SmokeParticles");
   assert(xasset_mgr_find(*mgr, particle_tileset) != null);
@@ -186,76 +189,13 @@ main :: () {
     if sprite2.id then render(sprite2, *rend, *cam, false);
 
 
-    test_render_string(*rend, "Very Hungry!", *mgr, .{0,0});
+    xgui_frame_begin();
+    if xgui_button(*rend, "Click Me!", .{100,100,300,100}) {
+      print("clicked!\n");
+    }
+    xgui_frame_begin();
 
     xeng_frame_end();
   }
 }
 
-
-xfont_get_text_width :: (text : string, font : *xFontAsset, scale : float = 1.0) -> float {
-  total_width : float = 0.0;
-  for c : text {
-    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)c);
-    if found {
-      total_width += glyph_info.metrics.hadvance;
-    }
-  }
-  return total_width*scale;
-}
-
-xfont_get_ymax :: (text : string, font : *xFontAsset, scale : float = 1.0) -> float {
-  ymax : float = 0.0;
-  for c : text {
-    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)c);
-    if found {
-      ymax = max(ymax, cast(float)glyph_info.metrics.hbearing_y);
-    }
-  }
-  return ymax*scale;
-}
-
-xfont_get_ymin :: (text : string, font : *xFontAsset, scale : float = 1.0) -> float {
-  ymin : float = 0.0;
-  for c : text {
-    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)c);
-    if found {
-      //ymin = max(ymin, cast(float)(glyph_info.metrics.height - glyph_info.metrics.hbearing_y));
-      ymin = min(ymin, cast(float)glyph_info.metrics.hbearing_y);
-    }
-  }
-  return ymin*scale;
-}
-
-
-test_render_string :: (rend : *xRend2D, text : string, mgr : *xAssetMgr, pos : v2) {
-
-  font := acast(xasset_mgr_find(mgr, "default.ttf"), xFontAsset);
-
-
-  // measure the text's total width
-  width := xfont_get_text_width(text, font, 1.0);
-  // find top-most character
-  ymax := xfont_get_ymax(text, font, 1.0);
-  // find bottom-most character
-  ymin := xfont_get_ymin(text, font, 1.0);
-  height := ymax + ymin;
-
-
-  wdim := xwin_get_dim(*xeng().win);
-  cam := xCamera2D.{ target = v2.{0,0}, rot = 0, zoom = 1, offset = v2.{(wdim.x - width)/2.0,wdim.y/2.0 - 100}, };
-
-  rpos := pos;
-  for c : text {
-    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)c);
-    if found {
-      rpos += v2.{cast(float)glyph_info.metrics.hbearing_x, -cast(float)glyph_info.metrics.hbearing_y};
-      xr2d_quad_render(rend, .{rpos.x,rpos.y, cast(float)glyph_info.metrics.width, cast(float)glyph_info.metrics.height}, glyph_info.tex_coord, .{0.7,0.9,1.0,1}, *cam, *font.atlas);
-      rpos -= v2.{cast(float)glyph_info.metrics.hbearing_x, -cast(float)glyph_info.metrics.hbearing_y};
-      rpos.x += glyph_info.metrics.hadvance;
-    }
-  }
-
-
-
-}

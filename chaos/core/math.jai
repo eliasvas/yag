@@ -431,6 +431,9 @@ quat_to_m4 :: (q: Quat) ->m4 {
 ////////////////////////
 
 Rect :: struct { x,y,w,h : float; }
+rect_isect :: (r : Rect, point : v2) -> bool {
+  return r.x <= point.x && r.x + r.w >= point.x && r.y <= point.y && r.y + r.h >= point.y;
+}
 iRect :: struct { x,y,w,h : s32; }
 
 ////////////////////////

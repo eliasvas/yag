@@ -179,4 +179,6 @@ asset_mgr_tests :: () {
 
 }
 
+#run asset_mgr_tests();
+
 //#run asset_mgr_tests();

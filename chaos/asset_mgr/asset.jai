@@ -28,6 +28,20 @@ xTextureAsset :: struct {
   type = xTextureAsset;
 }
 
+// TODO: here we need a texture desc probably
+xtexture_asset_make :: (data : *u8, dim : v2) -> *xTextureAsset {
+  name : string = "white.png";
+  asset : *xTextureAsset = New(xTextureAsset);
+  asset.ref_count = 1;
+  asset.type = xTextureAsset;
+  asset.tag = name;
+  asset.base_path = XDEFAULT_FONT_PATH;
+
+  ogl_tex_init(*asset.tex, dim, cast(*u8)data, oglTexFormat.RGBA8U);
+
+  return asset;
+}
+
 xSceneAsset :: struct {
   #as using base : xAssetBase;
   root : *xJsonNode;
