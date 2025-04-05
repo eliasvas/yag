@@ -138,7 +138,7 @@ entities_cleanup :: (entities : *xEntityStorage) {
       while itr {
         // we get the node, memzero it, remove from hashmap and insert it to the freelist
         if itr.marked_for_destruction {
-           xentity_delete(cast(*xEntitySlot)itr);
+          xentity_delete(cast(*xEntitySlot)itr);
         }
         itr = itr.next;
       }

@@ -1,9 +1,6 @@
 #import "ImGui";
 #load "imgui_sdl_gl.jai";
 
-// extern xAssetMgr mgr;
-
-
 xfont_get_text_width :: (text : string, font : *xFontAsset, scale : float = 1.0) -> float {
   total_width : float = 0.0;
   for c : text {
@@ -94,7 +91,7 @@ xgui_get_widget_color :: (id : XGUI_ID) -> v4 {
 
 xgui_render_button :: (rend : *xRend2D, text : string, rect : Rect) {
   id := djb2(text);
-  white_tex := acast(xasset_mgr_find(*mgr, "white.png"), xTextureAsset);
+  white_tex := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "white.png"), xTextureAsset);
   assert(white_tex != null);
 
   cam := xCamera2D.{ target = v2.{0,0}, rot = 0, zoom = 1, offset = v2.{0,0}, };
@@ -103,7 +100,7 @@ xgui_render_button :: (rend : *xRend2D, text : string, rect : Rect) {
   xr2d_quad_render(rend, .{rect.x,rect.y, cast(float)rect.w, cast(float)rect.h}, .{0,0,0,0}, xgui_get_widget_color(id), *cam, *white_tex.tex);
 
   // 1. Calc text-boxes final metrics
-  font := acast(xasset_mgr_find(*mgr, "default.ttf"), xFontAsset);
+  font := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "default.ttf"), xFontAsset);
   width := xfont_get_text_width(text, font, 1.0);
   height := xfont_get_ymax(text, font, 1.0) + xfont_get_ymin(text, font, 1.0);
 

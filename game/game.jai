@@ -120,7 +120,6 @@ texture_load :: (path : string) -> oglTex {
  
 
 // global asset manager, maybe should be inside xeng
-mgr : xAssetMgr;
 
 main :: () {
   xeng_init();
@@ -133,16 +132,10 @@ main :: () {
   };
 
   ////////////////////
-  // Asset Manager initialization
+  // Game's Asset Manager initialization
   ////////////////////
+  mgr : xAssetMgr;
   xasset_mgr_init(*mgr);
-  // Add the default white texture
-  white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
-  white_tag := xasset_mgr_add(*mgr, xtexture_asset_make(white.data, v2.{1,1}));
-  // Add the default font (OS specific sadly)
-  dfont_tag, first_time_created := xasset_mgr_add(*mgr, xfont_asset_make(.{32, 126}));
-  assert(first_time_created);
-  // make a sprite with a texture from a tileset
   dungeon_tileset := xasset_mgr_load(*mgr, "../assets/DungeonTiles");
   assert(xasset_mgr_find(*mgr, dungeon_tileset) != null);
   sprite1 := xentity_make(Sprite);
@@ -152,7 +145,6 @@ main :: () {
   assert(xasset_mgr_find(*mgr, particle_tileset) != null);
   sprite2 := xentity_make(Sprite);
   sprite_init(sprite2, acast(xasset_mgr_find(*mgr, particle_tileset), xTextureAsset), "smoke_fx_6", 24);
-
 
 
 

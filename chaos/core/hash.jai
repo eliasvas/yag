@@ -4,6 +4,5 @@ djb2 :: (s : string) -> u64 {
   for c : s {
     hash = ((hash << 5) + hash) + c;
   }
-
   return hash;
 }

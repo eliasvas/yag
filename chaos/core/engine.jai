@@ -7,7 +7,6 @@ xEngine :: struct {
   win : xWindow;
   c : xCam;
    
-  white_img : oglTex;
   proj : m4;
   view : m4;
 
@@ -15,6 +14,7 @@ xEngine :: struct {
   csm_data : xCSMData;
 
   persistent_arena : xArena; // no need for initialization I think
+  persistent_asset_mgr : xAssetMgr;
 
   global_data_ub : oglUBlock;
 }
@@ -37,10 +37,19 @@ xeng_init :: () {
   ximm_init();
   // 4. base camera init
   c = .{};
-  // 5. make some misc stuff
-  white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
-  ogl_tex_init(*white_img, .{1,1}, white.data, oglTexFormat.RGBA8U);
-  dir_light = xdir_light_make_basic();
+  // 5. Init the persistent asset manager (along with some default assets!)
+  // (we use the persistent arena allocator for all allocations concerning the persistent asset manager)
+  new_context := context;
+  new_context.allocator = Allocator.{proc = xarena_allocator_proc, data = *persistent_arena};
+  push_context new_context {
+    xasset_mgr_init(*persistent_asset_mgr);
+    // Add the default white texture
+    white := u8.[ 0xFF,0xFF,0xFF,0xFF ];
+    white_tag := xasset_mgr_add(*persistent_asset_mgr, xtexture_asset_make(white.data, v2.{1,1}));
+    // Add the default font (OS specific sadly)
+    dfont_tag, first_time_created := xasset_mgr_add(*persistent_asset_mgr, xfont_asset_make(.{32, 126}));
+    assert(first_time_created);
+  }
   // 6. we initialize imgui (we will replace this with OUR gui lib soon enough)
   imgui_context := ImGui.CreateContext();
   ImGui_ImplSdl_Init(xx win.impl_state);
