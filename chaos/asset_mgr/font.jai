@@ -120,8 +120,6 @@ freetype_helper_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : 
     hbearing_y = xx (face.glyph.metrics.horiBearingY >> 6),
     hadvance = xx (face.glyph.metrics.horiAdvance >> 6),
   };
-  if codepoint == #char "i" { print("i metrics: %\n", metrics);};
-  if codepoint == #char "m" { print("m metrics: %\n", metrics);};
 
   bitmap_px_count := cast(u32)face.glyph.bitmap.width * face.glyph.bitmap.rows;
   if bitmap_px_count == 0 { // Space (32)

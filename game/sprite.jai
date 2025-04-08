@@ -62,7 +62,7 @@ render :: (using s : *Sprite, rend : *xRend2D, cam : *xCamera2D, flip_x : bool) 
     actual_tc.x = actual_tc.x + actual_tc.z;
     actual_tc.z = -actual_tc.z;
   }
-  xr2d_quad_render(rend, v4.{gpos.x-halfdim.x,gpos.y-halfdim.y,halfdim.x*2,halfdim.y*2}, actual_tc, .{1,1,1,1}, cam, tex);
+  xr2d_imm_render_quad(rend, v4.{gpos.x-halfdim.x,gpos.y-halfdim.y,halfdim.x*2,halfdim.y*2}, actual_tc, .{1,1,1,1}, cam, tex);
 }
 
 

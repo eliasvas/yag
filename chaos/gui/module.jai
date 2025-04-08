@@ -1,6 +1,14 @@
 #import "ImGui";
 #load "imgui_sdl_gl.jai";
 
+// This whole gui lib is mainly based on the excellent UI series of articles by Ryan Fleury, some useful links below.
+// https://www.rfleury.com/p/ui-series-table-of-contents 
+// https://www.rfleury.com/p/codebase-walkthrough-multi-window
+// https://github.com/EpicGamesExt/raddebugger/tree/master/src/ui
+// https://iquilezles.org/articles/distfunctions2d/
+// https://github.com/eliasvas/motfk/tree/main/gui 
+
+// NOTE: These xfont stuff should go to a different file (gui_font?)
 xfont_get_text_width :: (text : string, font : *xFontAsset, scale : float = 1.0) -> float {
   total_width : float = 0.0;
   for c : text {
@@ -90,6 +98,9 @@ xgui_get_widget_color :: (id : XGUI_ID) -> v4 {
 }
 
 xgui_render_button :: (rend : *xRend2D, text : string, rect : Rect) {
+  r := xr2d_begin();
+  //defer xr2d_end(r);
+
   id := djb2(text);
   white_tex := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "white.png"), xTextureAsset);
   assert(white_tex != null);
@@ -97,7 +108,9 @@ xgui_render_button :: (rend : *xRend2D, text : string, rect : Rect) {
   cam := xCamera2D.{ target = v2.{0,0}, rot = 0, zoom = 1, offset = v2.{0,0}, };
 
   // 0. Draw The button border
-  xr2d_quad_render(rend, .{rect.x,rect.y, cast(float)rect.w, cast(float)rect.h}, .{0,0,0,0}, xgui_get_widget_color(id), *cam, *white_tex.tex);
+  //xr2d_imm_render_quad(rend, .{rect.x,rect.y, cast(float)rect.w, cast(float)rect.h}, .{0,0,0,0}, xgui_get_widget_color(id), *cam, *white_tex.tex);
+  xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.w,rect.h},xgui_get_widget_color(id));
+  xr2d_end(r);
 
   // 1. Calc text-boxes final metrics
   font := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "default.ttf"), xFontAsset);
@@ -112,7 +125,7 @@ xgui_render_button :: (rend : *xRend2D, text : string, rect : Rect) {
     glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)codepoint);
     if found {
       rpos += v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
-      xr2d_quad_render(rend, .{rpos.x,rpos.y, cast(float)glyph_info.metrics.width, cast(float)glyph_info.metrics.height}, glyph_info.tex_coord, g_gui_context.style.text_color0, *cam, *font.atlas);
+      xr2d_imm_render_quad(rend, .{rpos.x,rpos.y, cast(float)glyph_info.metrics.width, cast(float)glyph_info.metrics.height}, glyph_info.tex_coord, g_gui_context.style.text_color0, *cam, *font.atlas);
       rpos -= v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
       rpos.x += glyph_info.metrics.hadvance;
     }

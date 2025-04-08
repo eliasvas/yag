@@ -2,6 +2,10 @@
 // Actual Entity Stuff
 //////////////////////////////////
 
+
+// NOTE: Maybe our allocator could just alloc xEntitySlot's, so reusing slots becomes easier than now.. no need for sorting..
+// so entity_make() -> *xEntitySlot and freelist : *xEntitySlot or something like that!
+
 entities : xEntityStorage; // a placeholder, generated, sum-super-type, its super
 
 XENTITY_MAX_ENTITIES :: 1024;

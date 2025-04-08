@@ -109,9 +109,9 @@ screen_to_world :: (scoords : v2, c : *xCamera2D) ->v2 {
 
 // NOTE: for clipping we should probably use ogl.. or something
 // NOTE: to use this for arbitrary 'viewports' we should provide start_x's start_y's
-screen_to_ndc :: (scoords : v2, windim : v2) -> v2 {
+screen_to_ndc :: (scoords : v2, windim : v2, invert_y : bool = true) -> v2 {
   coords := ((scoords / windim) - 0.5)*2.0;
-  coords.y *= -1.0; // because origin is the top left corner
+  if invert_y then coords.y *= -1.0; // because origin is the top left corner
   return coords;
 }
 
