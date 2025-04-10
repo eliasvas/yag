@@ -99,7 +99,7 @@ xgui_get_widget_color :: (id : XGUI_ID) -> v4 {
 
 xgui_render_button :: (rend : *xRend2D, text : string, rect : Rect) {
   r := xr2d_begin();
-  //defer xr2d_end(r);
+  defer xr2d_end(r);
 
   id := djb2(text);
   white_tex := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "white.png"), xTextureAsset);
@@ -109,8 +109,7 @@ xgui_render_button :: (rend : *xRend2D, text : string, rect : Rect) {
 
   // 0. Draw The button border
   //xr2d_imm_render_quad(rend, .{rect.x,rect.y, cast(float)rect.w, cast(float)rect.h}, .{0,0,0,0}, xgui_get_widget_color(id), *cam, *white_tex.tex);
-  xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.w,rect.h},xgui_get_widget_color(id));
-  xr2d_end(r);
+  xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.x + rect.w,rect.y + rect.h}, v2.{0,0}, v2.{0,0}, xgui_get_widget_color(id));
 
   // 1. Calc text-boxes final metrics
   font := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "default.ttf"), xFontAsset);
@@ -125,7 +124,8 @@ xgui_render_button :: (rend : *xRend2D, text : string, rect : Rect) {
     glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)codepoint);
     if found {
       rpos += v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
-      xr2d_imm_render_quad(rend, .{rpos.x,rpos.y, cast(float)glyph_info.metrics.width, cast(float)glyph_info.metrics.height}, glyph_info.tex_coord, g_gui_context.style.text_color0, *cam, *font.atlas);
+      //xr2d_imm_render_quad(rend, .{rpos.x,rpos.y, cast(float)glyph_info.metrics.width, cast(float)glyph_info.metrics.height}, glyph_info.tex_coord, g_gui_context.style.text_color0, *cam, *font.atlas);
+      xr2d_push_quad(r,v2.{rpos.x,rpos.y},v2.{rpos.x + cast(float)glyph_info.metrics.width, rpos.y + cast(float)glyph_info.metrics.height}, v2.{glyph_info.tex_coord.x,glyph_info.tex_coord.y}, v2.{glyph_info.tex_coord.x+glyph_info.tex_coord.z,glyph_info.tex_coord.y + glyph_info.tex_coord.w}, g_gui_context.style.text_color0, "default.ttf");
       rpos -= v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
       rpos.x += glyph_info.metrics.hadvance;
     }

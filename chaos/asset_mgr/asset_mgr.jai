@@ -5,6 +5,7 @@
 // TODO: currently im not sure init/deinit stuff work... @check
 // TODO: look into allocation / deallocation (freelist)
 // FIXME: WHY are AssetTags strings? WHERE are they allocated? AM I RETARDED?
+// TODO: Maybe instead of tags like "default.ttf" and "white.png" we should have some constant identifiers
 
 xAssetMgr :: struct {
 	slots : *xAssetHashSlot;
