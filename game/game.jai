@@ -182,7 +182,7 @@ main :: () {
 
 
     xgui_frame_begin();
-    if xgui_button(*rend, "Click Me!", .{100,100,300,100}) {
+    if xgui_button(*rend, "Click Me!", .{100.0,100.0,300.0,100.0}) {
       print("clicked!\n");
     }
     xgui_frame_begin();

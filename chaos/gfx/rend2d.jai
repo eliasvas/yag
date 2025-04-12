@@ -158,6 +158,7 @@ PackedQuadVertex :: struct {
   t0    : v2;
   t1    : v2;
   color : v4;
+  roundness : float;
   sampler_id : u32; // this will be filled by the renderer
 }
 
@@ -166,7 +167,7 @@ xr2d_begin :: () -> *xRend2D {
   push_context .{allocator=temp} {
     using rend : *xRend2D = New(xRend2D);
     ogl_sp_init(*sp, PACKED_QUAD_VERT_SHADER, PACKED_QUAD_FRAG_SHADER);
-    //ogl_ublock_load(*sp_ub1, *sp, 1);
+    ogl_ublock_load(*sp_ub1, *sp, 1);
 
     vertex_def.vbuf = New(oglBuf);
     attribs :: #run oglShaderAttrib.[
@@ -175,7 +176,8 @@ xr2d_begin :: () -> *xRend2D {
       .{loc=2,offset=cast(u32)offset_of(PackedQuadVertex,#code t0), instanced=true},
       .{loc=3,offset=cast(u32)offset_of(PackedQuadVertex,#code t1), instanced=true},
       .{loc=4,offset=cast(u32)offset_of(PackedQuadVertex,#code color), instanced=true},
-      .{loc=5,offset=cast(u32)offset_of(PackedQuadVertex,#code sampler_id), instanced=true},
+      .{loc=5,offset=cast(u32)offset_of(PackedQuadVertex,#code roundness), instanced=true},
+      .{loc=6,offset=cast(u32)offset_of(PackedQuadVertex,#code sampler_id), instanced=true},
     ];
     vertex_def.attribs = attribs;
 
@@ -187,10 +189,11 @@ xr2d_begin :: () -> *xRend2D {
   }
 }
 
-xr2d_push_quad :: (using rend : *xRend2D, p0 : v2, p1 : v2, t0 : v2, t1 : v2, color : v4, atex : xAssetTag = "white.png") {
+xr2d_push_quad :: (using rend : *xRend2D, p0 : v2, p1 : v2, t0 : v2, t1 : v2, color : v4, roundness : float, atex : xAssetTag = "white.png") {
   // add quad to the quad_instances [..]
   wdim : v2 = xwin_get_dim(*xeng().win);
-  array_add(*quad_instances, PackedQuadVertex.{screen_to_ndc(p0,wdim), screen_to_ndc(p1,wdim), t0, t1, color, 0});
+  //array_add(*quad_instances, PackedQuadVertex.{screen_to_ndc(p0,wdim), screen_to_ndc(p1,wdim), t0, t1, color, 0});
+  array_add(*quad_instances, .{p0, p1, t0, t1, color, roundness, 0});
   array_add(*quad_instances_tex_tags, atex);
 }
 
@@ -198,8 +201,9 @@ xr2d_end :: (using rend : *xRend2D) {
   // render quad_instances [..]
   ogl_rt_bind(null);
   ogl_bind_sp(*sp);
-  //ogl_ublock_set(*sp_ub1, "color", xx *col);
-  //ogl_ublock_bind_to_slot(*sp_ub1);
+  wdim : v2 = xwin_get_dim(*xeng().win);
+  ogl_ublock_set(*sp_ub1, "res", xx *wdim);
+  ogl_ublock_bind_to_slot(*sp_ub1);
 
   dyn_state := oglDynState.{
     viewport = xwin_get_viewport(*xeng().win),
@@ -279,7 +283,8 @@ layout (location = 1) in vec2 in_p1;
 layout (location = 2) in vec2 in_t0;
 layout (location = 3) in vec2 in_t1;
 layout (location = 4) in vec4 in_color;
-layout (location = 5) in int in_sampler_id;
+layout (location = 5) in float in_roundness;
+layout (location = 6) in int in_sampler_id;
 
 
 vec2 quad[4] = vec2[](
@@ -296,18 +301,32 @@ layout(std140, binding = 0) uniform GlobalData {
   mat4 view;
 };
 
+layout(std140, binding = 1) uniform ResolutionData {
+  vec2 res;
+};
+
 out VS_OUT {
   vec4 color;
   vec2 tc;
+  vec2 p;
+  vec2 p_center;
+  vec2 p_hs;
   flat int sampler_id;
+  float roundness;
 } vs_out;
+
+vec2 to_ndc (vec2 p) {
+  vec2 v = 2 * (p/res)- 1.0;
+  v.y *= -1.0;
+  return v;
+}
 
 void main() {
   // calculate position
   vec2 p_hs = (in_p1 - in_p0)/2.0; 
   vec2 p_center = (in_p0 + in_p1)/2.0; 
   vec4 p = vec4(p_center + p_hs * quad[gl_VertexID],0.0,1.0);
-  gl_Position = p;
+  gl_Position = vec4(to_ndc(p.xy),0,1);
   // calculate texcoord 
   vec2 t_hs = (in_t1 - in_t0)/2.0; 
   vec2 t_center = (in_t0 + in_t1)/2.0; 
@@ -316,6 +335,10 @@ void main() {
   // pass-through the color and sampler id
   vs_out.color = in_color;
   vs_out.sampler_id = in_sampler_id;
+  vs_out.p = p.xy;
+  vs_out.p_center = p_center;
+  vs_out.p_hs = p_hs;
+  vs_out.roundness = in_roundness;
 }
 DONE
 
@@ -326,7 +349,11 @@ out vec4 FragColor;
 in VS_OUT {
   vec4 color;
   vec2 tc;
+  vec2 p;
+  vec2 p_center;
+  vec2 p_hs;
   flat int sampler_id;
+  float roundness;
 } fs_in;
 
 layout(std140, binding = 0) uniform GlobalData {
@@ -334,10 +361,33 @@ layout(std140, binding = 0) uniform GlobalData {
   mat4 view;
 };
 
+layout(std140, binding = 1) uniform ResolutionData {
+  vec2 res;
+};
+
+
 uniform sampler2D textures[8];
 
+/*
+float sdf_rounded_box(vec2 p, vec2 b, vec4 r) {
+  r.xy = (p.x>0.0) ? r.xy : r.zw;
+  r.x  = (p.y>0.0) ? r.x  : r.y;
+  vec2 q = abs(p)-b+r.x;
+  return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r.x;
+}
+*/
+
+float sdf_rounded_box(vec2 p, vec2 b, float r) {
+  vec2 q = abs(p)-b+r;
+  return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r;
+}
+
+
 void main() {
-  //FragColor = texture(textures[fs_in.sampler_id], fs_in.tc / textureSize(textures[fs_in.sampler_id],0)) * fs_in.color;
-  FragColor = texture(textures[fs_in.sampler_id], fs_in.tc) * fs_in.color;
+  float dist = sdf_rounded_box(fs_in.p - fs_in.p_center, fs_in.p_hs, fs_in.roundness);
+  float sdf_factor = float((dist < 0.0));
+
+  FragColor = texture(textures[fs_in.sampler_id], fs_in.tc) * fs_in.color * sdf_factor;
+  //FragColor = vec4(vec3(sdf_factor), 1.0); // visualize the distance
 }
 DONE
