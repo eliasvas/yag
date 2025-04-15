@@ -123,6 +123,7 @@ texture_load :: (path : string) -> oglTex {
 
 main :: () {
   xeng_init();
+  xgui_init();
 
   rend : xRend2D;
   cam := xCamera2D.{
@@ -180,12 +181,17 @@ main :: () {
     if sprite1.id then render(sprite1, *rend, *cam, ecast(xentity_find(player1),Player).flip_x);
     if sprite2.id then render(sprite2, *rend, *cam, false);
 
-
     xgui_frame_begin();
+    // Here we do the gui example!
+    /*
     if xgui_button(*rend, "Click Me!", .{100.0,100.0,300.0,100.0}) {
       print("clicked!\n");
     }
-    xgui_frame_begin();
+    */
+    if xgui_button("HelloGui").pressed {
+      print("clicked hellogui!\n");
+    }
+    xgui_frame_end();
 
     xeng_frame_end();
   }

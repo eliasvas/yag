@@ -3,6 +3,7 @@ xEngine :: struct {
   running : bool = true;
   frame_start_time : float64;
   dt : float64;
+  frame_index : u64;
 
   win : xWindow;
   c : xCam;
@@ -34,7 +35,7 @@ xeng_init :: () {
   ogl_init();
   ogl_ublock_init(*global_data_ub, size_of(m4)*2);
   // 3. immediate drawing module init
-  ximm_init();
+  //ximm_init();
   // 4. base camera init
   c = .{};
   // 5. Init the persistent asset manager (along with some default assets!)
@@ -96,7 +97,7 @@ xeng_frame_init :: () {
 
 xeng_frame_end :: () {
   using g_engine;
-  ximm_flush(proj, view);
+  //ximm_flush(proj, view);
 
   // imgui bullshit
   ImGui.Render();
@@ -108,5 +109,6 @@ xeng_frame_end :: () {
   xwin_swap(*win);
   frame_end_time := seconds_since_init();
   dt = frame_end_time - frame_start_time;
+  frame_index +=1;
   reset_temporary_storage();
 }

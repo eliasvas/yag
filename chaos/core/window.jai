@@ -178,7 +178,6 @@ xwin_capture_events :: (win : *xWindow) -> []xWindowEvent {
       case .SDL_MOUSEWHEEL;
         e.kind = .SCROLLWHEEL_EVENT;
         e.scroll_evt.y = xx event.wheel.y;
-      //case .SDL_WINDOWEVENT;
       case .SDL_WINDOWEVENT;
           w, h : s32;
           SDL_GetWindowSize(xx win.impl_state,*w,*h);

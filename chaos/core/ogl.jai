@@ -107,7 +107,6 @@ main :: () {
 
 ///////////////////////////////
 // ogl Constants
-///////////////////////////////
 
 OGL_MAX_ATTRIBS           :: 8;
 OGL_MAX_TEX_SLOTS         :: 8;
@@ -115,7 +114,6 @@ OGL_MAX_COLOR_ATTACHMENTS :: 8;
 
 ///////////////////////////////
 // ogl Buffers
-///////////////////////////////
 
 oglBufKind :: enum { VERTEX; INDEX; UNIFORM; };
 oglBuf :: struct {
@@ -206,7 +204,6 @@ ogl_bind_uniform_buffer :: (using buf : *oglBuf) {
 
 ///////////////////////////////
 // ogl Shaders
-///////////////////////////////
 
 oglShaderDataType :: enum {
   FLOAT;
@@ -417,7 +414,6 @@ ogl_sp_set_uniform :: (using sp : *oglSP, uniform_name : string, type : oglShade
 
 ///////////////////////////////
 // ogl Draw API
-///////////////////////////////
 
 oglPrimitive :: enum{
   TRIANGLES;
@@ -455,7 +451,6 @@ ogl_draw_indexed :: (prim : oglPrimitive, count : u32, index_size :s64 = size_of
 
 ///////////////////////////////
 // ogl Textures
-///////////////////////////////
 
 oglTexFilter :: enum {
   NEAREST;
@@ -634,7 +629,6 @@ ogl_sp_bind_sampler_to_slot :: (using sp : *oglSP, sampler_name : string, tex : 
 }
 ///////////////////////////////
 // ogl RTs
-///////////////////////////////
 
 oglRTAttachment :: enum { A0; A1; A2; A3; DS; };
 oglRT :: struct {
@@ -758,7 +752,6 @@ ogl_rt_get_attachment :: (using rt : *oglRT, attachment : oglRTAttachment) -> og
 
 ///////////////////////////////
 // ogl Uniform Blocks
-///////////////////////////////
 
 // FIXME: currently, arrays are not supported inside other arrays, i think @check
 // FIXME: in GENERAL, uniform blocks do a lot of string stuff, they NEED to be faster!!
@@ -920,7 +913,6 @@ ogl_ublock_set_uniformable_struct :: (using ub : *oglUBlock, uni_struct : *$T, p
 
 ///////////////////////////////
 // ogl Bindings
-///////////////////////////////
 
 oglVertexDef :: struct {
   vbuf : *oglBuf;
@@ -958,7 +950,6 @@ ogl_sp_apply_bindings :: (using sp : *oglSP, bindings : oglBindingDesc) {
 
 ///////////////////////////////
 // ogl Dynamic state 
-///////////////////////////////
 
 // TODO: needs a LOT of work, current customizability is very minimal
 
@@ -1021,7 +1012,6 @@ ogl_sp_apply_dyn_state :: (sp : *oglSP, dyn_state : oglDynState) {
 
 ///////////////////////////////
 // ogl Context
-///////////////////////////////
 
 oglContext :: struct {
 vao : GLuint;
