@@ -20,6 +20,12 @@ xGuiContext :: struct {
 
 	root : *xGuiBox;
 
+    // Stacks
+    parent_stack : xGuiParentStack;
+    fixed_x_stack : xGuiFixedXStack;
+    fixed_y_stack : xGuiFixedYStack;
+    fixed_width_stack : xGuiFixedWidthStack;
+    fixed_height_stack : xGuiFixedHeightStack;
 }
 
 g_gui_context : xGuiContext;
@@ -35,7 +41,7 @@ xgui_init :: () {
 xgui_prune_unused_boxes :: (gctx : *xGuiContext) {
 	for *slot : gctx.slots {
 		node := slot.hash_first;
-		while node != null {
+		while !xgui_box_is_nil(node) {
 			// prune unused widgets and insert to the freelist for reuse!
 			if node.last_used_frame_index != gctx.frame_index {
 				print("will prune because node=[%,%] and context=%\n", node.str, node.last_used_frame_index, gctx.frame_index);
@@ -44,7 +50,7 @@ xgui_prune_unused_boxes :: (gctx : *xGuiContext) {
 				slot.hash_first, slot.hash_last = dll_remove(slot.hash_first, slot.hash_last, to_delete);
 				Initialize(to_delete);
 			} else {
-				print("srnode=%\n", node.srnode);
+				//print("srnode=%\n", node.srnode);
 				node = node.hash_next;
 			}
 		}
@@ -77,14 +83,11 @@ xgui_dummy_draw :: (gctx : *xGuiContext, root : *xGuiBox) {
 
 	// render all its children
 	child := root.first;
-	while child != null {
+	while !xgui_box_is_nil(child) {
 		xgui_dummy_draw(gctx, child);
 		child = child.next;
 	}
 }
-
-
-
 
 xgui_frame_begin :: () {
 	reset(*g_gui_context.frame_arena);
@@ -104,6 +107,7 @@ xgui_frame_end :: () {
 //////////////////////////////////////////
 // GUI styling  (TODO: style stacks for each field!)
 
+// TODO: removethis garbo and make the damn style stacks
 xGuiStyle :: struct {
 	panel_color              : v4 = v4.{0.2,0.2,0.2,1.0};
 	default_widget_color     : v4 = v4.{0.45,0.45,0.45,1.0};
@@ -122,6 +126,118 @@ xgui_get_widget_color :: (id : xGuiID) -> v4 {
 // GUI layouting
 
 xgui_do_layouting :: (gctx : *xGuiContext) {
-	// FixedPosition = ..;
-	gctx.root.rect = .{100,100,300,100};
+    running_rect := gctx.root.rect;
+	child := gctx.root.first;
+	while !xgui_box_is_nil(child) {
+        running_rect.x += running_rect.w;
+        child.rect = 
+            .{child.fixed_position.x,child.fixed_position.y, child.fixed_size.x,child.fixed_size.y};
+		child = child.next;
+	}
+}
+
+//////////////////////////////
+// GUI stacks
+
+xGuiStack :: struct ($T: Type) {
+	STACK_MAX_SIZE :: 512;
+    // TODO: should be allocated on the persistent gui arena (at startup)
+    values : [STACK_MAX_SIZE]T;
+    count : u64;
+    def_value : T;// = #run Initialize(*T);
+}
+
+xgui_stack_push :: (using stack : *xGuiStack($T), val : T) {
+	assert(count < xGuiStack(T).STACK_MAX_SIZE);
+	values[count] = val;
+	count+=1;
+}
+xgui_stack_pop :: (using stack : *xGuiStack($T)) -> T {
+	if count == 0 {
+		return def_value;
+	} else {
+		count -=1;
+		return values[count];
+	}
+}
+xgui_stack_peek :: (using stack : *xGuiStack($T)) -> T {
+	if count == 0 {
+		return def_value;
+	} else {
+		return values[count-1];
+	}
+}
+
+
+//////////////////////////////////////////
+// GUI stacks
+
+xGuiParentStack :: struct {
+    #as using base : xGuiStack(*xGuiBox);
+    def_value = *g_gui_box;
+}
+xgui_push_parent :: (parent : *xGuiBox) {
+    xgui_stack_push(*g_gui_context.parent_stack, parent);
+}
+xgui_pop_parent :: () -> *xGuiBox {
+    return xgui_stack_pop(*g_gui_context.parent_stack);
+}
+xgui_peek_parent :: () -> *xGuiBox {
+    return xgui_stack_peek(*g_gui_context.parent_stack);
+}
+
+xGuiFixedXStack :: struct {
+    #as using base : xGuiStack(float);
+    def_value = 0;
+}
+xgui_push_fixed_x :: (x : float) {
+    xgui_stack_push(*g_gui_context.fixed_x_stack, x);
+}
+xgui_pop_fixed_x :: () -> float {
+    return xgui_stack_pop(*g_gui_context.fixed_x_stack);
+}
+xgui_peek_fixed_x :: () -> float {
+    return xgui_stack_peek(*g_gui_context.fixed_x_stack);
+}
+
+xGuiFixedYStack :: struct {
+    #as using base : xGuiStack(float);
+    def_value = 0;
+}
+xgui_push_fixed_y :: (y : float) {
+    xgui_stack_push(*g_gui_context.fixed_y_stack, y);
+}
+xgui_pop_fixed_y :: () -> float {
+    return xgui_stack_pop(*g_gui_context.fixed_y_stack);
+}
+xgui_peek_fixed_y :: () -> float {
+    return xgui_stack_peek(*g_gui_context.fixed_y_stack);
+}
+
+xGuiFixedWidthStack :: struct {
+    #as using base : xGuiStack(float);
+    def_value = 300;
+}
+xgui_push_fixed_width :: (w : float) {
+    xgui_stack_push(*g_gui_context.fixed_width_stack, w);
+}
+xgui_pop_fixed_width :: () -> float {
+    return xgui_stack_pop(*g_gui_context.fixed_width_stack);
+}
+xgui_peek_fixed_width :: () -> float {
+    return xgui_stack_peek(*g_gui_context.fixed_width_stack);
+}
+
+xGuiFixedHeightStack :: struct {
+    #as using base : xGuiStack(float);
+    def_value = 100;
+}
+xgui_push_fixed_height :: (h : float) {
+    xgui_stack_push(*g_gui_context.fixed_height_stack, h);
+}
+xgui_pop_fixed_height :: () -> float {
+    return xgui_stack_pop(*g_gui_context.fixed_height_stack);
+}
+xgui_peek_fixed_height :: () -> float {
+    return xgui_stack_peek(*g_gui_context.fixed_height_stack);
 }

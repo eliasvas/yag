@@ -4,6 +4,7 @@
 // TODO: instead of xeng(), do just xeng
 // TODO: FIRE RENDERING!!!!! (lights will also be emmitted?!??!?!)
 
+// these guys need to Go Go
 skydome : xSkydome;
 grid : xGrid;
 
@@ -12,7 +13,6 @@ rend : xRend3D;
 main2 :: () {
   xeng_init();
   grid = xgrid_make();
-
   xr3d_init(*rend);
 
   // gltf loading tests
@@ -182,15 +182,25 @@ main :: () {
     if sprite2.id then render(sprite2, *rend, *cam, false);
 
     xgui_frame_begin();
-    // Here we do the gui example!
-    /*
-    if xgui_button(*rend, "Click Me!", .{100.0,100.0,300.0,100.0}) {
-      print("clicked!\n");
+
+    pane_box := xgui_pane("master_pane"); // should be made at frame begin with screendim
+    pane_box.box.flags = 0; // cancel all rendering for root pane :(
+	g_gui_context.root = pane_box.box; // what the fuck is even this
+
+    {
+        xgui_push_parent(pane_box.box);
+        defer xgui_pop_parent();
+
+        if xgui_button("hello").pressed {
+            print("hello!\n");
+        }
+        xgui_push_fixed_x(300);
+        if xgui_button("there").pressed {
+            print("there!\n");
+        }
+        xgui_pop_fixed_x();
     }
-    */
-    if xgui_button("HelloGui").pressed {
-      print("clicked hellogui!\n");
-    }
+
     xgui_frame_end();
 
     xeng_frame_end();
