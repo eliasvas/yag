@@ -183,22 +183,25 @@ main :: () {
 
     xgui_frame_begin();
 
-    pane_box := xgui_pane("master_pane"); // should be made at frame begin with screendim
-    pane_box.box.flags = 0; // cancel all rendering for root pane :(
-	g_gui_context.root = pane_box.box; // what the fuck is even this
-
+    // Auto-Layouting.. rrrrrrrrright
     {
-        xgui_push_parent(pane_box.box);
-        defer xgui_pop_parent();
+        xgui_set_next_fixed_x(0);
+        xgui_set_next_fixed_y(0);
+        xgui_set_next_fixed_width(300);
+        xgui_set_next_fixed_height(100);
 
         if xgui_button("hello").pressed {
             print("hello!\n");
         }
-        xgui_push_fixed_x(300);
+
+        xgui_set_next_fixed_x(300);
+        xgui_set_next_fixed_y(0);
+        xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 0.0});
+        //xgui_set_next_fixed_width(450);
+        //xgui_set_next_fixed_height(100);
         if xgui_button("there").pressed {
             print("there!\n");
         }
-        xgui_pop_fixed_x();
     }
 
     xgui_frame_end();

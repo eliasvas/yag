@@ -4,7 +4,6 @@
 xAxis2 :: enum {
 	X;
 	Y;
-	COUNT;
 }
 
 xGuiSizeKind :: enum {
@@ -30,8 +29,8 @@ xGuiBoxFlags :: enum_flags u32{
     // drawing / animation
     FIXED_WIDTH      :: (1 << 5);
     FIXED_HEIGHT     :: (1 << 6);
-    FLOATING_X       :: (1 << 7);
-    FLOATING_Y       :: (1 << 8);
+    FIXED_X          :: (1 << 7);
+    FIXED_Y          :: (1 << 8);
     ALLOW_OVERFLOW_X :: (1 << 9);
     ALLOW_OVERFLOW_Y :: (1 << 10);
     // layout
@@ -60,7 +59,7 @@ xGuiBox :: struct {
 	// position stuff
 	fixed_position : v2;
 	fixed_size : v2;
-	pref_size : [xAxis2.COUNT]xGuiSize;
+	pref_size : [2]xGuiSize;
 	child_layout_axis : xAxis2;
 	rect : Rect;
 
@@ -136,26 +135,39 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
 	    // insert to map
 		g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last = dll_push_back(g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last, box);
 	}
-    xgui_box_clear_treelinks(box);
+    xgui_box_clear_treelinks(box); // this should probably happen at cleanup/prune step? maaaaaaybe
     box.parent = xgui_peek_parent();
     // insert the box to the parent hierarchy
     box.parent.first, box.parent.last = dll_push_back(box.parent.first, box.parent.last, box);
-
-	fixed_position : v2;
-	fixed_size : v2;
 	
-    // right now we dont REALLY layout, just provide fixed values!
-    box.fixed_position.x = xgui_peek_fixed_x();
-    box.fixed_position.y = xgui_peek_fixed_y();
-    box.fixed_size.x = xgui_peek_fixed_width();
-    box.fixed_size.y = xgui_peek_fixed_height();
+    // assign fixed/preferred widths heights and maybe fixed positions (for pinned stuff)
+    if !xgui_fixed_x_empty() {
+        box.fixed_position[xx xAxis2.X] = xgui_peek_fixed_x();
+        box.flags |= .FIXED_X;
+    }
+    if !xgui_fixed_y_empty() {
+        box.fixed_position[xx xAxis2.Y] = xgui_peek_fixed_y();
+        box.flags |= .FIXED_Y;
+    }
+    if !xgui_fixed_width_empty() {
+        box.fixed_size[xx xAxis2.X] = xgui_peek_fixed_width();
+        box.flags |= .FIXED_WIDTH;
+    } else {
+        box.pref_size[xx xAxis2.X] = xgui_peek_pref_width();
+    } 
+    if !xgui_fixed_height_empty() {
+        box.fixed_size[xx xAxis2.Y] = xgui_peek_fixed_height();
+        box.flags |= .FIXED_HEIGHT;
+    } else {
+        box.pref_size[xx xAxis2.Y] = xgui_peek_pref_height();
+    } 
+
 
 
 	//print("box returned at address: %\n", box);
+	box.last_used_frame_index = g_gui_context.frame_index;
 
-	// DELETEME
-	if xim_mkey_up(.MMB) then box.last_used_frame_index = g_gui_context.frame_index;
-
+    xgui_auto_pop_all_stacks();
 	return box;
 }
 
