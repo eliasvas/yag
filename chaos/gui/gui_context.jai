@@ -2,7 +2,6 @@
 // GUI context
 
 xGuiContext :: struct {
-	style : xGuiStyle;
 	hot : xGuiID = XGUI_INVALID_ID; 
 	active: xGuiID = XGUI_INVALID_ID; 
 	frame_index : u64;
@@ -28,6 +27,8 @@ xGuiContext :: struct {
     fixed_height_stack : xGuiFixedHeightStack;
     pref_width_stack : xGuiPrefWidthStack;
     pref_height_stack : xGuiPrefHeightStack;
+    child_layout_axis_stack : xGuiChildLayoutAxisStack;
+    background_color_stack : xGuiBackgroundColorStack;
 }
 
 g_gui_context : xGuiContext;
@@ -104,8 +105,8 @@ xgui_frame_begin :: () {
     xgui_set_next_fixed_y(0);
     xgui_set_next_fixed_width(wdim.x);
     xgui_set_next_fixed_height(wdim.y);
+    xgui_set_next_child_layout_axis(.Y);
     pane_box := xgui_pane("master_pane"); // should be made at frame begin with screendim
-    pane_box.box.flags = 0; // cancel all rendering for root pane :(
 	g_gui_context.root = pane_box.box; // what the fuck is even this
     xgui_push_parent(pane_box.box);
     //defer xgui_pop_parent();
@@ -122,22 +123,13 @@ xgui_frame_end :: () {
 	xr2d_end(g_gui_context.rend);
 }
 
-//////////////////////////////////////////
-// GUI styling  (TODO: style stacks for each field!)
 
-// TODO: removethis garbo and make the damn style stacks
-xGuiStyle :: struct {
-	panel_color              : v4 = v4.{0.2,0.2,0.2,1.0};
-	default_widget_color     : v4 = v4.{0.45,0.45,0.45,1.0};
-	hot_widget_color         : v4 = v4.{0.4,0.4,0.4,1.0};
-	active_widget_color      : v4 = v4.{0.3,0.3,0.3,1.0};
-	text_color0              : v4 = v4.{0.9,0.9,0.9,1.0};
-}
-
-xgui_get_widget_color :: (id : xGuiID) -> v4 {
-  if g_gui_context.active == id then return g_gui_context.style.active_widget_color;
-  if g_gui_context.hot == id then return g_gui_context.style.hot_widget_color;
-  return g_gui_context.style.default_widget_color;
+xgui_get_widget_color :: (id : xGuiID, base_color : v4 = .{0.4,0.4,0.4,1.0}) -> v4 {
+    multiplier := 1.0;
+    if g_gui_context.active == id then multiplier = 0.4;
+    else if g_gui_context.hot == id then multiplier = 0.75;
+    col := v3.{base_color.x,base_color.y, base_color.z} * multiplier;
+    return v4.{col.x,col.y,col.z,base_color.w};
 }
 
 //////////////////////////////
@@ -146,12 +138,18 @@ xgui_get_widget_color :: (id : xGuiID) -> v4 {
 xgui_do_layouting :: (gctx : *xGuiContext) {
     for axis : enum_values_as_s64(xAxis2) {
         xgui_layout_calc_constant_sizes(gctx.root, xx axis);
+        xgui_layout_calc_parent_dependent_sizes(gctx.root, xx axis);
+        // ...
+        // ...
+        // finally calc rects
+        xgui_layout_calc_final_rects(gctx.root, xx axis);
     } 
-    xgui_layout_calc_final_rects(gctx.root);
 }
 
 xgui_layout_calc_constant_sizes :: (root : *xGuiBox, axis : xAxis2) {
-    if root.pref_size[xx axis].kind == .PIXELS {
+    if root.flags & (xGuiBoxFlags.FIXED_WIDTH<<axis) {
+        // do nothing
+    } else if root.pref_size[xx axis].kind == .PIXELS {
         root.fixed_size[xx axis] = root.pref_size[xx axis].value;
     } else if root.pref_size[xx axis].kind == .TEXT_CONTENT {
         font := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "default.ttf"), xFontAsset);
@@ -169,15 +167,65 @@ xgui_layout_calc_constant_sizes :: (root : *xGuiBox, axis : xAxis2) {
 	}
 }
 
-xgui_layout_calc_final_rects :: (root : *xGuiBox) {
-    root.rect = .{root.fixed_position.x,root.fixed_position.y, root.fixed_size.x, root.fixed_size.y};
+xgui_layout_calc_parent_dependent_sizes :: (root : *xGuiBox, axis : xAxis2) {
+    if root.flags & (xGuiBoxFlags.FIXED_WIDTH<<axis) {
+        // do nothing
+    } else if root.pref_size[xx axis].kind == .PARENT_PCT {
+        // find a fixed parent
+        fixed_parent : *xGuiBox = null;
+        parent := root.parent;
+        while !xgui_box_is_nil(parent) {
+            if parent.pref_size[xx axis].kind == .PARENT_PCT || parent.pref_size[xx axis].kind == .PIXELS || parent.pref_size[xx axis].kind == .TEXT_CONTENT {
+                fixed_parent = parent;
+                break;
+            }
+            parent = parent.parent;
+        }
+        if !xgui_box_is_nil(fixed_parent) {
+            root.fixed_size[xx axis] = fixed_parent.fixed_size[xx axis] * root.pref_size[xx axis].value;
+        }
+    }
 
 	child := root.first;
 	while !xgui_box_is_nil(child) {
-        xgui_layout_calc_final_rects(child);
+        xgui_layout_calc_parent_dependent_sizes(child, axis);
 		child = child.next;
 	}
 }
+
+
+
+xgui_layout_calc_final_rects :: (root : *xGuiBox, axis : xAxis2) {
+    // calculate rects for all childs based on parent layout axis
+    layout_pos := 0.0;
+	child := root.first;
+	while !xgui_box_is_nil(child) {
+        
+        if !(child.flags & (xGuiBoxFlags.FIXED_X<<axis)) {
+            child.fixed_position[xx axis] = layout_pos;
+            if axis == root.child_layout_axis {
+                layout_pos += child.fixed_size[xx axis];
+            }
+        }
+
+        if axis == .X {
+            child.rect.x = child.fixed_position.x + root.fixed_position.x;
+            child.rect.w = child.fixed_size.x;
+        } else {
+            child.rect.y = child.fixed_position.y + root.fixed_position.y;
+            child.rect.h = child.fixed_size.y;
+        }
+
+		child = child.next;
+    }
+
+	child = root.first;
+	while !xgui_box_is_nil(child) {
+        xgui_layout_calc_final_rects(child, axis);
+		child = child.next;
+	}
+}
+
 
 //////////////////////////////
 // GUI stacks
@@ -293,6 +341,27 @@ xgui_pop_pref_height :: () -> xGuiSize { return xgui_stack_pop(*g_gui_context.pr
 xgui_peek_pref_height :: () -> xGuiSize { return xgui_stack_peek(*g_gui_context.pref_height_stack); }
 xgui_fixed_pref_height :: () -> bool {return xgui_stack_empty(*g_gui_context.pref_height_stack);}
 
+xGuiChildLayoutAxisStack :: struct {
+    #as using base : xGuiStack(xAxis2);
+    def_value = xAxis2.X;
+}
+xgui_push_child_layout_axis :: (a : xAxis2) { xgui_stack_push(*g_gui_context.child_layout_axis_stack, a); }
+xgui_set_next_child_layout_axis :: (a : xAxis2) { xgui_stack_push(*g_gui_context.child_layout_axis_stack, a, true); }
+xgui_pop_child_layout_axis :: () -> xAxis2 { return xgui_stack_pop(*g_gui_context.child_layout_axis_stack); }
+xgui_peek_child_layout_axis :: () -> xAxis2 { return xgui_stack_peek(*g_gui_context.child_layout_axis_stack); }
+xgui_child_layout_axis_empty :: () -> bool {return xgui_stack_empty(*g_gui_context.child_layout_axis_stack);}
+
+
+xGuiBackgroundColorStack :: struct {
+    #as using base : xGuiStack(v4);
+    def_value = .{0.6,0.6,0.6,1.0};
+}
+xgui_push_background_color :: (c : v4) { xgui_stack_push(*g_gui_context.background_color_stack, c); }
+xgui_set_next_background_color :: (c : v4) { xgui_stack_push(*g_gui_context.background_color_stack, c, true); }
+xgui_pop_background_color :: () -> v4 { return xgui_stack_pop(*g_gui_context.background_color_stack); }
+xgui_peek_background_color :: () -> v4 { return xgui_stack_peek(*g_gui_context.background_color_stack); }
+xgui_background_color_empty :: () -> bool {return xgui_stack_empty(*g_gui_context.background_color_stack);}
+
 
 
 xgui_auto_pop_all_stacks :: () {
@@ -301,4 +370,8 @@ xgui_auto_pop_all_stacks :: () {
     xgui_stack_auto_pop(*g_gui_context.fixed_y_stack);
     xgui_stack_auto_pop(*g_gui_context.fixed_width_stack);
     xgui_stack_auto_pop(*g_gui_context.fixed_height_stack);
+    xgui_stack_auto_pop(*g_gui_context.pref_width_stack);
+    xgui_stack_auto_pop(*g_gui_context.pref_height_stack);
+    xgui_stack_auto_pop(*g_gui_context.child_layout_axis_stack);
+    xgui_stack_auto_pop(*g_gui_context.background_color_stack);
 }

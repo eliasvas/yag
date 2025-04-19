@@ -183,20 +183,24 @@ main :: () {
 
     xgui_frame_begin();
 
-    // Auto-Layouting.. rrrrrrrrright
     {
-        xgui_set_next_fixed_x(0);
-        xgui_set_next_fixed_y(0);
-        xgui_set_next_fixed_width(300);
-        xgui_set_next_fixed_height(100);
+        //xgui_set_next_fixed_x(0);
+        //xgui_set_next_fixed_y(0);
+        //xgui_set_next_fixed_width(300);
+        xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 1.0});
+        //xgui_set_next_pref_height(.{.PARENT_PCT, 1.0, 1.0});
+        //xgui_set_next_fixed_width(300);
+        //xgui_set_next_fixed_height(100);
+        xgui_set_next_pref_height(.{.TEXT_CONTENT, 0.0, 1.0});
 
         if xgui_button("hello").pressed {
             print("hello!\n");
         }
 
-        xgui_set_next_fixed_x(300);
-        xgui_set_next_fixed_y(0);
+        //xgui_set_next_fixed_x(300);
+        //xgui_set_next_fixed_y(0);
         xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 0.0});
+        xgui_set_next_background_color(.{0.2,0.2,0.78,1.0});
         //xgui_set_next_fixed_width(450);
         //xgui_set_next_fixed_height(100);
         if xgui_button("there").pressed {

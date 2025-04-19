@@ -16,6 +16,7 @@ xgui_button :: (label: string) -> xGuiComm {
 	pressed : bool = false;
 	if box.flags & xGuiBoxFlags.MOUSE_CLICKABLE {
 		pressed = xgui_update_hot_active_for_box(*g_gui_context, box);
+        box.color = xgui_get_widget_color(box.id, box.color);
 	}
 
 	return .{box, pressed, false};

@@ -7,7 +7,7 @@ xAxis2 :: enum {
 }
 
 xGuiSizeKind :: enum {
-	NULL;	
+	//NULL;	 // maybe we should justuse the pref size even in fixed size widgets like root
 	PIXELS;
 	TEXT_CONTENT;
 	PARENT_PCT;
@@ -73,6 +73,7 @@ xGuiBox :: struct {
 	font_size : float;
 	transparency : float;
 	last_used_frame_index : u64;
+    color : v4;
 }
 
 // our nil struct for g_gui_boxes
@@ -136,7 +137,10 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
 		g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last = dll_push_back(g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last, box);
 	}
     xgui_box_clear_treelinks(box); // this should probably happen at cleanup/prune step? maaaaaaybe
+    box.child_layout_axis = xgui_peek_child_layout_axis();
     box.parent = xgui_peek_parent();
+    box.color = xgui_peek_background_color();
+
     // insert the box to the parent hierarchy
     box.parent.first, box.parent.last = dll_push_back(box.parent.first, box.parent.last, box);
 	
