@@ -9,7 +9,7 @@ xgui_render_box :: (gctx : *xGuiContext, box : *xGuiBox) {
 	assert(white_tex != null);
 
 	if box.flags & xGuiBoxFlags.DRAW_BACKGROUND {
-	// 0. Draw The button background
+        // 0. Draw The button background
 		xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.x + rect.w,rect.y + rect.h}, v2.{0,0}, v2.{0,0}, box.color, 10.0);
 	}
 

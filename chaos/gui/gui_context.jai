@@ -107,6 +107,7 @@ xgui_frame_begin :: () {
     xgui_set_next_fixed_height(wdim.y);
     xgui_set_next_child_layout_axis(.Y);
     pane_box := xgui_pane("master_pane"); // should be made at frame begin with screendim
+    pane_box.box.rect = .{0,0,wdim.x,wdim.y};
 	g_gui_context.root = pane_box.box; // what the fuck is even this
     xgui_push_parent(pane_box.box);
     //defer xgui_pop_parent();
@@ -139,8 +140,8 @@ xgui_do_layouting :: (gctx : *xGuiContext) {
     for axis : enum_values_as_s64(xAxis2) {
         xgui_layout_calc_constant_sizes(gctx.root, xx axis);
         xgui_layout_calc_parent_dependent_sizes(gctx.root, xx axis);
-        // ...
-        // ...
+        xgui_layout_calc_child_dependent_sizes(gctx.root, xx axis);
+        xgui_layout_apply_constraints(gctx.root, xx axis);
         // finally calc rects
         xgui_layout_calc_final_rects(gctx.root, xx axis);
     } 
@@ -192,6 +193,123 @@ xgui_layout_calc_parent_dependent_sizes :: (root : *xGuiBox, axis : xAxis2) {
 		child = child.next;
 	}
 }
+
+xgui_layout_calc_child_dependent_sizes :: (root : *xGuiBox, axis : xAxis2) {
+	child := root.first;
+	while !xgui_box_is_nil(child) {
+        xgui_layout_calc_child_dependent_sizes(child, axis);
+		child = child.next;
+	}
+
+    if root.flags & (xGuiBoxFlags.FIXED_WIDTH<<axis) {
+        // do nothing
+    } else if root.pref_size[xx axis].kind == .CHILDREN_SUM{
+        total_size := 0.0;
+        root_child := root.first;
+        while !xgui_box_is_nil(root_child) {
+            if axis == root.child_layout_axis {
+                total_size += root_child.fixed_size[xx axis];
+            } else {
+                total_size = max(total_size, root_child.fixed_size[xx axis]);
+            }
+            root.fixed_size[xx axis] = total_size;
+            root_child = root_child.next;
+        }
+    }
+}
+
+xgui_layout_apply_constraints :: (root : *xGuiBox, axis : xAxis2) {
+    overflow_allowed := root.flags & (xGuiBoxFlags.ALLOW_OVERFLOW_X<<axis);
+
+    // enforce constraints for non-layout axis (just scale'em to match axis size)
+    if root.child_layout_axis != axis && !overflow_allowed {
+        child := root.first;
+        while !xgui_box_is_nil(child) {
+            allowed_size := root.fixed_size[xx axis];
+            if !(child.flags & (xGuiBoxFlags.FIXED_X<<axis)) {
+                child_size := child.fixed_size[xx axis];
+                fixup_needed := (child_size - allowed_size);
+                if fixup_needed > 0 {
+                    child.fixed_size[xx axis] = child.fixed_size[xx axis] - fixup_needed;
+                }
+            }
+            child = child.next;
+        }
+    }
+
+
+    // enforce constraints for actual layout axis
+
+    if root.child_layout_axis == axis && !overflow_allowed {
+        total_allowed_size := root.fixed_size[xx axis];
+        total_size := 0.0;
+        total_weighed_size := 0.0;
+
+        // find total amount of fixup needed
+        child := root.first;
+        child_count := 0;
+        while !xgui_box_is_nil(child) {
+            if !(child.flags & (xGuiBoxFlags.FIXED_X<<axis)) {
+                total_size += child.fixed_size[xx axis];
+                total_weighed_size += child.fixed_size[xx axis] * (1.0 - child.pref_size[xx axis].strictness);
+                child_count+=1;
+            }
+            child = child.next;
+        }
+
+        fixup_needed := (total_size - total_allowed_size);
+        if fixup_needed > 0.0 {
+            child_fixups :*float= talloc(size_of(float)*child_count);
+            // calc available fixup for each box
+            {
+                child := root.first;
+                child_idx := 0;
+                while !xgui_box_is_nil(child) {
+                    if !(child.flags & (xGuiBoxFlags.FIXED_X<<axis)) {
+                        available_fixup := child.fixed_size[xx axis] * (1.0 - child.pref_size[xx axis].strictness);
+                        child_fixups[child_idx] = max(0.0, available_fixup);
+                        child_idx+=1;
+                    }
+                    child = child.next;
+                }
+            }
+            // take a certain amount off from each box's available fixup
+            {
+                child := root.first;
+                child_idx := 0;
+                while !xgui_box_is_nil(child) {
+                    if !(child.flags & (xGuiBoxFlags.FIXED_X<<axis)) {
+                        fixup_amount := (fixup_needed / total_weighed_size);
+                        fixup_amount = min(1.0,max(0.0,fixup_amount));
+                        child.fixed_size[xx axis] = child.fixed_size[xx axis]*(1.0-fixup_amount);
+                        child_idx+=1;
+                    }
+                    child = child.next;
+                }
+            }
+        }
+
+        // if box overflows (no layouting) and it has child parent_pct,
+        // and it has been modified as part of layouting, it can result in 
+        // parent_pct ratio that is wrong, minor thing, but we can easily fix this
+        if root.flags & (xGuiBoxFlags.ALLOW_OVERFLOW_X<<axis) {
+            child := root.first;
+            while !xgui_box_is_nil(child) {
+                child.fixed_size[xx axis] = root.fixed_size[xx axis]*child.pref_size[xx axis].value;
+                child = child.next;
+            }
+        }
+
+    }
+
+    // propagate down the hierarchy
+	child := root.first;
+	while !xgui_box_is_nil(child) {
+        xgui_layout_apply_constraints(child, axis);
+		child = child.next;
+	}
+}
+
 
 
 
