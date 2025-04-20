@@ -30,3 +30,17 @@ xgui_pane :: (label: string) -> xGuiComm {
 
 	return .{box, false, false};
 }
+
+xgui_spacer :: (size : xGuiSize) -> xGuiComm {
+    parent := xgui_peek_parent();
+
+    if parent.child_layout_axis == .X {
+        xgui_set_next_pref_width(size);
+    } else {
+        xgui_set_next_pref_height(size);
+    }
+
+	box := xgui_box_make("",0);
+
+	return .{box, false, false};
+}

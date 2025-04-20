@@ -281,7 +281,7 @@ xgui_layout_apply_constraints :: (root : *xGuiBox, axis : xAxis2) {
                     if !(child.flags & (xGuiBoxFlags.FIXED_X<<axis)) {
                         fixup_amount := (fixup_needed / total_weighed_size);
                         fixup_amount = min(1.0,max(0.0,fixup_amount));
-                        child.fixed_size[xx axis] = child.fixed_size[xx axis]*(1.0-fixup_amount);
+                        child.fixed_size[xx axis] = child.fixed_size[xx axis] - child_fixups[child_idx]*fixup_amount;
                         child_idx+=1;
                     }
                     child = child.next;
@@ -327,10 +327,12 @@ xgui_layout_calc_final_rects :: (root : *xGuiBox, axis : xAxis2) {
         }
 
         if axis == .X {
-            child.rect.x = child.fixed_position.x + root.fixed_position.x;
+            //child.rect.x = child.fixed_position.x + root.fixed_position.x;
+            child.rect.x = child.fixed_position.x + root.rect.x;
             child.rect.w = child.fixed_size.x;
         } else {
-            child.rect.y = child.fixed_position.y + root.fixed_position.y;
+            //child.rect.y = child.fixed_position.y + root.fixed_position.y;
+            child.rect.y = child.fixed_position.y + root.rect.y;
             child.rect.h = child.fixed_size.y;
         }
 

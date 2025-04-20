@@ -108,6 +108,7 @@ xgui_box_clear_treelinks :: (box : *xGuiBox) {
 xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
 	id := xgui_id(label);
 	box : *xGuiBox = null;
+    box_is_transient :bool= (id == 0);
 	// search for a box with the same id on the map, if found, we just use this one!
 	for slot : g_gui_context.slots {
 		node := slot.hash_first;
@@ -121,22 +122,30 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
 	}
 	// if not found make the node (either alloc or from freelist) and insert to map
 	if box == null {
-	    popped := g_gui_context.freelist;
-	    if popped != null {
-			g_gui_context.freelist = sll_stack_pop(g_gui_context.freelist);
-			box = popped;
-	    } else {
-			a: Allocator; a.proc = xarena_allocator_proc; a.data = *g_gui_context.persistent_arena;
-			box = New(xGuiBox,, a);
-	    }
-	    box.id = id;
-	    box.str = label;
-	    box.flags = flags;
-	    slot_to_insert := id % xGuiContext.SLOT_COUNT;
-	    // insert to map
-		g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last = dll_push_back(g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last, box);
+        if box_is_transient { // spacers will be allocated up-front in temp storage
+            box = New(xGuiBox,, allocator=temp);
+        } else {
+            popped := g_gui_context.freelist;
+            if popped != null {
+                g_gui_context.freelist = sll_stack_pop(g_gui_context.freelist);
+                box = popped;
+            } else {
+                a: Allocator; a.proc = xarena_allocator_proc; a.data = *g_gui_context.persistent_arena;
+                box = New(xGuiBox,, a);
+            }
+        }
+        memset(box, 0, size_of(xGuiBox));
+        if !box_is_transient {
+            // insert to map
+            slot_to_insert := id % xGuiContext.SLOT_COUNT;
+            g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last = dll_push_back(g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last, box);
+        }
 	}
     xgui_box_clear_treelinks(box); // this should probably happen at cleanup/prune step? maaaaaaybe
+    // Proper initialization
+    box.id = id;
+    box.str = label;
+    box.flags = flags;
     box.child_layout_axis = xgui_peek_child_layout_axis();
     box.parent = xgui_peek_parent();
     box.color = xgui_peek_background_color();
