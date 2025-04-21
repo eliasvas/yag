@@ -238,10 +238,10 @@ main :: () {
             xgui_push_parent(ibpane.box);
 
             for idx2 : 0..3 {
-                name := tprint("button%0%", idx1, idx2);
+                name := tprint("button%-%", idx1, idx2);
                 xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 0.0});
                 xgui_set_next_pref_height(.{.PARENT_PCT, 1.0, 0.0});
-                col := dummy_colors[(idx1+1)*idx2%dummy_colors.count];
+                col := dummy_colors[(idx1+1)*(idx2+1)%dummy_colors.count];
                 xgui_set_next_background_color(col);
                 btn := xgui_button(name);
                 if btn.pressed {

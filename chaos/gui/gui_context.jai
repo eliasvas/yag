@@ -50,35 +50,18 @@ xgui_prune_unused_boxes :: (gctx : *xGuiContext) {
 				print("will prune because node=[%,%] and context=%\n", node.str, node.last_used_frame_index, gctx.frame_index);
 				to_delete := node;
 				node = node.hash_next;
-				slot.hash_first, slot.hash_last = dll_remove(slot.hash_first, slot.hash_last, to_delete);
-				Initialize(to_delete);
+				//slot.hash_first, slot.hash_last = dll_remove(slot.hash_first, slot.hash_last, to_delete);
+				//Initialize(to_delete); // default initialize the node
+                // shouldnt I put his to the freelist?
 			} else {
-				//print("srnode=%\n", node.srnode);
+				//print("will not prune because node=[%,%] and context=%\n", node.str, node.last_used_frame_index, gctx.frame_index);
 				node = node.hash_next;
 			}
 		}
 	}
 }
 
-xgui_update_hot_active_for_box :: (gctx : *xGuiContext, box : *xGuiBox) -> bool {
-	box_pressed : bool = false;
 
-	id := box.id;
-	mp := xim_get_mouse_pos();
-	lmb_pressed := xim_mkey_pressed(.LMB);
-	lmb_released := xim_mkey_released(.LMB);
-	if rect_isect(box.rect, mp) then gctx.hot = id;
-	if gctx.hot == id && lmb_pressed then gctx.active = id;
-	if gctx.active == id && gctx.hot == id && lmb_released {
-		gctx.active = XGUI_INVALID_ID;
-	    box_pressed = true;
-	}
-	if gctx.active == id && gctx.hot != id && lmb_released {
-		gctx.active = XGUI_INVALID_ID;
-		box_pressed= false;
-	}
-	return box_pressed;
-}
 
 xgui_dummy_draw :: (gctx : *xGuiContext, root : *xGuiBox) {
 	// render the current box
@@ -125,12 +108,11 @@ xgui_frame_end :: () {
 }
 
 
-xgui_get_widget_color :: (id : xGuiID, base_color : v4 = .{0.4,0.4,0.4,1.0}) -> v4 {
+xgui_get_box_color :: (box : *xGuiBox, base_color : v4 = .{0.4,0.4,0.4,1.0}) -> v4 {
     multiplier := 1.0;
-    if g_gui_context.active == id then multiplier = 0.4;
-    else if g_gui_context.hot == id then multiplier = 0.75;
-    col := v3.{base_color.x,base_color.y, base_color.z} * multiplier;
-    return v4.{col.x,col.y,col.z,base_color.w};
+    hot_color := base_color * 0.75;
+    active_color := base_color * 0.4;
+    return v4_lerp(base_color, v4_lerp(hot_color, active_color, box.active_t), box.hot_t);
 }
 
 //////////////////////////////

@@ -108,11 +108,11 @@ xgui_box_clear_treelinks :: (box : *xGuiBox) {
 xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
 	id := xgui_id(label);
 	box : *xGuiBox = null;
-    box_is_transient :bool= (id == 0);
+    box_is_transient :bool = (id == 0);
 	// search for a box with the same id on the map, if found, we just use this one!
 	for slot : g_gui_context.slots {
 		node := slot.hash_first;
-		while node != null {
+		while !xgui_box_is_nil(node) {
 			if node.id == id {
 				box = node;
 				break;
@@ -149,7 +149,6 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
     box.child_layout_axis = xgui_peek_child_layout_axis();
     box.parent = xgui_peek_parent();
     box.color = xgui_peek_background_color();
-
     // insert the box to the parent hierarchy
     box.parent.first, box.parent.last = dll_push_back(box.parent.first, box.parent.last, box);
 	
@@ -183,5 +182,4 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
     xgui_auto_pop_all_stacks();
 	return box;
 }
-
 
