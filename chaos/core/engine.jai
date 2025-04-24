@@ -110,5 +110,5 @@ xeng_frame_end :: () {
   frame_end_time := seconds_since_init();
   dt = frame_end_time - frame_start_time;
   frame_index +=1;
-  reset_temporary_storage();
+  //reset_temporary_storage();
 }

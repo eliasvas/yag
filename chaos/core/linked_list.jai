@@ -120,12 +120,9 @@ dll_remove :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", $pre
   if n == l {
     #insert -> string { return tprint("l=l.%;\n", prev_field_name); } // l = l.prev;
   }
-  if n.prev != null {
-    #insert -> string { return tprint("n.%.% = n.%;\n", prev_field_name, next_field_name, next_field_name); } // n.prev.next = n.next;
-  }
-  if n.next != null {
-    #insert -> string { return tprint("n.%.% = n.%;\n", next_field_name, prev_field_name, prev_field_name); } // n.next.prev = n.prev;
-  }
+
+  #insert -> string { return tprint("if n.% != null then n.%.%=n.%;\n", prev_field_name, prev_field_name, next_field_name, next_field_name); } // if n.prev != null then n.prev.next = n.next;
+  #insert -> string { return tprint("if n.% != null then n.%.% = n.%;\n", next_field_name, next_field_name, prev_field_name, prev_field_name); } // if n.next != null then n.next.prev = n.prev;
 
   return f,l;
 }

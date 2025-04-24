@@ -42,23 +42,25 @@ xgui_init :: () {
 }
 
 xgui_prune_unused_boxes :: (gctx : *xGuiContext) {
-	for *slot : gctx.slots {
+	for *slot,idx : gctx.slots {
 		node := slot.hash_first;
 		while !xgui_box_is_nil(node) {
 			// prune unused widgets and insert to the freelist for reuse!
 			if node.last_used_frame_index != gctx.frame_index {
-				print("will prune because node=[%,%] and context=%\n", node.str, node.last_used_frame_index, gctx.frame_index);
+                print("will prune because node=[%] at % (bucket=%)\n", node.str, node,idx);
 				to_delete := node;
 				node = node.hash_next;
-				//slot.hash_first, slot.hash_last = dll_remove(slot.hash_first, slot.hash_last, to_delete);
-				//Initialize(to_delete); // default initialize the node
+				slot.hash_first, slot.hash_last = dll_remove(slot.hash_first, slot.hash_last, to_delete, "hash_next", "hash_prev");
+				Initialize(to_delete); // default initialize the node
+                //to_delete.str = "already_deleted";
                 // shouldnt I put his to the freelist?
 			} else {
-				//print("will not prune because node=[%,%] and context=%\n", node.str, node.last_used_frame_index, gctx.frame_index);
+                //print("will not prune because node=[%] at %\n", node.str, node);
 				node = node.hash_next;
 			}
 		}
 	}
+    //print("END END END\n");
 }
 
 

@@ -130,15 +130,17 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
                 g_gui_context.freelist = sll_stack_pop(g_gui_context.freelist);
                 box = popped;
             } else {
-                a: Allocator; a.proc = xarena_allocator_proc; a.data = *g_gui_context.persistent_arena;
-                box = New(xGuiBox,, a);
+                //a: Allocator; a.proc = xarena_allocator_proc; a.data = *g_gui_context.persistent_arena;
+                //box = New(xGuiBox,, a);
+                box = New(xGuiBox);
             }
         }
         memset(box, 0, size_of(xGuiBox));
         if !box_is_transient {
             // insert to map
             slot_to_insert := id % xGuiContext.SLOT_COUNT;
-            g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last = dll_push_back(g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last, box);
+            g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last = dll_push_back(g_gui_context.slots[slot_to_insert].hash_first,g_gui_context.slots[slot_to_insert].hash_last, box, "hash_next", "hash_prev");
+            print("inserted node=[%] at (bucket=%) (count=%)\n", label, slot_to_insert, count(g_gui_context.slots[slot_to_insert].hash_first));
         }
 	}
     xgui_box_clear_treelinks(box); // this should probably happen at cleanup/prune step? maaaaaaybe
