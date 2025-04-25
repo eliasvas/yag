@@ -198,7 +198,7 @@ main :: () {
 
         if (xim_kkey_pressed(.SC_U)) example_rows = min(10, example_rows+1);
 
-        xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
+        xgui_set_next_pref_width(.{.TEXT_CONTENT, 10.0, 1.0});
         xgui_set_next_pref_height(.{.PIXELS, 150.0, 1.0});
         xgui_set_next_background_color(.{0.2,0.78,0.2,0.8});
         if xgui_button("More!").pressed {
@@ -206,7 +206,8 @@ main :: () {
             example_rows = min(10, example_rows+1);
         }
 
-        xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
+        //xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
+        xgui_set_next_pref_width(.{.PIXELS, 200.0, 1.0});
         xgui_set_next_pref_height(.{.PIXELS, 150.0, 1.0});
         xgui_set_next_background_color(.{0.78,0.2,0.2,0.8});
         if xgui_button("Less!").pressed {

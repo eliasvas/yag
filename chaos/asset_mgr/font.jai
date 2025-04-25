@@ -102,7 +102,7 @@ freetype_helper_load_font :: (fullpath : string) -> FT_Library, FT_Face {
 }
 
 FT_RGBA_Pixel :: struct { r,g,b,a : u8; }
-freetype_helper_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : u32, vert_size_px : u32 = 64) -> *FT_RGBA_Pixel, xFontGlyphMetrics {
+freetype_helper_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : u32, vert_size_px : u32 = 32) -> *FT_RGBA_Pixel, xFontGlyphMetrics {
   error := FT_Set_Pixel_Sizes(face, 0, vert_size_px); 
   assert(!error);
 

@@ -114,12 +114,9 @@ dll_push_front :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", 
 
 // TODO: What about nil structs? maybe add another auto bake for that!
 dll_remove :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", $prev_field_name : string = "prev") -> *T,*T {
-  if n == f {
-    #insert -> string { return tprint("f=n.%;\n", next_field_name); } // f = n.next;
-  }
-  if n == l {
-    #insert -> string { return tprint("l=l.%;\n", prev_field_name); } // l = l.prev;
-  }
+
+  #insert -> string { return tprint("if n == f then f=n.%;\n", next_field_name); } // if n == f then f = n.next;
+  #insert -> string { return tprint("if n == l then l=l.%;\n", prev_field_name); } // if n == l then l = l.prev;
 
   #insert -> string { return tprint("if n.% != null then n.%.%=n.%;\n", prev_field_name, prev_field_name, next_field_name, next_field_name); } // if n.prev != null then n.prev.next = n.next;
   #insert -> string { return tprint("if n.% != null then n.%.% = n.%;\n", next_field_name, next_field_name, prev_field_name, prev_field_name); } // if n.next != null then n.next.prev = n.prev;
@@ -128,23 +125,20 @@ dll_remove :: (f : *$T, l : *T, n : *T, $next_field_name : string = "next", $pre
 }
  
 
-
-count :: (f : *$T) ->u32 {
+count :: (f : *$T, $next_field_name : string = "next") ->u32 {
   c : u32 = 0;
   while f {
     c+=1;
-    f = f.next;
+    #insert -> string { return tprint("f=f.%;\n", next_field_name); } // f = f.next;
   }
   return c;
 }
 
-
-
-find :: (f : *$T, $field_name : string = "next", field_val : $K) -> *T {
+find :: (f : *$T, $next_field_name : string = "next", $field_name : string = "next", field_val : $K) -> *T {
   found : *T = null;
   while f {
     #insert -> string { return tprint("if f.% == field_val then found = f;\n", field_name); }
-    f = f.next;
+    #insert -> string { return tprint("f=f.%;\n", next_field_name); } // f = f.next;
   }
   return found;
 }

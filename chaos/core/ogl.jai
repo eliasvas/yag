@@ -108,7 +108,7 @@ main :: () {
 ///////////////////////////////
 // ogl Constants
 
-OGL_MAX_ATTRIBS           :: 8;
+OGL_MAX_ATTRIBS           :: 16;
 OGL_MAX_TEX_SLOTS         :: 8;
 OGL_MAX_COLOR_ATTACHMENTS :: 8;
 

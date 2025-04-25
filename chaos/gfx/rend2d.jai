@@ -1,3 +1,4 @@
+// PackedQuads based on this shader: https://www.shadertoy.com/view/tltXDl (just a rounded rect with border color + AA)
 
 QuadVertex :: struct {
   pos : v2;
@@ -153,12 +154,16 @@ void main() {
 DONE
 
 PackedQuadVertex :: struct {
-  p0    : v2;
-  p1    : v2;
-  t0    : v2;
-  t1    : v2;
-  color : v4;
-  roundness : float;
+  p0         : v2; // position 0
+  p1         : v2; // position 1
+  t0         : v2; // texcoord 0
+  t1         : v2; // texcoord 1
+  color      : v4; // rect color
+  bcolor     : v4; // border color
+  roundness  : v4; // rect roundness (one for each corner)
+  softness   : float; // rect softness
+  bthickness : float; // border thickness
+  bsoftness  : float; // border softness
   sampler_id : u32; // this will be filled by the renderer
 }
 
@@ -176,8 +181,12 @@ xr2d_begin :: () -> *xRend2D {
       .{loc=2,offset=cast(u32)offset_of(PackedQuadVertex,#code t0), instanced=true},
       .{loc=3,offset=cast(u32)offset_of(PackedQuadVertex,#code t1), instanced=true},
       .{loc=4,offset=cast(u32)offset_of(PackedQuadVertex,#code color), instanced=true},
-      .{loc=5,offset=cast(u32)offset_of(PackedQuadVertex,#code roundness), instanced=true},
-      .{loc=6,offset=cast(u32)offset_of(PackedQuadVertex,#code sampler_id), instanced=true},
+      .{loc=5,offset=cast(u32)offset_of(PackedQuadVertex,#code bcolor), instanced=true},
+      .{loc=6,offset=cast(u32)offset_of(PackedQuadVertex,#code roundness), instanced=true},
+      .{loc=7,offset=cast(u32)offset_of(PackedQuadVertex,#code softness), instanced=true},
+      .{loc=8,offset=cast(u32)offset_of(PackedQuadVertex,#code bthickness), instanced=true},
+      .{loc=9,offset=cast(u32)offset_of(PackedQuadVertex,#code bsoftness), instanced=true},
+      .{loc=10,offset=cast(u32)offset_of(PackedQuadVertex,#code sampler_id), instanced=true},
     ];
     vertex_def.attribs = attribs;
 
@@ -189,11 +198,9 @@ xr2d_begin :: () -> *xRend2D {
   }
 }
 
-xr2d_push_quad :: (using rend : *xRend2D, p0 : v2, p1 : v2, t0 : v2, t1 : v2, color : v4, roundness : float, atex : xAssetTag = "white.png") {
+xr2d_push_quad :: (using rend : *xRend2D, p0 : v2, p1 : v2, t0 : v2, t1 : v2, color : v4, bcolor : v4, roundness : v4, softness : float, bthickness : float, bsoftness : float, atex : xAssetTag = "white.png") {
   // add quad to the quad_instances [..]
-  wdim : v2 = xwin_get_dim(*xeng().win);
-  //array_add(*quad_instances, PackedQuadVertex.{screen_to_ndc(p0,wdim), screen_to_ndc(p1,wdim), t0, t1, color, 0});
-  array_add(*quad_instances, .{p0, p1, t0, t1, color, roundness, 0});
+  array_add(*quad_instances, .{p0, p1, t0, t1, color, bcolor, roundness, softness, bthickness, bsoftness, 0});
   array_add(*quad_instances_tex_tags, atex);
 }
 
@@ -276,6 +283,7 @@ xr2d_end :: (using rend : *xRend2D) {
   xr2d_deinit(rend);
 }
 
+
 PACKED_QUAD_VERT_SHADER :: #string DONE
 #version 430 core
 layout (location = 0) in vec2 in_p0;
@@ -283,8 +291,12 @@ layout (location = 1) in vec2 in_p1;
 layout (location = 2) in vec2 in_t0;
 layout (location = 3) in vec2 in_t1;
 layout (location = 4) in vec4 in_color;
-layout (location = 5) in float in_roundness;
-layout (location = 6) in int in_sampler_id;
+layout (location = 5) in vec4 in_bcolor;
+layout (location = 6) in vec4 in_roundness;
+layout (location = 7) in float in_softness;
+layout (location = 8) in float in_bthickness;
+layout (location = 9) in float in_bsoftness;
+layout (location = 10) in int in_sampler_id;
 
 
 vec2 quad[4] = vec2[](
@@ -293,8 +305,6 @@ vec2 quad[4] = vec2[](
   vec2(-1.0,+1.0),
   vec2(+1.0,+1.0)
 );
-
-//vec2 quad[4] = vec2[]( vec2(+1.0,-1.0), vec2(+1.0,+1.0), vec2(-1.0,+1.0), vec2(-1.0,-1.0) );
 
 layout(std140, binding = 0) uniform GlobalData {
   mat4 proj;
@@ -312,7 +322,11 @@ out VS_OUT {
   vec2 p_center;
   vec2 p_hs;
   flat int sampler_id;
-  float roundness;
+  vec4 roundness;
+  float softness;
+  vec4 border_color;
+  float border_thickness;
+  float border_softness;
 } vs_out;
 
 vec2 to_ndc (vec2 p) {
@@ -339,6 +353,10 @@ void main() {
   vs_out.p_center = p_center;
   vs_out.p_hs = p_hs;
   vs_out.roundness = in_roundness;
+  vs_out.softness = in_softness;
+  vs_out.border_color = in_bcolor;
+  vs_out.border_thickness = in_bthickness;
+  vs_out.border_softness = in_bsoftness;
 }
 DONE
 
@@ -353,7 +371,11 @@ in VS_OUT {
   vec2 p_center;
   vec2 p_hs;
   flat int sampler_id;
-  float roundness;
+  vec4 roundness;
+  float softness;
+  vec4 border_color;
+  float border_thickness;
+  float border_softness;
 } fs_in;
 
 layout(std140, binding = 0) uniform GlobalData {
@@ -368,26 +390,27 @@ layout(std140, binding = 1) uniform ResolutionData {
 
 uniform sampler2D textures[8];
 
-/*
-float sdf_rounded_box(vec2 p, vec2 b, vec4 r) {
-  r.xy = (p.x>0.0) ? r.xy : r.zw;
-  r.x  = (p.y>0.0) ? r.x  : r.y;
-  vec2 q = abs(p)-b+r.x;
-  return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r.x;
-}
-*/
-
-float sdf_rounded_box(vec2 p, vec2 b, float r) {
-  vec2 q = abs(p)-b+r;
-  return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r;
+float sdf_rounded_box(vec2 center, vec2 size, vec4 round) {
+  round.xy = (center.x>0.0) ? round.xy : round.zw;
+  round.x  = (center.y>0.0) ? round.x : round.y;
+  vec2 q = abs(center)-size+round.x;
+  return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - round.x;
 }
 
 
 void main() {
+  // calc SDF distance
   float dist = sdf_rounded_box(fs_in.p - fs_in.p_center, fs_in.p_hs, fs_in.roundness);
-  float sdf_factor = float((dist < 0.0));
 
-  FragColor = texture(textures[fs_in.sampler_id], fs_in.tc) * fs_in.color * sdf_factor;
-  //FragColor = vec4(vec3(sdf_factor), 1.0); // visualize the distance
+  // apply softness
+  float smoothed_alpha =  1.0f-smoothstep(0.0f, fs_in.softness,dist);
+
+  // apply the border
+  float border_alpha = 1.0f-smoothstep(fs_in.border_thickness - fs_in.border_softness, fs_in.border_thickness, abs(dist));
+
+  // calculate final color by mixing rect + border colors according to alpha
+  vec4 rect_color = texture(textures[fs_in.sampler_id], fs_in.tc) * fs_in.color;
+  vec4 border_color = texture(textures[fs_in.sampler_id], fs_in.tc) * fs_in.border_color;
+  FragColor = mix(rect_color, border_color, border_alpha) * smoothed_alpha;
 }
 DONE

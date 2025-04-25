@@ -10,7 +10,7 @@ xgui_render_box :: (gctx : *xGuiContext, box : *xGuiBox) {
 
 	if box.flags & xGuiBoxFlags.DRAW_BACKGROUND {
         // 0. Draw The button background
-		xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.x + rect.w,rect.y + rect.h}, v2.{0,0}, v2.{0,0}, box.color, 10.0);
+		xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.x + rect.w,rect.y + rect.h}, v2.{0,0}, v2.{0,0}, box.color, ifx box.flags & xGuiBoxFlags.MOUSE_CLICKABLE then v4.{0.8,0.8,0.03,1.0} else v4.{}, v4.{7,7,7,7}, 2.0, ifx box.flags & xGuiBoxFlags.MOUSE_CLICKABLE then 5.0 else 0.0, 2.0);
 	}
 
 	if box.flags & xGuiBoxFlags.DRAW_TEXT {
@@ -27,7 +27,7 @@ xgui_render_box :: (gctx : *xGuiContext, box : *xGuiBox) {
 	    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)codepoint);
 	    if found {
 	      rpos += v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
-	      xr2d_push_quad(r,v2.{rpos.x,rpos.y},v2.{rpos.x + cast(float)glyph_info.metrics.width, rpos.y + cast(float)glyph_info.metrics.height}, v2.{glyph_info.tex_coord.x,glyph_info.tex_coord.y}, v2.{glyph_info.tex_coord.x+glyph_info.tex_coord.z,glyph_info.tex_coord.y + glyph_info.tex_coord.w}, .{0.95, 0.95,0.95,1.0}, 0.0, "default.ttf");
+	      xr2d_push_quad(r,v2.{rpos.x,rpos.y},v2.{rpos.x + cast(float)glyph_info.metrics.width, rpos.y + cast(float)glyph_info.metrics.height}, v2.{glyph_info.tex_coord.x,glyph_info.tex_coord.y}, v2.{glyph_info.tex_coord.x+glyph_info.tex_coord.z,glyph_info.tex_coord.y + glyph_info.tex_coord.w}, .{0.95, 0.95,0.95,1.0}, v4.{0,0,0,0}, v4.{0,0,0,0}, 0.0, 0.0, 0.0, "default.ttf");
 	      rpos -= v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
 	      rpos.x += glyph_info.metrics.hadvance;
 	    }
