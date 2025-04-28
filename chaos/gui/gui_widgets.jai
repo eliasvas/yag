@@ -45,6 +45,7 @@ xgui_button :: (label: string) -> xGuiComm {
 		xGuiBoxFlags.FOCUS_ACTIVE | 
 		xGuiBoxFlags.DRAW_TEXT | 
 		xGuiBoxFlags.DRAW_BACKGROUND | 
+		xGuiBoxFlags.TRUNC_TEXT | 
 		xGuiBoxFlags.DRAW_BORDER
 	);
 

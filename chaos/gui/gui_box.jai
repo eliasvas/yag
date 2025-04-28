@@ -1,6 +1,12 @@
 //////////////////////////////
 // GUI boxes
 
+xGuiTextAlignment :: enum {
+  MIDDLE;  
+  LEFT;  
+  RIGHT;  
+}
+
 xAxis2 :: enum {
 	X;
 	Y;
@@ -38,6 +44,7 @@ xGuiBoxFlags :: enum_flags u32{
     DRAW_BORDER      :: (1 << 12);
     DRAW_TEXT        :: (1 << 13);
     CLIP             :: (1 << 14);
+    TRUNC_TEXT       :: (1 << 15); // :(
 }
 
 xGuiBox :: struct {
@@ -67,13 +74,18 @@ xGuiBox :: struct {
 	hot_t : float;
 	active_t : float;
 
+    // text stuff
+    text_size : v2; // NOTE: maaaaybe should be called font size right?
+    text_color : v4;
+    text_align : xGuiTextAlignment;
+    text_padding : v2;
+
 	// other data
 	flags : xGuiBoxFlags;
-	text_padding : float;
-	font_size : float;
 	transparency : float;
 	last_used_frame_index : u64;
     color : v4;
+    roundness : v4; // each component is the roundness across one edge
 }
 
 // our nil struct for g_gui_boxes
@@ -151,6 +163,10 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
     box.child_layout_axis = xgui_peek_child_layout_axis();
     box.parent = xgui_peek_parent();
     box.color = xgui_peek_background_color();
+    box.text_align = xgui_peek_text_alignment();
+    box.text_size = xgui_peek_text_size();
+    box.text_color = xgui_peek_text_color();
+    box.roundness = xgui_peek_box_roundness();
     // insert the box to the parent hierarchy
     box.parent.first, box.parent.last = dll_push_back(box.parent.first, box.parent.last, box);
 	
@@ -176,12 +192,47 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
         box.pref_size[xx xAxis2.Y] = xgui_peek_pref_height();
     } 
 
-
-
 	//print("box returned at address: %\n", box);
 	box.last_used_frame_index = g_gui_context.frame_index;
 
     xgui_auto_pop_all_stacks();
 	return box;
 }
+
+// display_text := ifx box.flags & .TRUNC_TEXT xgui_box_truncate_text_to_fit_in_box(box) else box.str;
+// TODO: implement
+xgui_box_truncate_text_to_fit_in_box :: (box : *xGuiBox, font : *xFontAsset) -> string {
+    scale := 1.0;//box.text_size;
+    width_without_pad := box.rect.w - 2.0 * box.text_padding[0];
+    height_without_pad := box.rect.h - 2.0 * box.text_padding[1];
+    trunc_text, w := xfont_get_substring_to_fit_dim(box.str, font, scale, .{width_without_pad, height_without_pad});
+    return trunc_text;
+}
+
+xgui_box_calc_text_position :: (box : *xGuiBox, trunc_text : string) -> v2 {
+    box_rect := box.rect;
+    font := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "default.ttf"), xFontAsset);
+
+    // 0. clip?
+    trunc_text := ifx box.flags & .TRUNC_TEXT then xgui_box_truncate_text_to_fit_in_box(box, font) else box.str;
+
+    // 1. Calc text-box's final metrics
+    width := xfont_get_text_width(trunc_text, font, 1.0);
+    height := xfont_get_ymax(trunc_text, font, 1.0) + xfont_get_ymin(trunc_text, font, 1.0);
+
+    // 2. depending on box alignment, find final starting position
+    rpos : v2;
+    if box.text_align == {
+        case .LEFT;
+            rpos = v2.{box_rect.x + box.text_padding[0],box_rect.y + box_rect.h/2.0 + height/2.0}; 
+        case .RIGHT;
+            rpos = v2.{box_rect.x + box_rect.w - width - box.text_padding[0],box_rect.y + box_rect.h/2.0 + height/2.0}; 
+        case .MIDDLE;#through;
+        case;
+            rpos = v2.{box_rect.x + (box_rect.w-width)/2.0,box_rect.y + box_rect.h/2.0 + height/2.0}; 
+    }
+
+    return rpos;
+}
+
 

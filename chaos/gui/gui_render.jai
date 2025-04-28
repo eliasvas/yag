@@ -1,4 +1,7 @@
 xgui_render_box :: (gctx : *xGuiContext, box : *xGuiBox) {
+	// ATTENTION!
+	// TODO: should we clip here? I think so!
+
 	r := gctx.rend;
 
 	id := box.id;
@@ -9,28 +12,23 @@ xgui_render_box :: (gctx : *xGuiContext, box : *xGuiBox) {
 	assert(white_tex != null);
 
 	if box.flags & xGuiBoxFlags.DRAW_BACKGROUND {
-        // 0. Draw The button background
-		xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.x + rect.w,rect.y + rect.h}, v2.{0,0}, v2.{0,0}, box.color, ifx box.flags & xGuiBoxFlags.MOUSE_CLICKABLE then v4.{0.8,0.8,0.03,1.0} else v4.{}, v4.{7,7,7,7}, 2.0, ifx box.flags & xGuiBoxFlags.MOUSE_CLICKABLE then 5.0 else 0.0, 2.0);
+		xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.x + rect.w,rect.y + rect.h}, v2.{0,0}, v2.{0,0}, box.color, ifx box.flags & xGuiBoxFlags.MOUSE_CLICKABLE then v4.{0.5,0.5,0.5,1.0} else v4.{}, box.roundness, 1.0, ifx box.flags & xGuiBoxFlags.MOUSE_CLICKABLE then 2.0 else 0.0, 1.0);
 	}
 
 	if box.flags & xGuiBoxFlags.DRAW_TEXT {
-	  // 1. Calc text-boxes final metrics
-	  font := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "default.ttf"), xFontAsset);
-	  width := xfont_get_text_width(text, font, 1.0);
-	  height := xfont_get_ymax(text, font, 1.0) + xfont_get_ymin(text, font, 1.0);
+		font := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "default.ttf"), xFontAsset);
 
-	  // 2. here we can change the text layouting (also what about clipping)
-	  rpos := v2.{rect.x - (width-rect.w)/2.0,rect.y + rect.h/2.0 + height/2.0};
+	    trunc_text := ifx box.flags & .TRUNC_TEXT then xgui_box_truncate_text_to_fit_in_box(box, font) else box.str;
+		rpos := xgui_box_calc_text_position(box, trunc_text);
 
-	  // 3. Draw the text
-	  for codepoint : text {
-	    glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)codepoint);
-	    if found {
-	      rpos += v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
-	      xr2d_push_quad(r,v2.{rpos.x,rpos.y},v2.{rpos.x + cast(float)glyph_info.metrics.width, rpos.y + cast(float)glyph_info.metrics.height}, v2.{glyph_info.tex_coord.x,glyph_info.tex_coord.y}, v2.{glyph_info.tex_coord.x+glyph_info.tex_coord.z,glyph_info.tex_coord.y + glyph_info.tex_coord.w}, .{0.95, 0.95,0.95,1.0}, v4.{0,0,0,0}, v4.{0,0,0,0}, 0.0, 0.0, 0.0, "default.ttf");
-	      rpos -= v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
-	      rpos.x += glyph_info.metrics.hadvance;
-	    }
-	  }
+		for codepoint : trunc_text {
+			glyph_info, found := xfont_asset_lookup_glyph_info(font, cast(u32)codepoint);
+			if found {
+				rpos += v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
+				xr2d_push_quad(r,v2.{rpos.x,rpos.y},v2.{rpos.x + cast(float)glyph_info.metrics.width, rpos.y + cast(float)glyph_info.metrics.height}, v2.{glyph_info.tex_coord.x,glyph_info.tex_coord.y}, v2.{glyph_info.tex_coord.x+glyph_info.tex_coord.z,glyph_info.tex_coord.y + glyph_info.tex_coord.w}, box.text_color, v4.{0,0,0,0}, v4.{0,0,0,0}, 0.0, 0.0, 0.0, "default.ttf");
+				rpos -= v2.{cast(float)glyph_info.metrics.hbearing_x, - cast(float)glyph_info.metrics.hbearing_y};
+				rpos.x += glyph_info.metrics.hadvance;
+			}
+		}
 	}
 }

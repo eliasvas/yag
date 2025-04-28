@@ -1,5 +1,7 @@
 #import "freetype-2.12.1";
 
+XFONT_DEFAULT_FONT_SIZE :: 32;
+
 // This is a great into for anything FreeType https://freetype.org/freetype2/docs/tutorial/index.html
 // This is the reference https://freetype.sourceforge.net/freetype2/docs/reference/ft2-base_interface.html
 // This guy is cracked https://www.youtube.com/watch?v=PyTPhG9eA0Y
@@ -101,8 +103,9 @@ freetype_helper_load_font :: (fullpath : string) -> FT_Library, FT_Face {
   return library, face;
 }
 
+
 FT_RGBA_Pixel :: struct { r,g,b,a : u8; }
-freetype_helper_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : u32, vert_size_px : u32 = 32) -> *FT_RGBA_Pixel, xFontGlyphMetrics {
+freetype_helper_extract_font_bitmap_and_metrics :: (face : FT_Face, codepoint : u32, vert_size_px : u32 = XFONT_DEFAULT_FONT_SIZE) -> *FT_RGBA_Pixel, xFontGlyphMetrics {
   error := FT_Set_Pixel_Sizes(face, 0, vert_size_px); 
   assert(!error);
 

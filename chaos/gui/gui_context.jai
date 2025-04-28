@@ -29,6 +29,10 @@ xGuiContext :: struct {
     pref_height_stack : xGuiPrefHeightStack;
     child_layout_axis_stack : xGuiChildLayoutAxisStack;
     background_color_stack : xGuiBackgroundColorStack;
+    text_alignment_stack : xGuiTextAlignmentStack;
+    text_color_stack : xGuiTextColorStack;
+    text_size_stack : xGuiTextSizeStack;
+    box_roundness_stack : xGuiBoxRoundnessStack;
 }
 
 g_gui_context : xGuiContext;
@@ -142,6 +146,7 @@ xgui_layout_calc_constant_sizes :: (root : *xGuiBox, axis : xAxis2) {
         theight := xfont_get_ymax(root.str, font, 1.0) + xfont_get_ymin(root.str, font, 1.0);
         text_size := v2.{twidth, theight};
         padding := root.pref_size[xx axis].value;
+        root.text_padding[xx axis] = padding; // NOTE: should this be filled here? should we move it when the box is created maybe?
         root.fixed_size[xx axis] = text_size[xx axis] + 2.0 * padding;
     }
 
@@ -466,6 +471,45 @@ xgui_pop_background_color :: () -> v4 { return xgui_stack_pop(*g_gui_context.bac
 xgui_peek_background_color :: () -> v4 { return xgui_stack_peek(*g_gui_context.background_color_stack); }
 xgui_background_color_empty :: () -> bool {return xgui_stack_empty(*g_gui_context.background_color_stack);}
 
+xGuiTextAlignmentStack:: struct {
+    #as using base : xGuiStack(xGuiTextAlignment);
+    def_value = xGuiTextAlignment.MIDDLE;
+}
+xgui_push_text_alignment :: (a : xGuiTextAlignment) { xgui_stack_push(*g_gui_context.text_alignment_stack, a); }
+xgui_set_next_text_alignment :: (a : xGuiTextAlignment) { xgui_stack_push(*g_gui_context.text_alignment_stack, a, true); }
+xgui_pop_text_alignment :: () -> xGuiTextAlignment { return xgui_stack_pop(*g_gui_context.text_alignment_stack); }
+xgui_peek_text_alignment :: () -> xGuiTextAlignment { return xgui_stack_peek(*g_gui_context.text_alignment_stack); }
+xgui_text_alignment_empty :: () -> bool {return xgui_stack_empty(*g_gui_context.text_alignment_stack);}
+
+xGuiTextColorStack :: struct {
+    #as using base : xGuiStack(v4);
+    def_value = .{0.95,0.95,0.95,1.0};
+}
+xgui_push_text_color :: (c : v4) { xgui_stack_push(*g_gui_context.text_color_stack , c); }
+xgui_set_next_text_color :: (c : v4) { xgui_stack_push(*g_gui_context.text_color_stack , c, true); }
+xgui_pop_text_color :: () -> v4 { return xgui_stack_pop(*g_gui_context.text_color_stack); }
+xgui_peek_text_color :: () -> v4 { return xgui_stack_peek(*g_gui_context.text_color_stack); }
+xgui_text_color_empty :: () -> bool {return xgui_stack_empty(*g_gui_context.text_color_stack);}
+
+xGuiTextSizeStack :: struct {
+    #as using base : xGuiStack(v2);
+    def_value = .{XFONT_DEFAULT_FONT_SIZE,XFONT_DEFAULT_FONT_SIZE};
+}
+xgui_push_text_size :: (s : v2) { xgui_stack_push(*g_gui_context.text_size_stack, s); }
+xgui_set_next_text_size :: (s : v2) { xgui_stack_push(*g_gui_context.text_size_stack, s, true); }
+xgui_pop_text_size :: () -> v2 { return xgui_stack_pop(*g_gui_context.text_size_stack); }
+xgui_peek_text_size :: () -> v2 { return xgui_stack_peek(*g_gui_context.text_size_stack); }
+xgui_text_size_empty :: () -> bool {return xgui_stack_empty(*g_gui_context.text_size_stack);}
+
+xGuiBoxRoundnessStack:: struct {
+    #as using base : xGuiStack(v4);
+    def_value = .{5.0,5.0,5.0,5.0};
+}
+xgui_push_box_roundness :: (r : v4) { xgui_stack_push(*g_gui_context.box_roundness_stack, r); }
+xgui_set_next_box_roundness :: (r : v4) { xgui_stack_push(*g_gui_context.box_roundness_stack, r, true); }
+xgui_pop_box_roundness :: () -> v4 { return xgui_stack_pop(*g_gui_context.box_roundness_stack); }
+xgui_peek_box_roundness :: () -> v4 { return xgui_stack_peek(*g_gui_context.box_roundness_stack); }
+xgui_box_roundness_empty :: () -> bool {return xgui_stack_empty(*g_gui_context.box_roundness_stack);}
 
 
 xgui_auto_pop_all_stacks :: () {
@@ -478,4 +522,8 @@ xgui_auto_pop_all_stacks :: () {
     xgui_stack_auto_pop(*g_gui_context.pref_height_stack);
     xgui_stack_auto_pop(*g_gui_context.child_layout_axis_stack);
     xgui_stack_auto_pop(*g_gui_context.background_color_stack);
+    xgui_stack_auto_pop(*g_gui_context.text_alignment_stack);
+    xgui_stack_auto_pop(*g_gui_context.text_color_stack);
+    xgui_stack_auto_pop(*g_gui_context.text_size_stack);
+    xgui_stack_auto_pop(*g_gui_context.box_roundness_stack);
 }

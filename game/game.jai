@@ -187,7 +187,7 @@ main :: () {
 
     {
         xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 1.0});
-        xgui_set_next_pref_height(.{.PIXELS, 150.0, 1.0});
+        xgui_set_next_pref_height(.{.PIXELS, 60.0, 1.0});
         xgui_set_next_background_color(.{0.8,0.8,0.8,1.0});
         xgui_set_next_child_layout_axis(.X);
         hpane := xgui_pane("header_pane");
@@ -198,18 +198,21 @@ main :: () {
 
         if (xim_kkey_pressed(.SC_U)) example_rows = min(10, example_rows+1);
 
-        xgui_set_next_pref_width(.{.TEXT_CONTENT, 10.0, 1.0});
-        xgui_set_next_pref_height(.{.PIXELS, 150.0, 1.0});
-        xgui_set_next_background_color(.{0.2,0.78,0.2,0.8});
+        xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
+        xgui_set_next_pref_height(.{.PIXELS, 60.0, 1.0});
+        xgui_set_next_box_roundness(.{0,0,10,10});
+        xgui_set_next_background_color(.{0.32,0.22,0.455,1.0});
+        xgui_set_next_text_color(.{0.86,0.49,0.4,0.7});
         if xgui_button("More!").pressed {
             print("More button pressed!\n");
-            example_rows = min(10, example_rows+1);
+            example_rows = min(30, example_rows+1);
         }
 
-        //xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
-        xgui_set_next_pref_width(.{.PIXELS, 200.0, 1.0});
-        xgui_set_next_pref_height(.{.PIXELS, 150.0, 1.0});
-        xgui_set_next_background_color(.{0.78,0.2,0.2,0.8});
+        xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
+        xgui_set_next_pref_height(.{.PIXELS, 60.0, 1.0});
+        xgui_set_next_box_roundness(.{10,10,0,0});
+        xgui_set_next_text_color(.{0.32,0.22,0.455,0.7});
+        xgui_set_next_background_color(.{0.86,0.49,0.4,1.0});
         if xgui_button("Less!").pressed {
             print("Less button pressed!\n");
             example_rows = max(0, example_rows-1);
@@ -227,7 +230,7 @@ main :: () {
         bpane := xgui_pane("button_pane");
         xgui_push_parent(bpane.box);
         
-        dummy_colors := v4.[ v4.{0.18, 0.80, 0.44, 1.0}, v4.{0.20, 0.60, 0.86, 1.0}, v4.{0.61, 0.35, 0.71, 1.0}, v4.{0.95, 0.77, 0.06, 1.0}, v4.{0.20, 0.29, 0.37, 1.0}, v4.{0.90, 0.49, 0.13, 1.0}, v4.{0.36, 0.73, 0.89, 1.0}, v4.{0.55, 0.76, 0.29, 1.0}, v4.{0.95, 0.42, 0.61, 1.0}, v4.{0.34, 0.46, 0.60, 1.0}, v4.{0.98, 0.81, 0.69, 1.0}, v4.{0.60, 0.59, 0.85, 1.0}, v4.{0.43, 0.89, 0.71, 1.0}, v4.{0.99, 0.56, 0.23, 1.0}, v4.{0.73, 0.84, 0.27, 1.0}, v4.{0.38, 0.18, 0.60, 1.0}, v4.{0.15, 0.68, 0.38, 1.0}, v4.{0.91, 0.26, 0.54, 1.0}, v4.{0.30, 0.75, 0.93, 1.0}, v4.{0.98, 0.78, 0.27, 1.0}, v4.{0.52, 0.35, 0.27, 1.0}, ];
+        dummy_colors := v4.[ v4.{0.18, 0.80, 0.44, 1.0}, v4.{0.20, 0.60, 0.86, 1.0}, v4.{0.61, 0.35, 0.71, 1.0}, v4.{0.35, 0.77, 0.06, 1.0}, v4.{0.20, 0.29, 0.37, 1.0}, v4.{0.90, 0.49, 0.13, 1.0}, v4.{0.36, 0.73, 0.89, 1.0}, v4.{0.55, 0.76, 0.29, 1.0}, v4.{0.95, 0.42, 0.61, 1.0}, v4.{0.34, 0.46, 0.60, 1.0}, v4.{0.98, 0.81, 0.69, 1.0}, v4.{0.60, 0.59, 0.85, 1.0}, v4.{0.43, 0.89, 0.71, 1.0}, v4.{0.99, 0.56, 0.23, 1.0}, v4.{0.73, 0.84, 0.27, 1.0}, v4.{0.38, 0.18, 0.60, 1.0}, v4.{0.15, 0.68, 0.38, 1.0}, v4.{0.91, 0.26, 0.54, 1.0}, v4.{0.30, 0.75, 0.93, 1.0}, v4.{0.98, 0.78, 0.27, 1.0}, v4.{0.52, 0.35, 0.27, 1.0}, ];
 
         for idx1 : 0..example_rows {
             xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 1.0});
@@ -239,9 +242,12 @@ main :: () {
             xgui_push_parent(ibpane.box);
 
             for idx2 : 0..3 {
+                //name := tprint("button%-%", idx1, idx2);
                 name := tprint("button%-%", idx1, idx2);
                 xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 0.0});
                 xgui_set_next_pref_height(.{.PARENT_PCT, 1.0, 0.0});
+                if idx2 == 0 then xgui_set_next_text_alignment(.LEFT);
+                if idx2 == 3 then xgui_set_next_text_alignment(.RIGHT);
                 col := dummy_colors[(idx1+1)*(idx2+1)%dummy_colors.count];
                 xgui_set_next_background_color(col);
                 btn := xgui_button(name);
