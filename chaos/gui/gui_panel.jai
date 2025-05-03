@@ -17,7 +17,7 @@ xGuiPanelItr :: struct {
 	pop_count : s32;
 }
 
-xgui_panel_tranverse_depth_first_pre_order :: (panel : *xGuiPanel) -> xGuiPanelItr {
+xgui_panel_traverse_depth_first_pre_order :: (panel : *xGuiPanel) -> xGuiPanelItr {
 	itr := xGuiPanelItr.{};
 
 	// we go 'down' the hierarchy by 1
@@ -28,6 +28,7 @@ xgui_panel_tranverse_depth_first_pre_order :: (panel : *xGuiPanel) -> xGuiPanelI
 		p := panel;
 		while p != null {
 			if p.next != null {
+				//itr.next = p.next;
 				itr.next = p.next;
 				break;
 			}

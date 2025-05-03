@@ -51,12 +51,26 @@ xgui_init :: () {
       g_gui_context.root_panel = New(xGuiPanel);
       g_gui_context.root_panel.percent_of_parent = 1.0;
       g_gui_context.root_panel.split_axis = .X;
+      //g_gui_context.root_panel.split_axis = .Y;
 
       // DUMMY hierarchy for testing purposes
       child1 := New(xGuiPanel);
       child1.percent_of_parent = 0.3;
+      child1.split_axis = .Y;
       g_gui_context.root_panel.first, g_gui_context.root_panel.last = dll_push_back(g_gui_context.root_panel.first, g_gui_context.root_panel.last, child1);
       child1.parent = g_gui_context.root_panel;
+
+
+      child11 := New(xGuiPanel);
+      child11.percent_of_parent = 0.4;
+      child1.first, child1.last = dll_push_back(child1.first, child1.last, child11);
+      child11.parent = child1;
+
+      child12 := New(xGuiPanel);
+      child12.percent_of_parent = 0.6;
+      child1.first, child1.last = dll_push_back(child1.first, child1.last, child12);
+      child12.parent = child1;
+
 
       child2 := New(xGuiPanel);
       child2.percent_of_parent = 0.7;
@@ -125,15 +139,22 @@ xgui_frame_begin :: () {
 
     root_panel := g_gui_context.root_panel;
 
+    // TODO TODO TODO TODO TODO TODO TODO TODO TODO
+    // All this logic should happen inside gui_panel.jai, for clarity..
+    // TODO TODO TODO TODO TODO TODO TODO TODO TODO
+
     // 0. Traverse to each panel in the panel hierarchy
     g_gui_context.panel_rect_node_stack.def_value = .{null, .{0,0,wdim.x,wdim.y}};
 
     itr := xGuiPanelItr.{root_panel, 0, 0};
     while itr.next != null {
+
         panel := itr.next;
         // 1. find panel rect
         parent_rect := xgui_peek_panel_rect_node().r;
         r : Rect = xgui_panel_get_rect_from_parent_rect(panel, parent_rect);
+
+
         // 2. if its a leaf, make a guiBox!
         if panel.first == null {
             xgui_set_next_fixed_x(r.x);
@@ -142,16 +163,27 @@ xgui_frame_begin :: () {
             xgui_set_next_fixed_height(r.h);
             xgui_set_next_child_layout_axis(.Y);
             xgui_set_next_background_color(.{0.2,0.2,0.2,0.8});
-            xgui_set_next_box_roundness(.{10,10,10,10});
+            xgui_set_next_box_roundness(.{2,2,2,2});
             name := tprint("panel_%", panel); // this is bad :( :( lewhy
             panel_box := xgui_pane(name);
             panel_box.box.flags |= .DRAW_BORDER;
-            //print("panel: % from %\n", name, panel_box.box.*);
+            //print("panel: % from %\n\n\n", name, panel_box.box.*);
             panel_box.box.rect = r;
-        } else { // 3. if not, uh.. we uh..
+        } 
+        
 
+        itr = xgui_panel_traverse_depth_first_pre_order(panel);
+
+        ///*
+        if itr.push_count > 0 {
+           xgui_push_panel_rect_node(.{itr.next, r}); 
         }
-        itr = xgui_panel_tranverse_depth_first_pre_order(panel);
+        pop_count := itr.pop_count;
+        while pop_count > 0 {
+           xgui_pop_panel_rect_node(); 
+           pop_count-=1;
+        }
+        //*/
     }
 }
 
