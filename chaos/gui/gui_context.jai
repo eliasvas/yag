@@ -6,11 +6,11 @@ xGuiContext :: struct {
 	active: xGuiID = XGUI_INVALID_ID; 
 	frame_index : u64;
 
-	frame_arena : xArena; // maybe we need 2
+	frame_arena : xArena; // maybe we need 2 (if we want frames in flight..)
 
 	SLOT_COUNT :: 512;
 	slots : []xGuiBoxHashSlot;
-	freelist : *xGuiBox;
+	freelist : *xGuiBox; // TODO: use freelists!
 
 	// transient stuff
 	persistent_arena : xArena;
@@ -18,6 +18,11 @@ xGuiContext :: struct {
 	rend : *xRend2D;
 
 	root : *xGuiBox;
+
+    // Panel management
+    root_panel : *xGuiPanel;
+    panel_freelist : *xGuiPanel; // TODO: use freelists!
+    panel_rect_node_stack : xGuiPanelRectNodeStack;
 
     // Stacks
     parent_stack : xGuiParentStack;
@@ -38,10 +43,26 @@ xGuiContext :: struct {
 g_gui_context : xGuiContext;
 
 xgui_init :: () {
-	// 0. initialize the map for gui boxes, so we can look them up fast!
+	// initialize the map for gui boxes, so we can look them up fast!
 	a: Allocator; a.proc = xarena_allocator_proc; a.data = *g_gui_context.persistent_arena;
 	push_context .{allocator=a} {
 	  g_gui_context.slots = NewArray(xGuiContext.SLOT_COUNT, xGuiBoxHashSlot);
+
+      g_gui_context.root_panel = New(xGuiPanel);
+      g_gui_context.root_panel.percent_of_parent = 1.0;
+      g_gui_context.root_panel.split_axis = .X;
+
+      // DUMMY hierarchy for testing purposes
+      child1 := New(xGuiPanel);
+      child1.percent_of_parent = 0.3;
+      g_gui_context.root_panel.first, g_gui_context.root_panel.last = dll_push_back(g_gui_context.root_panel.first, g_gui_context.root_panel.last, child1);
+      child1.parent = g_gui_context.root_panel;
+
+      child2 := New(xGuiPanel);
+      child2.percent_of_parent = 0.7;
+      g_gui_context.root_panel.first, g_gui_context.root_panel.last = dll_push_back(g_gui_context.root_panel.first, g_gui_context.root_panel.last, child2);
+      child2.parent = g_gui_context.root_panel;
+
 	}
 }
 
@@ -51,7 +72,7 @@ xgui_prune_unused_boxes :: (gctx : *xGuiContext) {
 		while !xgui_box_is_nil(node) {
 			// prune unused widgets and insert to the freelist for reuse!
 			if node.last_used_frame_index != gctx.frame_index {
-                print("will prune because node=[%] at % (bucket=%)\n", node.str, node,idx);
+               // print("will prune because node=[%] at % (bucket=%)\n", node.str, node,idx);
 				to_delete := node;
 				node = node.hash_next;
 				slot.hash_first, slot.hash_last = dll_remove(slot.hash_first, slot.hash_last, to_delete, "hash_next", "hash_prev");
@@ -64,7 +85,6 @@ xgui_prune_unused_boxes :: (gctx : *xGuiContext) {
 			}
 		}
 	}
-    //print("END END END\n");
 }
 
 
@@ -89,18 +109,50 @@ xgui_frame_begin :: () {
 	g_gui_context.hot = XGUI_INVALID_ID;
 
     // build a root pane!
+
     wdim := xwin_get_dim(*xeng().win);
     xgui_set_next_fixed_x(0);
     xgui_set_next_fixed_y(0);
     xgui_set_next_fixed_width(wdim.x);
     xgui_set_next_fixed_height(wdim.y);
-    xgui_set_next_child_layout_axis(.Y);
+    //xgui_set_next_child_layout_axis(.Y);
+    xgui_set_next_child_layout_axis(.X);
     pane_box := xgui_pane("master_pane"); // should be made at frame begin with screendim
+    pane_box.box.flags &= ~.DRAW_BACKGROUND;
     pane_box.box.rect = .{0,0,wdim.x,wdim.y};
 	g_gui_context.root = pane_box.box; // what the fuck is even this
     xgui_push_parent(pane_box.box);
-    //defer xgui_pop_parent();
 
+    root_panel := g_gui_context.root_panel;
+
+    // 0. Traverse to each panel in the panel hierarchy
+    g_gui_context.panel_rect_node_stack.def_value = .{null, .{0,0,wdim.x,wdim.y}};
+
+    itr := xGuiPanelItr.{root_panel, 0, 0};
+    while itr.next != null {
+        panel := itr.next;
+        // 1. find panel rect
+        parent_rect := xgui_peek_panel_rect_node().r;
+        r : Rect = xgui_panel_get_rect_from_parent_rect(panel, parent_rect);
+        // 2. if its a leaf, make a guiBox!
+        if panel.first == null {
+            xgui_set_next_fixed_x(r.x);
+            xgui_set_next_fixed_y(r.y);
+            xgui_set_next_fixed_width(r.w);
+            xgui_set_next_fixed_height(r.h);
+            xgui_set_next_child_layout_axis(.Y);
+            xgui_set_next_background_color(.{0.2,0.2,0.2,0.8});
+            xgui_set_next_box_roundness(.{10,10,10,10});
+            name := tprint("panel_%", panel); // this is bad :( :( lewhy
+            panel_box := xgui_pane(name);
+            panel_box.box.flags |= .DRAW_BORDER;
+            //print("panel: % from %\n", name, panel_box.box.*);
+            panel_box.box.rect = r;
+        } else { // 3. if not, uh.. we uh..
+
+        }
+        itr = xgui_panel_tranverse_depth_first_pre_order(panel);
+    }
 }
 
 xgui_frame_end :: () {

@@ -184,8 +184,26 @@ main :: () {
     if sprite2.id then render(sprite2, *rend, *cam, false);
 
     xgui_frame_begin();
+    if 0 {
+      // push master panel as panel
+      xgui_push_parent(g_gui_context.root);
 
-    {
+      xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
+      xgui_set_next_pref_height(.{.TEXT_CONTENT, 5.0, 1.0});
+      xgui_set_next_box_roundness(.{3,3,3,3});
+      xgui_set_next_background_color(.{0.32,0.22,0.455,1.0});
+      xgui_set_next_text_color(.{0.86,0.49,0.4,0.7});
+      if xgui_button("Hello There!").pressed {
+          print("Hello There pressed!\n");
+      }
+
+
+      xgui_pop_parent();
+
+      // add a button!
+    }
+
+    if 0 {
         xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 1.0});
         xgui_set_next_pref_height(.{.PIXELS, 60.0, 1.0});
         xgui_set_next_background_color(.{0.8,0.8,0.8,1.0});
@@ -263,14 +281,9 @@ main :: () {
         xgui_pop_parent(); // button-pane
 
         assert(hpane.box.next == bpane.box); // :)
-
-
-
-
     }
 
     xgui_frame_end();
-
     xeng_frame_end();
   }
 }

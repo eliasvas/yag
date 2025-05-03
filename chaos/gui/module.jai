@@ -6,6 +6,7 @@
 #load "gui_render.jai";
 #load "gui_widgets.jai";
 #load "gui_id.jai";
+#load "gui_panel.jai";
 
 // This whole gui lib is mainly based on the excellent UI series of articles by Ryan Fleury, some useful links below.
 // https://www.rfleury.com/p/ui-series-table-of-contents 

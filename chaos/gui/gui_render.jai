@@ -12,7 +12,7 @@ xgui_render_box :: (gctx : *xGuiContext, box : *xGuiBox) {
 	assert(white_tex != null);
 
 	if box.flags & xGuiBoxFlags.DRAW_BACKGROUND {
-		xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.x + rect.w,rect.y + rect.h}, v2.{0,0}, v2.{0,0}, box.color, ifx box.flags & xGuiBoxFlags.MOUSE_CLICKABLE then v4.{0.5,0.5,0.5,1.0} else v4.{}, box.roundness, 1.0, ifx box.flags & xGuiBoxFlags.MOUSE_CLICKABLE then 2.0 else 0.0, 1.0);
+		xr2d_push_quad(r,v2.{rect.x,rect.y},v2.{rect.x + rect.w,rect.y + rect.h}, v2.{0,0}, v2.{0,0}, box.color, ifx box.flags & xGuiBoxFlags.DRAW_BORDER then v4.{0.5,0.5,0.5,1.0} else v4.{}, box.roundness, 1.0, ifx box.flags & xGuiBoxFlags.DRAW_BORDER then 2.0 else 0.0, 1.0);
 	}
 
 	if box.flags & xGuiBoxFlags.DRAW_TEXT {
