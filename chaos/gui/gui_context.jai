@@ -22,7 +22,7 @@ xGuiContext :: struct {
     // Panel management
     root_panel : *xGuiPanel;
     panel_freelist : *xGuiPanel; // TODO: use freelists!
-    panel_rect_node_stack : xGuiPanelRectNodeStack;
+    panel_walk_node_stack : xGuiPanelWalkNodeStack; // can we remove this?
 
     // Stacks
     parent_stack : xGuiParentStack;
@@ -138,21 +138,18 @@ xgui_frame_begin :: () {
     xgui_push_parent(pane_box.box);
 
     root_panel := g_gui_context.root_panel;
+    root_rect := Rect.{0,0,wdim.x,wdim.y};
 
     // TODO TODO TODO TODO TODO TODO TODO TODO TODO
     // All this logic should happen inside gui_panel.jai, for clarity..
     // TODO TODO TODO TODO TODO TODO TODO TODO TODO
-
-    // 0. Traverse to each panel in the panel hierarchy
-    g_gui_context.panel_rect_node_stack.def_value = .{null, .{0,0,wdim.x,wdim.y}};
 
     itr := xGuiPanelItr.{root_panel, 0, 0};
     while itr.next != null {
 
         panel := itr.next;
         // 1. find panel rect
-        parent_rect := xgui_peek_panel_rect_node().r;
-        r : Rect = xgui_panel_get_rect_from_parent_rect(panel, parent_rect);
+        r : Rect = xgui_panel_get_rect(panel, root_rect);
 
 
         // 2. if its a leaf, make a guiBox!
@@ -174,7 +171,7 @@ xgui_frame_begin :: () {
 
         itr = xgui_panel_traverse_depth_first_pre_order(panel);
 
-        ///*
+        /*
         if itr.push_count > 0 {
            xgui_push_panel_rect_node(.{itr.next, r}); 
         }
@@ -183,7 +180,7 @@ xgui_frame_begin :: () {
            xgui_pop_panel_rect_node(); 
            pop_count-=1;
         }
-        //*/
+        */
     }
 }
 
