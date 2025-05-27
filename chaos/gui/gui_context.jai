@@ -116,6 +116,11 @@ xgui_dummy_draw :: (gctx : *xGuiContext, root : *xGuiBox) {
 }
 
 xgui_frame_begin :: () {
+
+  // very experimental ////
+  xwin_set_cursor(*g_engine.win, xWindowCursorKind.ARROW);
+  /////////////////////////
+
 	reset(*g_gui_context.frame_arena);
 	g_gui_context.rend = xr2d_begin();
 	g_gui_context.frame_index = xeng().frame_index;
@@ -134,7 +139,7 @@ xgui_frame_begin :: () {
     pane_box := xgui_pane("master_pane"); // should be made at frame begin with screendim
     pane_box.box.flags &= ~.DRAW_BACKGROUND;
     pane_box.box.rect = .{0,0,wdim.x,wdim.y};
-	g_gui_context.root = pane_box.box; // what the fuck is even this
+    g_gui_context.root = pane_box.box; // what the fuck is even this
     xgui_push_parent(pane_box.box);
 
     root_panel := g_gui_context.root_panel;
@@ -144,22 +149,71 @@ xgui_frame_begin :: () {
     // All this logic should happen inside gui_panel.jai, for clarity..
     // TODO TODO TODO TODO TODO TODO TODO TODO TODO
 
+
+
+    BND_THICK :: 2; //BOUNDARY THICKNESS
+
+    // Build non-leaf panel UI (drag boundaries!!)
     itr := xGuiPanelItr.{root_panel, 0, 0};
     while itr.next != null {
+        panel := itr.next;
+        // 1. Find panel rect
+        r : Rect = xgui_panel_get_rect(panel, root_rect);
 
+
+
+        // 2. loop through every child that has a sibling next to it - otherwise no boundary
+        child := panel.first;
+        //while child != null && child.next != null {
+        while child != null {
+          child_rect := xgui_panel_get_rect(child, root_rect);
+
+          // 3. Calculate boundary rect and make a FIXED guiBox
+          // HERE THERE LIES A BUG WITH THE BOUNDARY RECT!!
+          //boundary_rect := Rect.{child_rect.x - BND_THICK, child_rect.y - BND_THICK, BND_THICK*2, BND_THICK*2};
+          boundary_rect := child_rect;
+          xgui_set_next_fixed_x(boundary_rect.x);
+          xgui_set_next_fixed_y(boundary_rect.y);
+          xgui_set_next_fixed_width(boundary_rect.w);
+          xgui_set_next_fixed_height(boundary_rect.h);
+          xgui_set_next_child_layout_axis(.Y);
+          xgui_set_next_background_color(.{0.1,0.1,0.1,0.9});
+          name := tprint("drag_boundary_%", child); // this is bad :( :( lewhy
+
+          boundary_button := xgui_button(name);
+          boundary_button.box.flags &= ~.DRAW_BORDER;
+          //boundary_button.box.flags &= ~.DRAW_TEXT;
+          boundary_button.box.flags &= ~.TRUNC_TEXT;
+          boundary_button.box.rect = boundary_rect;
+
+          
+          if g_gui_context.active == boundary_button.box.id {
+            // very experimental ////
+            xwin_set_cursor(*g_engine.win, ifx child.split_axis == .X then xWindowCursorKind.WEST_EAST else xWindowCursorKind.NORTH_SOUTH);
+            /////////////////////////
+          }
+
+          child = child.next;
+        }
+
+        itr = xgui_panel_traverse_depth_first_pre_order(panel);
+    }
+
+    // Build leaf panel UI
+    itr = xGuiPanelItr.{root_panel, 0, 0};
+    while itr.next != null {
         panel := itr.next;
         // 1. find panel rect
         r : Rect = xgui_panel_get_rect(panel, root_rect);
 
-
-        // 2. if its a leaf, make a guiBox!
+        // 2. if its a leaf, make a Fixed guiBox!
         if panel.first == null {
-            xgui_set_next_fixed_x(r.x);
-            xgui_set_next_fixed_y(r.y);
-            xgui_set_next_fixed_width(r.w);
-            xgui_set_next_fixed_height(r.h);
+            xgui_set_next_fixed_x(r.x + BND_THICK);
+            xgui_set_next_fixed_y(r.y + BND_THICK);
+            xgui_set_next_fixed_width(r.w - BND_THICK*2);
+            xgui_set_next_fixed_height(r.h - BND_THICK*2);
             xgui_set_next_child_layout_axis(.Y);
-            xgui_set_next_background_color(.{0.2,0.2,0.2,0.8});
+            xgui_set_next_background_color(.{0.2,0.2,0.2,0.9});
             xgui_set_next_box_roundness(.{2,2,2,2});
             name := tprint("panel_%", panel); // this is bad :( :( lewhy
             panel_box := xgui_pane(name);
@@ -168,19 +222,7 @@ xgui_frame_begin :: () {
             panel_box.box.rect = r;
         } 
         
-
         itr = xgui_panel_traverse_depth_first_pre_order(panel);
-
-        /*
-        if itr.push_count > 0 {
-           xgui_push_panel_rect_node(.{itr.next, r}); 
-        }
-        pop_count := itr.pop_count;
-        while pop_count > 0 {
-           xgui_pop_panel_rect_node(); 
-           pop_count-=1;
-        }
-        */
     }
 }
 
@@ -591,7 +633,6 @@ xgui_set_next_box_roundness :: (r : v4) { xgui_stack_push(*g_gui_context.box_rou
 xgui_pop_box_roundness :: () -> v4 { return xgui_stack_pop(*g_gui_context.box_roundness_stack); }
 xgui_peek_box_roundness :: () -> v4 { return xgui_stack_peek(*g_gui_context.box_roundness_stack); }
 xgui_box_roundness_empty :: () -> bool {return xgui_stack_empty(*g_gui_context.box_roundness_stack);}
-
 
 xgui_auto_pop_all_stacks :: () {
     xgui_stack_auto_pop(*g_gui_context.parent_stack);

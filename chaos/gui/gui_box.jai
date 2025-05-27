@@ -26,7 +26,7 @@ xGuiSize :: struct {
 }
 
 xGuiBoxFlags :: enum_flags u32{
-	// input
+    // input
     MOUSE_CLICKABLE  :: (1 << 0);
     FOCUS_HOT        :: (1 << 1);
     FOCUS_ACTIVE     :: (1 << 2);

@@ -56,6 +56,7 @@ xgui_button :: (label: string) -> xGuiComm {
 	}
 
 	return .{box, pressed, false};
+
 }
 
 xgui_pane :: (label: string) -> xGuiComm {
