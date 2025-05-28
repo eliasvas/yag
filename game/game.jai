@@ -184,105 +184,65 @@ main :: () {
     if sprite2.id then render(sprite2, *rend, *cam, false);
 
     xgui_frame_begin();
-    if 0 {
-      // push master panel as panel
-      xgui_push_parent(g_gui_context.root);
 
+    xgui_push_parent(xgui_box_lookup(xgui_id("panel_child11")));
+    {
       xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
       xgui_set_next_pref_height(.{.TEXT_CONTENT, 5.0, 1.0});
       xgui_set_next_box_roundness(.{3,3,3,3});
       xgui_set_next_background_color(.{0.32,0.22,0.455,1.0});
-      xgui_set_next_text_color(.{0.86,0.49,0.4,0.7});
-      if xgui_button("Hello There!").pressed {
-          print("Hello There pressed!\n");
+      xgui_set_next_text_color(.{0.86,0.49,0.4,1.0});
+      if xgui_button("These Buttons").pressed {
+          print("These Buttons pressed!\n");
       }
 
-
-      xgui_pop_parent();
-
-      // add a button!
+      xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
+      xgui_set_next_pref_height(.{.TEXT_CONTENT, 5.0, 1.0});
+      xgui_set_next_box_roundness(.{3,3,3,3});
+      xgui_set_next_background_color(.{0.88,0.22,0.255,1.0});
+      xgui_set_next_text_color(.{0.9,0.9,0.9,1.0});
+      if xgui_button("Are Fixed!").pressed {
+          print("Are Fixed pressed!\n");
+      }
     }
+    xgui_pop_parent();
 
-    if 0 {
-        xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 1.0});
-        xgui_set_next_pref_height(.{.PIXELS, 60.0, 1.0});
-        xgui_set_next_background_color(.{0.8,0.8,0.8,1.0});
-        xgui_set_next_child_layout_axis(.X);
-        hpane := xgui_pane("header_pane");
-        xgui_push_parent(hpane.box);
+    xgui_push_parent(xgui_box_lookup(xgui_id("panel_child12")));
+    {
+      xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 1.0});
+      xgui_set_next_pref_height(.{.TEXT_CONTENT, 5.0, 1.0});
+      xgui_set_next_box_roundness(.{3,3,3,3});
+      xgui_set_next_background_color(.{0.32,0.22,0.455,1.0});
+      xgui_set_next_text_color(.{0.86,0.49,0.4,1.0});
+      if xgui_button("These Ones").pressed {
+          print("These Ones pressed!\n");
+      }
 
-        xgui_spacer(.{.PARENT_PCT, 1.0, 0.0});
-
-
-        if (xim_kkey_pressed(.SC_U)) example_rows = min(10, example_rows+1);
-
-        xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
-        xgui_set_next_pref_height(.{.PIXELS, 60.0, 1.0});
-        xgui_set_next_box_roundness(.{0,0,10,10});
-        xgui_set_next_background_color(.{0.32,0.22,0.455,1.0});
-        xgui_set_next_text_color(.{0.86,0.49,0.4,0.7});
-        if xgui_button("More!").pressed {
-            print("More button pressed!\n");
-            example_rows = min(30, example_rows+1);
-        }
-
-        xgui_set_next_pref_width(.{.TEXT_CONTENT, 5.0, 1.0});
-        xgui_set_next_pref_height(.{.PIXELS, 60.0, 1.0});
-        xgui_set_next_box_roundness(.{10,10,0,0});
-        xgui_set_next_text_color(.{0.32,0.22,0.455,0.7});
-        xgui_set_next_background_color(.{0.86,0.49,0.4,1.0});
-        if xgui_button("Less!").pressed {
-            print("Less button pressed!\n");
-            example_rows = max(0, example_rows-1);
-        }
-
-        xgui_spacer(.{.PARENT_PCT, 1.0, 0.0});
-
-        xgui_pop_parent(); // header-pane
-
-
-        xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 1.0});
-        xgui_set_next_pref_height(.{.PARENT_PCT, 1.0, 0.0});
-        xgui_set_next_background_color(.{0.9,0.1,0.1,1.0});
-        xgui_set_next_child_layout_axis(.Y);
-        bpane := xgui_pane("button_pane");
-        xgui_push_parent(bpane.box);
-        
-        dummy_colors := v4.[ v4.{0.18, 0.80, 0.44, 1.0}, v4.{0.20, 0.60, 0.86, 1.0}, v4.{0.61, 0.35, 0.71, 1.0}, v4.{0.35, 0.77, 0.06, 1.0}, v4.{0.20, 0.29, 0.37, 1.0}, v4.{0.90, 0.49, 0.13, 1.0}, v4.{0.36, 0.73, 0.89, 1.0}, v4.{0.55, 0.76, 0.29, 1.0}, v4.{0.95, 0.42, 0.61, 1.0}, v4.{0.34, 0.46, 0.60, 1.0}, v4.{0.98, 0.81, 0.69, 1.0}, v4.{0.60, 0.59, 0.85, 1.0}, v4.{0.43, 0.89, 0.71, 1.0}, v4.{0.99, 0.56, 0.23, 1.0}, v4.{0.73, 0.84, 0.27, 1.0}, v4.{0.38, 0.18, 0.60, 1.0}, v4.{0.15, 0.68, 0.38, 1.0}, v4.{0.91, 0.26, 0.54, 1.0}, v4.{0.30, 0.75, 0.93, 1.0}, v4.{0.98, 0.78, 0.27, 1.0}, v4.{0.52, 0.35, 0.27, 1.0}, ];
-
-        for idx1 : 0..example_rows {
-            xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 1.0});
-            xgui_set_next_pref_height(.{.PARENT_PCT, 1.0, 0.0});
-            xgui_set_next_background_color(.{0.6,0.8,0.9,1.0});
-            xgui_set_next_child_layout_axis(.X);
-            ibpane_name := tprint("button_pane%", idx1);
-            ibpane := xgui_pane(ibpane_name);
-            xgui_push_parent(ibpane.box);
-
-            for idx2 : 0..3 {
-                //name := tprint("button%-%", idx1, idx2);
-                name := tprint("button%-%", idx1, idx2);
-                xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 0.0});
-                xgui_set_next_pref_height(.{.PARENT_PCT, 1.0, 0.0});
-                if idx2 == 0 then xgui_set_next_text_alignment(.LEFT);
-                if idx2 == 3 then xgui_set_next_text_alignment(.RIGHT);
-                col := dummy_colors[(idx1+1)*(idx2+1)%dummy_colors.count];
-                xgui_set_next_background_color(col);
-                btn := xgui_button(name);
-                if btn.pressed {
-                    print("% pressed!\n", name);
-                }
-            }
-
-            xgui_pop_parent(); // internal button-pane
-
-        }
-
-        xgui_pop_parent(); // button-pane
-
-        assert(hpane.box.next == bpane.box); // :)
+      xgui_set_next_pref_width(.{.PARENT_PCT, 1.0, 1.0});
+      xgui_set_next_pref_height(.{.TEXT_CONTENT, 5.0, 1.0});
+      xgui_set_next_box_roundness(.{3,3,3,3});
+      xgui_set_next_background_color(.{0.88,0.22,0.255,1.0});
+      xgui_set_next_text_color(.{0.9,0.9,0.9,1.0});
+      if xgui_button("Streeeeeeetch!").pressed {
+          print("Streeeeeeeech pressed!\n");
+      }
     }
+    xgui_pop_parent();
 
+    xgui_push_parent(xgui_box_lookup(xgui_id("panel_child2")));
+    {
+      xgui_set_next_pref_width(.{.PIXELS, 200.0, 1.0});
+      xgui_set_next_pref_height(.{.PIXELS, 150.0, 1.0});
+      xgui_set_next_box_roundness(.{3,3,3,3});
+      xgui_set_next_background_color(.{0.2,0.6,0.2,1.0});
+      xgui_set_next_text_color(.{0.9,0.9,0.9,1.0});
+      if xgui_button("Fat Guy").pressed {
+          print("Fat Guy pressed!\n");
+      }
+    }
+    xgui_pop_parent();
+
+   
     xgui_frame_end();
     xeng_frame_end();
   }

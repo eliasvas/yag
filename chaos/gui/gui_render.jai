@@ -1,7 +1,5 @@
-xgui_render_box :: (gctx : *xGuiContext, box : *xGuiBox) {
-	// ATTENTION!
-	// TODO: should we clip here? I think so!
 
+xgui_render_box :: (gctx : *xGuiContext, box : *xGuiBox) {
 	r := gctx.rend;
 
 	id := box.id;
@@ -18,7 +16,7 @@ xgui_render_box :: (gctx : *xGuiContext, box : *xGuiBox) {
 	if box.flags & xGuiBoxFlags.DRAW_TEXT {
 		font := acast(xasset_mgr_find(*xeng().persistent_asset_mgr, "default.ttf"), xFontAsset);
 
-	    trunc_text := ifx box.flags & .TRUNC_TEXT then xgui_box_truncate_text_to_fit_in_box(box, font) else box.str;
+    trunc_text := ifx box.flags & .TRUNC_TEXT then xgui_box_truncate_text_to_fit_in_box(box, font) else box.str;
 		rpos := xgui_box_calc_text_position(box, trunc_text);
 
 		for codepoint : trunc_text {

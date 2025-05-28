@@ -116,11 +116,8 @@ xgui_box_clear_treelinks :: (box : *xGuiBox) {
     box.parent = null;
 }
 
-
-xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
-	id := xgui_id(label);
+xgui_box_lookup :: (id : xGuiID) -> *xGuiBox {
 	box : *xGuiBox = null;
-    box_is_transient :bool = (id == 0);
 	// search for a box with the same id on the map, if found, we just use this one!
 	for slot : g_gui_context.slots {
 		node := slot.hash_first;
@@ -132,7 +129,14 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
 			node = node.hash_next;
 		}
 	}
-	// if not found make the node (either alloc or from freelist) and insert to map
+  return box;
+}
+
+xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
+	id := xgui_id(label);
+  box_is_transient :bool = (id == 0);
+  box : *xGuiBox = ifx box_is_transient then null else xgui_box_lookup(id);
+  // if not found make the node (either alloc or from freelist) and insert to map
 	if box == null {
         if box_is_transient { // spacers will be allocated up-front in temp storage
             box = New(xGuiBox,, allocator=temp);
@@ -155,42 +159,42 @@ xgui_box_make :: (label : string, flags : xGuiBoxFlags) -> *xGuiBox {
             //print("inserted node=[%] at (bucket=%) (count=%)\n", label, slot_to_insert, count(g_gui_context.slots[slot_to_insert].hash_first));
         }
 	}
-    xgui_box_clear_treelinks(box); // this should probably happen at cleanup/prune step? maaaaaaybe
-    // Proper initialization
-    box.id = id;
-    box.str = label;
-    box.flags = flags;
-    box.child_layout_axis = xgui_peek_child_layout_axis();
-    box.parent = xgui_peek_parent();
-    box.color = xgui_peek_background_color();
-    box.text_align = xgui_peek_text_alignment();
-    box.text_size = xgui_peek_text_size();
-    box.text_color = xgui_peek_text_color();
-    box.roundness = xgui_peek_box_roundness();
-    // insert the box to the parent hierarchy
-    box.parent.first, box.parent.last = dll_push_back(box.parent.first, box.parent.last, box);
-	
-    // assign fixed/preferred widths heights and maybe fixed positions (for pinned stuff)
-    if !xgui_fixed_x_empty() {
-        box.fixed_position[xx xAxis2.X] = xgui_peek_fixed_x();
-        box.flags |= .FIXED_X;
-    }
-    if !xgui_fixed_y_empty() {
-        box.fixed_position[xx xAxis2.Y] = xgui_peek_fixed_y();
-        box.flags |= .FIXED_Y;
-    }
-    if !xgui_fixed_width_empty() {
-        box.fixed_size[xx xAxis2.X] = xgui_peek_fixed_width();
-        box.flags |= .FIXED_WIDTH;
-    } else {
-        box.pref_size[xx xAxis2.X] = xgui_peek_pref_width();
-    } 
-    if !xgui_fixed_height_empty() {
-        box.fixed_size[xx xAxis2.Y] = xgui_peek_fixed_height();
-        box.flags |= .FIXED_HEIGHT;
-    } else {
-        box.pref_size[xx xAxis2.Y] = xgui_peek_pref_height();
-    } 
+  xgui_box_clear_treelinks(box); // this should probably happen at cleanup/prune step? maaaaaaybe
+  // Proper initialization
+  box.id = id;
+  box.str = label;
+  box.flags = flags;
+  box.child_layout_axis = xgui_peek_child_layout_axis();
+  box.parent = xgui_peek_parent();
+  box.color = xgui_peek_background_color();
+  box.text_align = xgui_peek_text_alignment();
+  box.text_size = xgui_peek_text_size();
+  box.text_color = xgui_peek_text_color();
+  box.roundness = xgui_peek_box_roundness();
+  // insert the box to the parent hierarchy
+  box.parent.first, box.parent.last = dll_push_back(box.parent.first, box.parent.last, box);
+
+  // assign fixed/preferred widths heights and maybe fixed positions (for pinned stuff)
+  if !xgui_fixed_x_empty() {
+      box.fixed_position[xx xAxis2.X] = xgui_peek_fixed_x();
+      box.flags |= .FIXED_X;
+  }
+  if !xgui_fixed_y_empty() {
+      box.fixed_position[xx xAxis2.Y] = xgui_peek_fixed_y();
+      box.flags |= .FIXED_Y;
+  }
+  if !xgui_fixed_width_empty() {
+      box.fixed_size[xx xAxis2.X] = xgui_peek_fixed_width();
+      box.flags |= .FIXED_WIDTH;
+  } else {
+      box.pref_size[xx xAxis2.X] = xgui_peek_pref_width();
+  } 
+  if !xgui_fixed_height_empty() {
+      box.fixed_size[xx xAxis2.Y] = xgui_peek_fixed_height();
+      box.flags |= .FIXED_HEIGHT;
+  } else {
+      box.pref_size[xx xAxis2.Y] = xgui_peek_pref_height();
+  } 
 
 	//print("box returned at address: %\n", box);
 	box.last_used_frame_index = g_gui_context.frame_index;

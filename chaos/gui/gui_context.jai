@@ -19,25 +19,25 @@ xGuiContext :: struct {
 
 	root : *xGuiBox;
 
-    // Panel management
-    root_panel : *xGuiPanel;
-    panel_freelist : *xGuiPanel; // TODO: use freelists!
-    panel_walk_node_stack : xGuiPanelWalkNodeStack; // can we remove this?
+  // Panel management
+  root_panel : *xGuiPanel;
+  panel_freelist : *xGuiPanel; // TODO: use freelists!
+  panel_walk_node_stack : xGuiPanelWalkNodeStack; // can we remove this?
 
-    // Stacks
-    parent_stack : xGuiParentStack;
-    fixed_x_stack : xGuiFixedXStack;
-    fixed_y_stack : xGuiFixedYStack;
-    fixed_width_stack : xGuiFixedWidthStack;
-    fixed_height_stack : xGuiFixedHeightStack;
-    pref_width_stack : xGuiPrefWidthStack;
-    pref_height_stack : xGuiPrefHeightStack;
-    child_layout_axis_stack : xGuiChildLayoutAxisStack;
-    background_color_stack : xGuiBackgroundColorStack;
-    text_alignment_stack : xGuiTextAlignmentStack;
-    text_color_stack : xGuiTextColorStack;
-    text_size_stack : xGuiTextSizeStack;
-    box_roundness_stack : xGuiBoxRoundnessStack;
+  // Stacks
+  parent_stack : xGuiParentStack;
+  fixed_x_stack : xGuiFixedXStack;
+  fixed_y_stack : xGuiFixedYStack;
+  fixed_width_stack : xGuiFixedWidthStack;
+  fixed_height_stack : xGuiFixedHeightStack;
+  pref_width_stack : xGuiPrefWidthStack;
+  pref_height_stack : xGuiPrefHeightStack;
+  child_layout_axis_stack : xGuiChildLayoutAxisStack;
+  background_color_stack : xGuiBackgroundColorStack;
+  text_alignment_stack : xGuiTextAlignmentStack;
+  text_color_stack : xGuiTextColorStack;
+  text_size_stack : xGuiTextSizeStack;
+  box_roundness_stack : xGuiBoxRoundnessStack;
 }
 
 g_gui_context : xGuiContext;
@@ -55,6 +55,7 @@ xgui_init :: () {
 
       // DUMMY hierarchy for testing purposes
       child1 := New(xGuiPanel);
+      child1.label= "child1";
       child1.percent_of_parent = 0.3;
       child1.split_axis = .Y;
       g_gui_context.root_panel.first, g_gui_context.root_panel.last = dll_push_back(g_gui_context.root_panel.first, g_gui_context.root_panel.last, child1);
@@ -62,17 +63,20 @@ xgui_init :: () {
 
 
       child11 := New(xGuiPanel);
+      child11.label= "child11";
       child11.percent_of_parent = 0.4;
       child1.first, child1.last = dll_push_back(child1.first, child1.last, child11);
       child11.parent = child1;
 
       child12 := New(xGuiPanel);
+      child12.label= "child12";
       child12.percent_of_parent = 0.6;
       child1.first, child1.last = dll_push_back(child1.first, child1.last, child12);
       child12.parent = child1;
 
 
       child2 := New(xGuiPanel);
+      child2.label= "child2";
       child2.percent_of_parent = 0.7;
       g_gui_context.root_panel.first, g_gui_context.root_panel.last = dll_push_back(g_gui_context.root_panel.first, g_gui_context.root_panel.last, child2);
       child2.parent = g_gui_context.root_panel;
@@ -127,111 +131,35 @@ xgui_frame_begin :: () {
 
 	g_gui_context.hot = XGUI_INVALID_ID;
 
-    // build a root pane!
+  // build a root pane!
+  wdim := xwin_get_dim(*xeng().win);
+  xgui_set_next_fixed_x(0);
+  xgui_set_next_fixed_y(0);
+  xgui_set_next_fixed_width(wdim.x);
+  xgui_set_next_fixed_height(wdim.y);
+  //xgui_set_next_child_layout_axis(.Y);
+  xgui_set_next_child_layout_axis(.X);
+  pane_box := xgui_pane("master_pane"); // should be made at frame begin with screendim
+  pane_box.box.flags &= ~.DRAW_BACKGROUND;
+  pane_box.box.rect = .{0,0,wdim.x,wdim.y};
+  g_gui_context.root = pane_box.box; // what the fuck is even this
+  xgui_push_parent(pane_box.box);
 
+  // layout for all the panels / boundaries
+  {
     wdim := xwin_get_dim(*xeng().win);
-    xgui_set_next_fixed_x(0);
-    xgui_set_next_fixed_y(0);
-    xgui_set_next_fixed_width(wdim.x);
-    xgui_set_next_fixed_height(wdim.y);
-    //xgui_set_next_child_layout_axis(.Y);
-    xgui_set_next_child_layout_axis(.X);
-    pane_box := xgui_pane("master_pane"); // should be made at frame begin with screendim
-    pane_box.box.flags &= ~.DRAW_BACKGROUND;
-    pane_box.box.rect = .{0,0,wdim.x,wdim.y};
-    g_gui_context.root = pane_box.box; // what the fuck is even this
-    xgui_push_parent(pane_box.box);
-
     root_panel := g_gui_context.root_panel;
     root_rect := Rect.{0,0,wdim.x,wdim.y};
-
-    // TODO TODO TODO TODO TODO TODO TODO TODO TODO
-    // All this logic should happen inside gui_panel.jai, for clarity..
-    // TODO TODO TODO TODO TODO TODO TODO TODO TODO
-
-
-
-    BND_THICK :: 2; //BOUNDARY THICKNESS
-
-    // Build non-leaf panel UI (drag boundaries!!)
-    itr := xGuiPanelItr.{root_panel, 0, 0};
-    while itr.next != null {
-        panel := itr.next;
-        // 1. Find panel rect
-        r : Rect = xgui_panel_get_rect(panel, root_rect);
-
-
-
-        // 2. loop through every child that has a sibling next to it - otherwise no boundary
-        child := panel.first;
-        //while child != null && child.next != null {
-        while child != null {
-          child_rect := xgui_panel_get_rect(child, root_rect);
-
-          // 3. Calculate boundary rect and make a FIXED guiBox
-          // HERE THERE LIES A BUG WITH THE BOUNDARY RECT!!
-          //boundary_rect := Rect.{child_rect.x - BND_THICK, child_rect.y - BND_THICK, BND_THICK*2, BND_THICK*2};
-          boundary_rect := child_rect;
-          xgui_set_next_fixed_x(boundary_rect.x);
-          xgui_set_next_fixed_y(boundary_rect.y);
-          xgui_set_next_fixed_width(boundary_rect.w);
-          xgui_set_next_fixed_height(boundary_rect.h);
-          xgui_set_next_child_layout_axis(.Y);
-          xgui_set_next_background_color(.{0.1,0.1,0.1,0.9});
-          name := tprint("drag_boundary_%", child); // this is bad :( :( lewhy
-
-          boundary_button := xgui_button(name);
-          boundary_button.box.flags &= ~.DRAW_BORDER;
-          //boundary_button.box.flags &= ~.DRAW_TEXT;
-          boundary_button.box.flags &= ~.TRUNC_TEXT;
-          boundary_button.box.rect = boundary_rect;
-
-          
-          if g_gui_context.active == boundary_button.box.id {
-            // very experimental ////
-            xwin_set_cursor(*g_engine.win, ifx child.split_axis == .X then xWindowCursorKind.WEST_EAST else xWindowCursorKind.NORTH_SOUTH);
-            /////////////////////////
-          }
-
-          child = child.next;
-        }
-
-        itr = xgui_panel_traverse_depth_first_pre_order(panel);
-    }
-
-    // Build leaf panel UI
-    itr = xGuiPanelItr.{root_panel, 0, 0};
-    while itr.next != null {
-        panel := itr.next;
-        // 1. find panel rect
-        r : Rect = xgui_panel_get_rect(panel, root_rect);
-
-        // 2. if its a leaf, make a Fixed guiBox!
-        if panel.first == null {
-            xgui_set_next_fixed_x(r.x + BND_THICK);
-            xgui_set_next_fixed_y(r.y + BND_THICK);
-            xgui_set_next_fixed_width(r.w - BND_THICK*2);
-            xgui_set_next_fixed_height(r.h - BND_THICK*2);
-            xgui_set_next_child_layout_axis(.Y);
-            xgui_set_next_background_color(.{0.2,0.2,0.2,0.9});
-            xgui_set_next_box_roundness(.{2,2,2,2});
-            name := tprint("panel_%", panel); // this is bad :( :( lewhy
-            panel_box := xgui_pane(name);
-            panel_box.box.flags |= .DRAW_BORDER;
-            //print("panel: % from %\n\n\n", name, panel_box.box.*);
-            panel_box.box.rect = r;
-        } 
-        
-        itr = xgui_panel_traverse_depth_first_pre_order(panel);
-    }
+    xgui_panel_do_layouting_for_panels_and_boundaries(root_panel, root_rect);
+  }
 }
 
 xgui_frame_end :: () {
-    // pop the root pane!
-    xgui_pop_parent();
+  // pop the root pane!
+  xgui_pop_parent();
 
 	xgui_prune_unused_boxes(*g_gui_context);
-	xgui_do_layouting(*g_gui_context);
+  xgui_do_layouting(*g_gui_context);
 	xgui_dummy_draw(*g_gui_context, g_gui_context.root);
 	xr2d_end(g_gui_context.rend);
 }
