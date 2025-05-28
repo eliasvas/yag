@@ -51,12 +51,6 @@ xeng_init :: () {
     dfont_tag, first_time_created := xasset_mgr_add(*persistent_asset_mgr, xfont_asset_make(.{32, 126}));
     assert(first_time_created);
   }
-  // 6. we initialize imgui (we will replace this with OUR gui lib soon enough)
-  imgui_context := ImGui.CreateContext();
-  ImGui_ImplSdl_Init(xx win.impl_state);
-  ImGui.StyleColorsClassic();
-  io := ImGui.GetIO();
-
 }
 
 // TODO: this should be called frame_begin
@@ -77,15 +71,6 @@ xeng_frame_init :: () {
     xim_capture_end();
   }
 
-  // ImGui bullshit
-  io := ImGui.GetIO();
-  ImGui_ImplSdl_NewFrame(xx win.impl_state);
-  ImGui.NewFrame();
-  //ImGui.Text("Hello, world!");
-  //show_demo : bool = true;
-  //ImGui.ShowDemoWindow(*show_demo);
-  ///////////////////////
-
   // CSM stuff
   xcsm_data_calc(*csm_data);
 
@@ -98,13 +83,6 @@ xeng_frame_init :: () {
 xeng_frame_end :: () {
   using g_engine;
   //ximm_flush(proj, view);
-
-  // imgui bullshit
-  ImGui.Render();
-  io := ImGui.GetIO();
-  glViewport(0, 0, xx io.DisplaySize.x, xx io.DisplaySize.y);
-  ImGui_ImplSdl_RenderDrawLists(ImGui.GetDrawData());
-  ////////////////////////
 
   xwin_swap(*win);
   frame_end_time := seconds_since_init();

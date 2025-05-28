@@ -1,5 +1,4 @@
 #import "ImGui";
-#load "imgui_sdl_gl.jai";
 #load "gui_box.jai";
 #load "gui_context.jai";
 #load "gui_font.jai";

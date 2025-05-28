@@ -146,7 +146,7 @@ xgui_panel_do_layouting_for_panels_and_boundaries :: (root_panel : *xGuiPanel, r
             left_child := child;
             right_child := child.next;
 
-            percent_of_parent_movement := (delta_split_axis) * (1.0/60.0) * 0.10;
+            percent_of_parent_movement := (delta_split_axis) * cast(float)xeng().dt * 0.10;
             left_child.percent_of_parent += percent_of_parent_movement;
             right_child.percent_of_parent -= percent_of_parent_movement;
             /////////////////////////

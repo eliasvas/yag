@@ -2,6 +2,8 @@
 // Actual Entity Stuff
 //////////////////////////////////
 
+// TODO: look into serialization, this is a good start https://gafferongames.com/post/serialization_strategies/
+// there also is some nice info on jai secret beta server on serizalization
 
 // NOTE: Maybe our allocator could just alloc xEntitySlot's, so reusing slots becomes easier than now.. no need for sorting..
 // so entity_make() -> *xEntitySlot and freelist : *xEntitySlot or something like that!

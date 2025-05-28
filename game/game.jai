@@ -49,6 +49,7 @@ main2 :: () {
       }
     }
 
+    /*
     // Do the CSM ImGui menu
     ImGui.Begin("CSM");
     ImGui.SliderFloat3("light dir", xx *xeng().dir_light.dl.dir, -1.0, 1.0);
@@ -62,6 +63,7 @@ main2 :: () {
     frame_str := tprint("fps: %\0", fps);
     ImGui.TextUnformatted(frame_str.data);
     ImGui.End();
+    */
 
 
     // render the json mesh!!
@@ -91,18 +93,6 @@ main2 :: () {
     xeng_frame_end();
   }
 
-}
-
-xim_print_state :: () {
-  using g_input_manager;
-  ImGui.SetNextWindowSizeConstraints(.{100.0, 100.0}, .{400, 200});
-  ImGui.Begin("KeyScanCodes");
-  for enum_values_as_s64(xKeyScanCode) {
-    key_index := it / 64;
-    s := tprint("% -> [%,%]\0", cast(xKeyScanCode) it, (button_state.state[key_index] >> (it%64))&1, (button_state.prev_state[key_index] >> (it%64))&1);
-    ImGui.TextUnformatted(s.data);
-  }
-  ImGui.End();
 }
 
 texture_load :: (path : string) -> oglTex {
