@@ -7,28 +7,28 @@
 #run build();
 
 build :: () {
-   {
-      w := compiler_create_workspace();
-      options := get_build_options();
-      options.output_type = .EXECUTABLE;
-      options.output_executable_name = "game";
-      options.output_path = ".build";
+  {
+    w := compiler_create_workspace();
+    options := get_build_options();
+    options.output_type = .EXECUTABLE;
+    options.output_executable_name = "game";
+    options.output_path = ".build";
 
-      import_paths: [..]string;
-      array_add(*import_paths, tprint("%", #filepath));
-      for options.import_path array_add(*import_paths, it);
+    import_paths: [..]string;
+    array_add(*import_paths, tprint("%", #filepath));
+    for options.import_path array_add(*import_paths, it);
       options.import_path = import_paths;
 
       // TODO: differentiate on DEBUG/RELEASE builds
       {
-         options.stack_trace = true;
-         options.backtrace_on_crash = .OFF;
-         options.array_bounds_check = .ON;
-         options.cast_bounds_check  = .FATAL; 
-         options.null_pointer_check = .ON;
-         options.enable_bytecode_inliner = true; 
-         //options.runtime_storageless_type_info = true;
-         //options.dead_code_elimination = .NONE;
+        options.stack_trace = true;
+        options.backtrace_on_crash = .OFF;
+        options.array_bounds_check = .ON;
+        options.cast_bounds_check  = .FATAL; 
+        options.null_pointer_check = .ON;
+        options.enable_bytecode_inliner = true; 
+        //options.runtime_storageless_type_info = true;
+        //options.dead_code_elimination = .NONE;
       }
 
       //set_optimization(*options, .VERY_OPTIMIZED);
@@ -37,15 +37,16 @@ build :: () {
 
       // build the entity placeholders (in entity.jai)
       compiler_begin_intercept(w);
-      add_build_file("chaos/module.jai", w); // engine source
-      add_build_file("game/game.jai", w); // game source (TODO: should be moved to different workspace)
-      add_build_file("game/sprite.jai", w); // game source (TODO: should be moved to different workspace)
+
+      add_build_file("src/game.jai", w); // game source (TODO: should be moved to different workspace)
+      add_build_file("src/entity/module.jai", w);
+
       message_loop();
       compiler_end_intercept(w);
       //print("options %", options);
-   }
-   set_build_options_dc(.{do_output=false});
-}
+    }
+    set_build_options_dc(.{do_output=false});
+  }
 
 has_note :: (header: *Code_Procedure_Header, note: string) -> bool {
     for header.notes  if it.text == note  return true;

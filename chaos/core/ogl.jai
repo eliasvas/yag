@@ -807,7 +807,7 @@ ogl_ublock_load :: (using ub : *oglUBlock, sp : *oglSP, block_index : u32 = 0) {
         memcpy(vn.data, name.data, str_name.count);
         inline table_add(*md.table, vn, var_info);
         // optional - just for clarity
-        _, found := table_find(*md.table, vn);
+        found,_ := table_find_new(*md.table, vn);
         assert(found);
       }
     }
@@ -850,7 +850,7 @@ ogl_ublock_calc_array_offset :: (var_name : string) ->u32 {
 
 ogl_ublock_set :: (using ub : *oglUBlock, var_name : string, data : *u8) -> bool {
   is_array,base_name,r := split_from_left(var_name, #char "[");
-  var_info, found := table_find(*md.table, base_name);
+  found, var_info := table_find_new(*md.table, base_name);
   if found {
     array_offset := ifx is_array then ogl_ublock_calc_array_offset(var_name) else 0;
     data_size := ogl_get_component_num_for_data_type(var_info.type) * size_of(float32);

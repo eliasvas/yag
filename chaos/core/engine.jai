@@ -22,6 +22,10 @@ xEngine :: struct {
 
 g_engine : xEngine;
 
+xeng_get :: () ->*xEngine {
+  return *g_engine;
+}
+
 xeng :: ()  -> *xEngine {
   return *g_engine;
 }

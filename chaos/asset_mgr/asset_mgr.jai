@@ -6,7 +6,7 @@
 // TODO: look into allocation / deallocation (freelist)
 // FIXME: WHY are AssetTags strings? WHERE are they allocated? AM I RETARDED?
 // TODO: Maybe instead of tags like "default.ttf" and "white.png" we should have some constant identifiers
-
+ 
 xAssetMgr :: struct {
 	slots : *xAssetHashSlot;
 
@@ -56,7 +56,7 @@ xasset_mgr_load :: (mgr : *xAssetMgr, base_path : string) -> xAssetTag {
 				_, first_time_created := xasset_mgr_add(mgr, asset); // this is triggered here so no allocations happen before its tried to be created
 				if first_time_created {
 					asset.details = xjson_parse_wholefile_string(read_entire_file(json_path));
-				  asset.tex = texture_load(png_path);
+				  asset.tex = texture_load_ogl(png_path);
 				  asset.ref_count = 1;
 				  asset.base_path = base_path;
 				  asset.type = asset_type;
@@ -182,4 +182,18 @@ asset_mgr_tests :: () {
 
 #run asset_mgr_tests();
 
+
+
+texture_load_ogl :: (path : string) -> oglTex {
+  tex : oglTex;
+  png_data := read_entire_file(path);
+  assert(png_data.count > 0);
+  tex_w, tex_h, channels : s32;
+  //stbi_set_flip_vertically_on_load(1);
+  raw_image_data := stbi_load_from_memory(png_data.data, cast(s32)png_data.count, *tex_w, *tex_h, *channels, 4);
+  ogl_tex_init(*tex, .{cast(float)tex_w,cast(float)tex_h}, xx raw_image_data, oglTexFormat.RGBA8U);
+  assert(tex.dim.x > 0);
+  assert(tex.dim.y > 0);
+  return tex;
+}
 //#run asset_mgr_tests();

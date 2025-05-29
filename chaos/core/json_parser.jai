@@ -228,12 +228,12 @@ xjson_node_get :: (root_node : *xJsonNode, path : string) -> *xJsonNode, bool {
   if contains(path, #char ".") {
     found = false;
     f, left_path, right_path := split_from_left(path, #char ".");
-    subnode, node_found := table_find(*root_node.table, left_path);
+    node_found, subnode := table_find_new(*root_node.table, left_path);
     if node_found {
       ret,found = xjson_node_get(subnode, right_path);
     }
   }else {
-    ret, found = table_find(*root_node.table, path);
+    found,ret = table_find_new(*root_node.table, path);
   }
   return ret, found;
 }
